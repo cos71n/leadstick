@@ -1,12 +1,23 @@
 import { defineConfig } from 'vite'
-import react from '@vitejs/plugin-react'
 import path from 'path'
 
 export default defineConfig({
-  plugins: [react()],
-  resolve: {},
+  plugins: [],
+  resolve: {
+    alias: {
+      "react": "preact/compat",
+      "react-dom": "preact/compat"
+    }
+  },
   define: {
     'process.env': {}
+  },
+  esbuild: {
+    jsxFactory: 'h',
+    jsxFragment: 'Fragment'
+  },
+  server: {
+    open: true
   },
   build: {
     lib: {

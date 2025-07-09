@@ -5,7 +5,8 @@ export const CONFIG = {
     phone: "0424 166 346",
     email: "leads@quickservicepro.com",
     agentName: "Matt",
-    // Inline SVG icon for service business
+    // Simple avatar - either use image URL or fallback to initials
+    avatar: "/matt-profile.png", // Will fallback to "M" if image fails to load
     logo: "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTEyIDJMMTMuMDkgOC4yNkwyMCA5TDEzLjA5IDE1Ljc0TDEyIDIyTDEwLjkxIDE1Ljc0TDQgOUwxMC45MSA4LjI2TDEyIDJaIiBmaWxsPSIjMjU2M2ViIi8+Cjwvc3ZnPgo="
   },
   services: [

@@ -1,5 +1,6 @@
-import React, { useState, useEffect, FormEvent, useRef } from 'react'
-import { createRoot } from 'react-dom/client'
+import { h, Fragment } from 'preact'
+import { useState, useEffect, useRef } from 'preact/hooks'
+import { render } from 'preact'
 import { CONFIG } from './config'
 
 // Global gtag function for GA4 tracking
@@ -165,7 +166,7 @@ function LeadStickWidget() {
 
 
 
-  const handleSubmit = (e?: FormEvent) => {
+  const handleSubmit = (e?: Event) => {
     e?.preventDefault()
     if (!input.trim()) return
 
@@ -344,7 +345,7 @@ function LeadStickWidget() {
   }
 
   return (
-    <>
+    <Fragment>
       {/* Mobile: Full-width sticky bottom button */}
       {!isOpen && (
         <div style={{
@@ -512,9 +513,24 @@ function LeadStickWidget() {
                   fontSize: '14px',
                   fontWeight: '600',
                   color: message.sender === 'ai' ? 'white' : CONFIG.theme.muted,
-                  flexShrink: 0
+                  flexShrink: 0,
+                  overflow: 'hidden'
                 }}>
-                  {message.sender === 'ai' ? 'M' : 'You'}
+                  {message.sender === 'ai' ? (
+                    <img 
+                      src={CONFIG.business.avatar} 
+                      alt={CONFIG.business.agentName}
+                      style={{
+                        width: '100%',
+                        height: '100%',
+                        objectFit: 'cover'
+                      }}
+                      onError={(e) => {
+                        e.currentTarget.style.display = 'none';
+                        e.currentTarget.parentElement.textContent = 'M';
+                      }}
+                    />
+                  ) : 'You'}
                 </div>
                 
                 {/* Message */}
@@ -804,9 +820,24 @@ function LeadStickWidget() {
                     fontSize: '14px',
                     fontWeight: '600',
                     color: message.sender === 'ai' ? 'white' : CONFIG.theme.muted,
-                    flexShrink: 0
+                    flexShrink: 0,
+                    overflow: 'hidden'
                   }}>
-                    {message.sender === 'ai' ? 'M' : 'You'}
+                    {message.sender === 'ai' ? (
+                      <img 
+                        src={CONFIG.business.avatar} 
+                        alt={CONFIG.business.agentName}
+                        style={{
+                          width: '100%',
+                          height: '100%',
+                          objectFit: 'cover'
+                        }}
+                        onError={(e) => {
+                          e.currentTarget.style.display = 'none';
+                          e.currentTarget.parentElement.textContent = 'M';
+                        }}
+                      />
+                    ) : 'You'}
                   </div>
                   
                   {/* Message */}
@@ -924,7 +955,7 @@ function LeadStickWidget() {
           </div>
         </div>
       )}
-    </>
+    </Fragment>
   )
 }
 
@@ -965,9 +996,8 @@ export function initLeadStick() {
 
   document.body.appendChild(container)
 
-  // Render the React widget
-  const root = createRoot(container)
-  root.render(React.createElement(LeadStickWidget))
+  // Render the Preact widget
+  render(h(LeadStickWidget, {}), container)
 }
 
 // Auto-initialize if script is loaded
