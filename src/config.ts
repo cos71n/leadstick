@@ -1,24 +1,24 @@
 // Hardcoded configuration for MVP testing
 export const CONFIG = {
   business: {
-    name: "QuickService Pro",
-    phone: "1-800-LEADSTICK",
+    name: "Stone Quoter",
+    phone: "0424 166 346",
     email: "leads@quickservicepro.com",
-    agentName: "Sarah",
+    agentName: "Matt",
     // Inline SVG icon for service business
     logo: "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTEyIDJMMTMuMDkgOC4yNkwyMCA5TDEzLjA5IDE1Ljc0TDEyIDIyTDEwLjkxIDE1Ljc0TDQgOUwxMC45MSA4LjI2TDEyIDJaIiBmaWxsPSIjMjU2M2ViIi8+Cjwvc3ZnPgo="
   },
   services: [
-    "Free Consultation",
-    "Home Service Call",
-    "Emergency Service",
-    "Maintenance Check",
-    "Installation Service",
-    "Repair Service"
+    "Burleigh",
+    "Mermaid Waters",
+    "Tweed Heads",
+    "Surfers Paradise",
+    "Broadbeach",
+    "Currumbin"
   ],
   theme: {
-    primary: "#2563eb",
-    primaryHover: "#1d4ed8",
+    primary: "rgb(246, 165, 96)",
+    primaryHover: "rgb(236, 145, 76)",
     secondary: "#f3f4f6",
     background: "#ffffff",
     text: "#1f2937",
@@ -28,6 +28,5 @@ export const CONFIG = {
   ga4: {
     measurementId: "G-XXXXXXXXXX" // Will be configured during deployment
   },
-  apiEndpoint: "https://api.leadstick.com/submit",
-  avatarUrl: "https://images.unsplash.com/photo-1494790108755-2616b612b786?w=64&h=64&fit=crop&crop=face"
+  apiEndpoint: "https://api.leadstick.com/submit"
 } 

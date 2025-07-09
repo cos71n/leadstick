@@ -8,7 +8,7 @@ declare global {
 }
 
 // Types
-type ChatStep = 'location' | 'service' | 'contact' | 'final' | 'complete'
+type ChatStep = 'location' | 'service' | 'contact' | 'complete'
 
 interface LeadData {
   location: string
@@ -72,8 +72,8 @@ const QUOTE_STEPS = [
   },
   {
     step: 2,
-    title: "Service",
-    description: "What do you need?",
+    title: "Project",
+    description: "Tell us about it",
     chatStep: 'service' as ChatStep,
   },
   {
@@ -81,12 +81,6 @@ const QUOTE_STEPS = [
     title: "Contact",
     description: "Your details",
     chatStep: 'contact' as ChatStep,
-  },
-  {
-    step: 4,
-    title: "Complete",
-    description: "Get your quote",
-    chatStep: 'final' as ChatStep,
   },
 ]
 
@@ -108,12 +102,12 @@ function LeadStickWidget() {
   const [messages, setMessages] = useState([
     {
       id: 1,
-      content: `Hi, ${CONFIG.business.agentName} here. Let me know a little about what you need. Your message comes straight to my phone and I'll send your quote ASAP`,
+      content: `Hi, Matt here. Let me know a little about your stone project. Your message comes straight to my phone and I'll send your quote ASAP`,
       sender: "ai",
     },
     {
       id: 2,
-      content: "📍 What's your location/suburb?",
+      content: "📍 First, what's your location/suburb?",
       sender: "ai",
     },
   ])
@@ -148,12 +142,12 @@ function LeadStickWidget() {
       setMessages([
         {
           id: 1,
-          content: `Hi, ${CONFIG.business.agentName} here. Let me know a little about what you need. Your message comes straight to my phone and I'll send your quote ASAP`,
+          content: `Hi, Matt here. Let me know a little about your stone project. Your message comes straight to my phone and I'll send your quote ASAP`,
           sender: "ai",
         },
         {
           id: 2,
-          content: "📍 What's your location/suburb?",
+          content: "📍 First, what's your location/suburb?",
           sender: "ai",
         },
       ])
@@ -169,13 +163,7 @@ function LeadStickWidget() {
     }])
   }
 
-  const handleServiceSelect = (service: string) => {
-    setLeadData(prev => ({ ...prev, service }))
-    addMessage(service, 'user')
-    addMessage("Great choice! Now I need your contact details.", 'ai')
-    addMessage("👤 What's your name?", 'ai')
-    setCurrentStep('contact')
-  }
+
 
   const handleSubmit = (e?: FormEvent) => {
     e?.preventDefault()
@@ -188,8 +176,15 @@ function LeadStickWidget() {
     switch (currentStep) {
       case 'location':
         setLeadData(prev => ({ ...prev, location: userInput }))
-        addMessage("Perfect! Now, what service do you need?", 'ai')
+        addMessage("Perfect! Tell me about your project, the more details the better.", 'ai')
         setCurrentStep('service')
+        break
+
+      case 'service':
+        setLeadData(prev => ({ ...prev, service: userInput }))
+        addMessage("Great! Now I need your contact details.", 'ai')
+        addMessage("👤 What's your name?", 'ai')
+        setCurrentStep('contact')
         break
 
       case 'contact':
@@ -198,37 +193,25 @@ function LeadStickWidget() {
           addMessage("📱 What's your phone number?", 'ai')
         } else if (!leadData.phone) {
           setLeadData(prev => ({ ...prev, phone: userInput }))
-          addMessage("Last one: anything else I should know? (Optional)", 'ai')
-          setCurrentStep('final')
+          addMessage("Perfect! I've got your details. I'll get back to you ASAP.", 'ai')
+          addMessage(`📋 Summary:\n📍 Location: ${leadData.location}\n🔧 Project: ${leadData.service}\n👤 Name: ${leadData.name}\n📱 Phone: ${userInput}`, 'ai')
+          addMessage("PHONE_BUTTON", 'ai')
+          setCurrentStep('complete')
         }
-        break
-
-      case 'final':
-        setLeadData(prev => ({ ...prev, finalMessage: userInput }))
-        addMessage("Perfect! I've got your details. I'll get back to you ASAP.", 'ai')
-        addMessage(`📋 Summary:\n📍 Location: ${leadData.location}\n🔧 Service: ${leadData.service}\n👤 Name: ${leadData.name}\n📱 Phone: ${leadData.phone}${userInput ? `\n💬 Message: ${userInput}` : ''}`, 'ai')
-        addMessage("PHONE_BUTTON", 'ai')
-        setCurrentStep('complete')
         break
     }
   }
 
-  const handleSkipFinal = () => {
-    addMessage("No additional message", 'user')
-    addMessage("Perfect! I've got your details. I'll get back to you ASAP.", 'ai')
-    addMessage(`📋 Summary:\n📍 Location: ${leadData.location}\n🔧 Service: ${leadData.service}\n👤 Name: ${leadData.name}\n📱 Phone: ${leadData.phone}`, 'ai')
-    addMessage("PHONE_BUTTON", 'ai')
-    setCurrentStep('complete')
-  }
+
 
   const getInputPlaceholder = () => {
     switch (currentStep) {
-      case 'location': return "e.g. New York, Los Angeles, Chicago..."
+      case 'location': return "e.g. Burleigh, Mermaid Waters, Tweed Heads..."
+      case 'service': return "Tell me about your stone project..."
       case 'contact': 
         if (!leadData.name) return "Enter your full name"
         if (!leadData.phone) return "Enter your phone number"
         return ""
-      case 'final': return "Any additional details or requirements..."
       default: return "Type your message..."
     }
   }
@@ -238,8 +221,7 @@ function LeadStickWidget() {
       'location': 1,
       'service': 2,
       'contact': 3,
-      'final': 4,
-      'complete': 4
+      'complete': 3
     }
     return stepMap[currentStep]
   }
@@ -248,8 +230,7 @@ function LeadStickWidget() {
     switch (stepNumber) {
       case 1: return !!leadData.location
       case 2: return !!leadData.service
-      case 3: return !!leadData.phone
-      case 4: return currentStep === 'complete'
+      case 3: return currentStep === 'complete'
       default: return false
     }
   }
@@ -465,7 +446,7 @@ function LeadStickWidget() {
               marginBottom: '12px',
               margin: 0
             }}>
-              Quick 4-step process to get your quote
+              Quick 3-step process to get your quote
             </p>
             
             {/* Progress Stepper */}
@@ -524,19 +505,16 @@ function LeadStickWidget() {
                   width: '32px',
                   height: '32px',
                   borderRadius: '50%',
-                  backgroundColor: '#f3f4f6',
+                  backgroundColor: message.sender === 'ai' ? CONFIG.theme.primary : '#f3f4f6',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  fontSize: '12px',
-                  fontWeight: '500',
-                  color: CONFIG.theme.muted,
-                  flexShrink: 0,
-                  backgroundImage: message.sender === 'ai' ? `url(${CONFIG.avatarUrl})` : 'none',
-                  backgroundSize: 'cover',
-                  backgroundPosition: 'center'
+                  fontSize: '14px',
+                  fontWeight: '600',
+                  color: message.sender === 'ai' ? 'white' : CONFIG.theme.muted,
+                  flexShrink: 0
                 }}>
-                  {message.sender === 'user' ? 'You' : ''}
+                  {message.sender === 'ai' ? 'M' : 'You'}
                 </div>
                 
                 {/* Message */}
@@ -577,39 +555,7 @@ function LeadStickWidget() {
               </div>
             ))}
 
-            {/* Service Selection Buttons */}
-            {currentStep === 'service' && (
-              <div style={{
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '8px',
-                padding: '0 16px'
-              }}>
-                {CONFIG.services.map((service) => (
-                  <button
-                    key={service}
-                    onClick={() => handleServiceSelect(service)}
-                    style={{
-                      textAlign: 'left',
-                      justifyContent: 'flex-start',
-                      fontSize: '12px',
-                      height: 'auto',
-                      padding: '8px',
-                      whiteSpace: 'normal',
-                      border: '1px solid ' + CONFIG.theme.border,
-                      borderRadius: '6px',
-                      backgroundColor: CONFIG.theme.background,
-                      color: CONFIG.theme.text,
-                      cursor: 'pointer'
-                    }}
-                    onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#f9fafb'}
-                    onMouseOut={(e) => e.currentTarget.style.backgroundColor = CONFIG.theme.background}
-                  >
-                    {service}
-                  </button>
-                ))}
-              </div>
-            )}
+
           </div>
 
           {/* Chat Footer */}
@@ -629,7 +575,6 @@ function LeadStickWidget() {
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
                   placeholder={getInputPlaceholder()}
-                  disabled={currentStep === 'service'}
                   style={{
                     minHeight: '48px',
                     resize: 'none',
@@ -656,26 +601,11 @@ function LeadStickWidget() {
                   padding: '12px 12px 0',
                   justifyContent: 'space-between'
                 }}>
-                  {currentStep === 'final' && (
-                    <button
-                      type="button"
-                      onClick={handleSkipFinal}
-                      style={{
-                        fontSize: '12px',
-                        backgroundColor: 'transparent',
-                        border: 'none',
-                        color: CONFIG.theme.muted,
-                        cursor: 'pointer'
-                      }}
-                    >
-                      Skip
-                    </button>
-                  )}
+
                   <button
                     type="submit"
-                    disabled={currentStep === 'service' || !input.trim()}
+                    disabled={!input.trim()}
                     style={{
-                      marginLeft: 'auto',
                       gap: '6px',
                       backgroundColor: CONFIG.theme.primary,
                       color: 'white',
@@ -685,8 +615,8 @@ function LeadStickWidget() {
                       fontSize: '14px',
                       display: 'flex',
                       alignItems: 'center',
-                      cursor: currentStep === 'service' || !input.trim() ? 'not-allowed' : 'pointer',
-                      opacity: currentStep === 'service' || !input.trim() ? 0.5 : 1
+                      cursor: !input.trim() ? 'not-allowed' : 'pointer',
+                      opacity: !input.trim() ? 0.5 : 1
                     }}
                   >
                     Send
@@ -750,11 +680,11 @@ function LeadStickWidget() {
       {isOpen && isMobile && (
         <div style={{
           position: 'fixed',
-          top: '64px',
+          top: 0,
           left: 0,
           right: 0,
           bottom: 0,
-          zIndex: 40,
+          zIndex: 999999,
           backgroundColor: CONFIG.theme.background
         }}>
           <div style={{
@@ -764,21 +694,233 @@ function LeadStickWidget() {
             height: '100%',
             overflow: 'hidden'
           }}>
-            {/* Mobile content would go here - same as desktop but adapted for mobile */}
-            <button
-              onClick={toggleChat}
+            {/* Mobile Header */}
+            <div style={{
+              display: 'flex',
+              flexDirection: 'column',
+              textAlign: 'center',
+              justifyContent: 'center',
+              padding: '16px',
+              borderBottom: '1px solid ' + CONFIG.theme.border,
+              position: 'relative'
+            }}>
+              <button
+                onClick={toggleChat}
+                style={{
+                  position: 'absolute',
+                  top: '8px',
+                  right: '8px',
+                  backgroundColor: 'transparent',
+                  border: 'none',
+                  cursor: 'pointer',
+                  padding: '8px',
+                  pointerEvents: 'auto'
+                }}
+              >
+                <XIcon />
+              </button>
+              
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                justifyContent: 'center',
+                marginBottom: '8px',
+                marginTop: '16px'
+              }}>
+                <WrenchIcon />
+                <h1 style={{
+                  fontSize: '20px',
+                  fontWeight: '600',
+                  margin: 0,
+                  color: CONFIG.theme.text
+                }}>Get A Quick Quote</h1>
+              </div>
+              <p style={{
+                fontSize: '14px',
+                color: CONFIG.theme.muted,
+                marginBottom: '12px',
+                margin: 0
+              }}>
+                Quick 3-step process to get your quote
+              </p>
+              
+              {/* Progress Stepper - Mobile */}
+              <div style={{ width: '100%', marginBottom: '16px' }}>
+                <div style={stepperStyles.container}>
+                  {QUOTE_STEPS.map(({ step, title, description }, index) => {
+                    const isActive = getCurrentStepNumber() === step
+                    const isCompleted = isStepCompleted(step)
+                    const isLast = index === QUOTE_STEPS.length - 1
+
+                    return (
+                      <div key={step} style={stepperStyles.item}>
+                        <div style={{
+                          ...stepperStyles.indicator,
+                          ...(isActive ? stepperStyles.indicatorActive : {}),
+                          ...(isCompleted ? stepperStyles.indicatorCompleted : {})
+                        }}>
+                          {isCompleted ? <CheckIcon /> : step}
+                        </div>
+                        <div style={stepperStyles.title}>{title}</div>
+                        {!isLast && (
+                          <div style={{
+                            ...stepperStyles.separator,
+                            ...(isCompleted ? stepperStyles.separatorCompleted : {})
+                          }} />
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            </div>
+
+            {/* Mobile Chat Body */}
+            <div 
+              ref={chatBodyRef}
               style={{
-                position: 'absolute',
-                top: '8px',
-                right: '8px',
-                backgroundColor: 'transparent',
-                border: 'none',
-                cursor: 'pointer',
-                padding: '8px'
-              }}
-            >
-              <XIcon />
-            </button>
+                flexGrow: 1,
+                overflowY: 'auto',
+                padding: '16px'
+              }}>
+              {messages.map((message) => (
+                <div key={message.id} style={{
+                  display: 'flex',
+                  alignItems: 'flex-start',
+                  gap: '8px',
+                  marginBottom: '16px',
+                  flexDirection: message.sender === 'user' ? 'row-reverse' : 'row'
+                }}>
+                  {/* Avatar */}
+                  <div style={{
+                    width: '32px',
+                    height: '32px',
+                    borderRadius: '50%',
+                    backgroundColor: message.sender === 'ai' ? CONFIG.theme.primary : '#f3f4f6',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: '14px',
+                    fontWeight: '600',
+                    color: message.sender === 'ai' ? 'white' : CONFIG.theme.muted,
+                    flexShrink: 0
+                  }}>
+                    {message.sender === 'ai' ? 'M' : 'You'}
+                  </div>
+                  
+                  {/* Message */}
+                  <div style={{
+                    borderRadius: '8px',
+                    padding: '12px',
+                    backgroundColor: message.sender === 'user' ? CONFIG.theme.primary : '#f3f4f6',
+                    color: message.sender === 'user' ? 'white' : CONFIG.theme.text,
+                    maxWidth: '80%'
+                  }}>
+                    {message.content === "PHONE_BUTTON" ? (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                        <p style={{ margin: 0 }}>Or call me directly for immediate assistance!</p>
+                        <button
+                          onClick={() => window.open(`tel:${CONFIG.business.phone}`, '_self')}
+                          style={{
+                            backgroundColor: CONFIG.theme.primary,
+                            color: 'white',
+                            border: 'none',
+                            borderRadius: '6px',
+                            padding: '8px 12px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '8px',
+                            fontSize: '14px',
+                            cursor: 'pointer',
+                            width: 'fit-content',
+                            pointerEvents: 'auto'
+                          }}
+                        >
+                          <PhoneIcon />
+                          {CONFIG.business.phone}
+                        </button>
+                      </div>
+                    ) : (
+                      <div style={{ whiteSpace: 'pre-line' }}>{message.content}</div>
+                    )}
+                  </div>
+                </div>
+              ))}
+
+
+            </div>
+
+            {/* Mobile Chat Footer */}
+            {currentStep !== 'complete' && (
+              <div style={{
+                borderTop: '1px solid ' + CONFIG.theme.border,
+                padding: '16px',
+                paddingBottom: '32px'
+              }}>
+                <form onSubmit={handleSubmit} style={{
+                  position: 'relative',
+                  borderRadius: '8px',
+                  border: '1px solid ' + CONFIG.theme.border,
+                  backgroundColor: CONFIG.theme.background,
+                  padding: '4px'
+                }}>
+                  <textarea
+                    value={input}
+                    onChange={(e) => setInput(e.target.value)}
+                    placeholder={getInputPlaceholder()}
+                    style={{
+                      minHeight: '48px',
+                      resize: 'none',
+                      borderRadius: '8px',
+                      backgroundColor: CONFIG.theme.background,
+                      border: 'none',
+                      padding: '12px',
+                      boxShadow: 'none',
+                      outline: 'none',
+                      width: '100%',
+                      fontSize: '16px',
+                      fontFamily: 'inherit'
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault()
+                        handleSubmit()
+                      }
+                    }}
+                  />
+                  <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    padding: '12px 12px 0',
+                    justifyContent: 'space-between'
+                  }}>
+
+                    <button
+                      type="submit"
+                      disabled={!input.trim()}
+                      style={{
+                        gap: '6px',
+                        backgroundColor: CONFIG.theme.primary,
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '6px',
+                        padding: '12px 16px',
+                        fontSize: '16px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        cursor: !input.trim() ? 'not-allowed' : 'pointer',
+                        opacity: !input.trim() ? 0.5 : 1,
+                        pointerEvents: 'auto'
+                      }}
+                    >
+                      Send
+                      <CornerDownLeftIcon />
+                    </button>
+                  </div>
+                </form>
+              </div>
+            )}
           </div>
         </div>
       )}
