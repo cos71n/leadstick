@@ -1,0 +1,55 @@
+{
+  "name": "leadstick",
+  "version": "1.0.0",
+  "description": "LeadStick - Smart lead generation chat widget for service businesses",
+  "main": "dist/leadstick.js",
+  "module": "dist/leadstick.esm.js",
+  "types": "dist/types/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build && npm run build:types",
+    "build:types": "tsc --emitDeclarationOnly --declaration --declarationDir dist/types",
+    "preview": "vite preview",
+    "clean": "rm -rf dist",
+    "prepublishOnly": "npm run clean && npm run build"
+  },
+  "keywords": [
+    "lead-generation",
+    "chat-widget",
+    "conversion",
+    "service-business",
+    "embeddable"
+  ],
+  "author": "LeadStick",
+  "license": "MIT",
+  "dependencies": {
+    "@preact/preset-vite": "^2.10.2",
+    "class-variance-authority": "^0.7.0",
+    "clsx": "^2.0.0",
+    "lucide-react": "^0.263.1",
+    "preact": "^8.5.3",
+    "preact-compat": "^3.19.0",
+    "react": ">=16.8.0",
+    "react-dom": ">=16.8.0",
+    "tailwind-merge": "^2.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@types/react": "^18.2.0",
+    "@types/react-dom": "^18.2.0",
+    "@vitejs/plugin-react": "^4.0.0",
+    "autoprefixer": "^10.4.14",
+    "postcss": "^8.4.31",
+    "tailwindcss": "^3.3.0",
+    "terser": "^5.43.1",
+    "typescript": "^5.0.0",
+    "vite": "^6.3.5"
+  },
+  "peerDependencies": {
+    "react": ">=16.8.0",
+    "react-dom": ">=16.8.0"
+  }
+}
