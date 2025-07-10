@@ -667,12 +667,10 @@ function LeadStickWidget() {
             <div style={{
               display: 'flex',
               alignItems: 'center',
-              gap: '8px',
               justifyContent: 'center',
               marginBottom: '8px',
               marginTop: '16px'
             }}>
-              <WrenchIcon />
               <h1 style={{
                 fontSize: '20px',
                 fontWeight: '600',
@@ -840,9 +838,10 @@ function LeadStickWidget() {
                     padding: '12px',
                     boxShadow: 'none',
                     outline: 'none',
-                    width: '100%',
+                    width: 'calc(100% - 8px)',
                     fontSize: '14px',
-                    fontFamily: 'inherit'
+                    fontFamily: 'inherit',
+                    boxSizing: 'border-box'
                   }}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter' && !e.shiftKey) {
@@ -885,13 +884,11 @@ function LeadStickWidget() {
 
           {/* Powered by LeadStick branding */}
           <div style={{
-            position: 'absolute',
-            bottom: '8px',
-            right: '16px',
+            padding: '4px 16px 8px',
+            textAlign: 'right',
             fontSize: '10px',
             color: '#9ca3af',
-            pointerEvents: 'auto',
-            zIndex: 10
+            pointerEvents: 'auto'
           }}>
             <a 
               href="https://leadstick.com" 
@@ -901,7 +898,7 @@ function LeadStickWidget() {
                 color: '#9ca3af',
                 textDecoration: 'none',
                 transition: 'color 0.2s',
-                display: 'flex',
+                display: 'inline-flex',
                 alignItems: 'center',
                 gap: '4px'
               }}
@@ -1006,8 +1003,8 @@ function LeadStickWidget() {
                 }}
                 style={{
                   position: 'absolute',
-                  top: '8px',
-                  left: '8px',
+                  top: '12px',
+                  left: '12px',
                   backgroundColor: 'transparent',
                   border: '1px solid ' + CONFIG.theme.border,
                   borderRadius: '6px',
@@ -1035,31 +1032,32 @@ function LeadStickWidget() {
                 <span>Tap To Call</span>
               </button>
               
+              {/* Close Button */}
               <button
                 onClick={toggleChat}
                 style={{
                   position: 'absolute',
-                  top: '8px',
-                  right: '8px',
+                  top: '12px',
+                  right: '12px',
                   backgroundColor: 'transparent',
                   border: 'none',
                   cursor: 'pointer',
-                  padding: '8px',
-                  pointerEvents: 'auto'
+                  padding: '6px',
+                  pointerEvents: 'auto',
+                  color: '#000000'
                 }}
               >
                 <XIcon />
               </button>
               
+              {/* Title Section with more breathing space */}
               <div style={{
                 display: 'flex',
                 alignItems: 'center',
-                gap: '8px',
                 justifyContent: 'center',
                 marginBottom: '8px',
-                marginTop: '16px'
+                marginTop: '32px'
               }}>
-                <WrenchIcon />
                 <h1 style={{
                   fontSize: '20px',
                   fontWeight: '600',
@@ -1224,9 +1222,10 @@ function LeadStickWidget() {
                       padding: '12px',
                       boxShadow: 'none',
                       outline: 'none',
-                      width: '100%',
+                      width: 'calc(100% - 8px)',
                       fontSize: '16px',
-                      fontFamily: 'inherit'
+                      fontFamily: 'inherit',
+                      boxSizing: 'border-box'
                     }}
                     onKeyDown={(e) => {
                       if (e.key === 'Enter' && !e.shiftKey) {
