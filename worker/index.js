@@ -29,6 +29,116 @@ function sanitizeInput(input, maxLength = 500) {
   return input.trim().slice(0, maxLength);
 }
 
+// In-memory rate limiting for standalone deployment
+// This approach works without external dependencies but resets on worker restart
+const rateLimitStore = new Map();
+
+function cleanupOldEntries() {
+  const currentTime = Date.now();
+  const oneHourAgo = currentTime - (60 * 60 * 1000);
+  
+  for (const [key, data] of rateLimitStore.entries()) {
+    if (data.lastCleanup && data.lastCleanup < oneHourAgo) {
+      // Clean up old time windows
+      const timeWindows = Object.keys(data.windows || {});
+      for (const window of timeWindows) {
+        const windowTime = parseInt(window) * 1000 * 60 * 60; // Convert back to timestamp
+        if (windowTime < oneHourAgo) {
+          delete data.windows[window];
+        }
+      }
+      
+      // Remove IP entry if no active windows
+      if (Object.keys(data.windows || {}).length === 0) {
+        rateLimitStore.delete(key);
+      } else {
+        data.lastCleanup = currentTime;
+      }
+    }
+  }
+}
+
+function checkRateLimit(clientIP, env) {
+  // Cleanup old entries periodically
+  if (Math.random() < 0.1) { // 10% chance to cleanup on each request
+    cleanupOldEntries();
+  }
+  
+  const currentTime = Date.now();
+  const timeWindow = Math.floor(currentTime / (1000 * 60 * 60)); // 1 hour windows
+  
+  // Get or create IP entry
+  let ipData = rateLimitStore.get(clientIP);
+  if (!ipData) {
+    ipData = { 
+      windows: {}, 
+      lastSubmission: 0, 
+      lastCleanup: currentTime 
+    };
+    rateLimitStore.set(clientIP, ipData);
+  }
+  
+  // Get current window count
+  const windowCount = ipData.windows[timeWindow] || 0;
+  
+  // Check hourly limit
+  if (windowCount >= 5) {
+    return { 
+      allowed: false, 
+      remaining: 0, 
+      resetTime: (timeWindow + 1) * 1000 * 60 * 60, // Next hour
+      reason: 'hourly_limit_exceeded'
+    };
+  }
+  
+  // Check progressive delay
+  const timeSinceLastSubmission = currentTime - ipData.lastSubmission;
+  const requiredDelay = Math.min(windowCount * 30000, 300000); // 30s * attempts, max 5 minutes
+  
+  if (windowCount >= 3 && timeSinceLastSubmission < requiredDelay) {
+    return { 
+      allowed: false, 
+      remaining: 5 - windowCount,
+      retryAfter: Math.ceil((requiredDelay - timeSinceLastSubmission) / 1000),
+      reason: 'progressive_delay'
+    };
+  }
+  
+  return { 
+    allowed: true, 
+    remaining: 5 - windowCount,
+    count: windowCount
+  };
+}
+
+function updateRateLimit(clientIP, env) {
+  const currentTime = Date.now();
+  const timeWindow = Math.floor(currentTime / (1000 * 60 * 60)); // 1 hour windows
+  
+  // Get or create IP entry
+  let ipData = rateLimitStore.get(clientIP);
+  if (!ipData) {
+    ipData = { 
+      windows: {}, 
+      lastSubmission: 0, 
+      lastCleanup: currentTime 
+    };
+    rateLimitStore.set(clientIP, ipData);
+  }
+  
+  // Increment count for current window
+  ipData.windows[timeWindow] = (ipData.windows[timeWindow] || 0) + 1;
+  ipData.lastSubmission = currentTime;
+  
+  // Limit memory usage - keep only last 3 hours of data
+  const threeHoursAgo = timeWindow - 3;
+  for (const window of Object.keys(ipData.windows)) {
+    if (parseInt(window) < threeHoursAgo) {
+      delete ipData.windows[window];
+    }
+  }
+}
+
 function validateAndSanitizeLead(leadData) {
   const errors = [];
   
@@ -123,6 +233,49 @@ export default {
     }
 
     try {
+      // Get client IP for rate limiting
+      const clientIP = request.headers.get('CF-Connecting-IP') || 
+                      request.headers.get('X-Forwarded-For') || 
+                      request.headers.get('X-Real-IP') || 
+                      'unknown';
+      
+      // Check rate limit before processing
+      const rateLimitResult = checkRateLimit(clientIP, env);
+      
+      if (!rateLimitResult.allowed) {
+        // Log rate limit violations
+        console.warn('Rate limit exceeded:', {
+          ip: clientIP,
+          reason: rateLimitResult.reason,
+          remaining: rateLimitResult.remaining,
+          userAgent: request.headers.get('User-Agent'),
+          timestamp: new Date().toISOString()
+        });
+        
+        const rateLimitHeaders = {
+          ...corsHeaders,
+          'X-RateLimit-Limit': '5',
+          'X-RateLimit-Remaining': rateLimitResult.remaining.toString(),
+          'Retry-After': rateLimitResult.retryAfter?.toString() || '3600'
+        };
+        
+        if (rateLimitResult.resetTime) {
+          rateLimitHeaders['X-RateLimit-Reset'] = rateLimitResult.resetTime.toString();
+        }
+        
+        return new Response(JSON.stringify({
+          error: 'Rate limit exceeded',
+          message: rateLimitResult.reason === 'progressive_delay' 
+            ? `Please wait ${rateLimitResult.retryAfter} seconds before submitting again.`
+            : 'Too many submissions. Please try again later.',
+          retryAfter: rateLimitResult.retryAfter,
+          resetTime: rateLimitResult.resetTime
+        }), { 
+          status: 429, 
+          headers: rateLimitHeaders 
+        });
+      }
+      
       // Parse lead data
       const leadData = await request.json();
       
@@ -134,7 +287,7 @@ export default {
         if (isSpam) {
           console.warn('Spam attempt blocked:', {
             reason: errors[0],
-            ip: request.headers.get('CF-Connecting-IP'),
+            ip: clientIP,
             userAgent: request.headers.get('User-Agent'),
             timestamp: new Date().toISOString()
           });
@@ -148,6 +301,9 @@ export default {
           headers: corsHeaders 
         });
       }
+      
+      // Update rate limit counter after successful validation
+      updateRateLimit(clientIP, env);
 
       // Generate lead ID
       const leadId = `lead_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
@@ -158,12 +314,19 @@ export default {
       // Track in GA4 (optional)
       await trackGA4Event(sanitized, leadId, env);
 
+      // Add rate limit headers to successful responses
+      const successHeaders = {
+        ...corsHeaders,
+        'X-RateLimit-Limit': '5',
+        'X-RateLimit-Remaining': (rateLimitResult.remaining - 1).toString()
+      };
+
       return new Response(JSON.stringify({
         success: true,
         leadId,
         email: emailSent ? 'sent' : 'failed'
       }), { 
-        headers: corsHeaders 
+        headers: successHeaders 
       });
 
     } catch (error) {

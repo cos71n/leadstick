@@ -529,7 +529,27 @@ function LeadStickWidget() {
       })
 
       if (!response.ok) {
-        throw new Error('Failed to submit lead')
+        const errorData = await response.json().catch(() => null)
+        
+        if (response.status === 429) {
+          // Rate limit exceeded - show user-friendly message
+          const retryAfter = errorData?.retryAfter || 3600
+          const minutes = Math.ceil(retryAfter / 60)
+          
+          if (retryAfter < 60) {
+            addMessage(`Please wait ${retryAfter} seconds before submitting again.`, 'ai')
+          } else if (minutes < 60) {
+            addMessage(`You've reached the submission limit. Please try again in ${minutes} minute${minutes > 1 ? 's' : ''}.`, 'ai')
+          } else {
+            addMessage('You\'ve reached the submission limit. Please try again later or call us directly.', 'ai')
+          }
+          
+          // Show phone button for immediate contact
+          addMessage("PHONE_BUTTON", 'ai')
+          return
+        }
+        
+        throw new Error(errorData?.message || 'Failed to submit lead')
       }
     } catch (error) {
       console.error('Error submitting lead:', error)
