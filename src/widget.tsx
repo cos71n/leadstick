@@ -11,6 +11,21 @@ declare global {
 // Types
 type ChatStep = 'location' | 'service' | 'contact' | 'complete'
 
+interface AttributionData {
+  source: string
+  medium: string
+  campaign: string
+  content: string
+  term: string
+  gclid: string
+  fbclid: string
+  msclkid: string
+  ttclid: string
+  landingPage: string
+  referrer: string
+  timestamp: string
+}
+
 interface LeadData {
   location: string
   service: string
@@ -18,6 +33,11 @@ interface LeadData {
   phone: string
   email: string
   finalMessage: string
+  attribution?: {
+    firstTouch: AttributionData
+    lastTouch: AttributionData
+    sessionId: string
+  }
 }
 
 // Inline SVG Icons
@@ -63,6 +83,158 @@ const classNames = (...classes: (string | undefined | false)[]) => {
   return classes.filter(Boolean).join(' ')
 }
 
+// Attribution Tracking System
+class AttributionTracker {
+  private static instance: AttributionTracker
+  private sessionId: string
+
+  constructor() {
+    this.sessionId = this.generateSessionId()
+  }
+
+  static getInstance(): AttributionTracker {
+    if (!AttributionTracker.instance) {
+      AttributionTracker.instance = new AttributionTracker()
+    }
+    return AttributionTracker.instance
+  }
+
+  private generateSessionId(): string {
+    return 'session_' + Math.random().toString(36).substr(2, 9) + '_' + Date.now().toString(36)
+  }
+
+  private getUrlParam(name: string): string {
+    const urlParams = new URLSearchParams(window.location.search)
+    return urlParams.get(name) || ''
+  }
+
+  private getSource(): string {
+    const utmSource = this.getUrlParam('utm_source')
+    if (utmSource) return utmSource
+
+    const referrer = document.referrer
+    if (!referrer) return 'direct'
+
+    try {
+      const referrerDomain = new URL(referrer).hostname.toLowerCase()
+      const currentDomain = window.location.hostname.toLowerCase()
+      
+      if (referrerDomain === currentDomain) return 'internal'
+      
+      // Common referrer patterns
+      if (referrerDomain.includes('google')) return 'google'
+      if (referrerDomain.includes('facebook') || referrerDomain.includes('fb.')) return 'facebook'
+      if (referrerDomain.includes('instagram')) return 'instagram'
+      if (referrerDomain.includes('linkedin')) return 'linkedin'
+      if (referrerDomain.includes('twitter') || referrerDomain.includes('t.co')) return 'twitter'
+      if (referrerDomain.includes('youtube')) return 'youtube'
+      if (referrerDomain.includes('bing')) return 'bing'
+      if (referrerDomain.includes('yahoo')) return 'yahoo'
+      
+      return referrerDomain
+    } catch {
+      return 'unknown'
+    }
+  }
+
+  private getMedium(): string {
+    const utmMedium = this.getUrlParam('utm_medium')
+    if (utmMedium) return utmMedium
+
+    // Check for paid advertising IDs
+    if (this.getUrlParam('gclid')) return 'cpc'
+    if (this.getUrlParam('fbclid')) return 'social'
+    if (this.getUrlParam('msclkid')) return 'cpc'
+    if (this.getUrlParam('ttclid')) return 'social'
+
+    const source = this.getSource()
+    const referrer = document.referrer
+
+    if (source === 'direct') return 'direct'
+    if (source === 'internal') return 'internal'
+    if (['google', 'bing', 'yahoo'].includes(source)) return 'organic'
+    if (['facebook', 'instagram', 'linkedin', 'twitter', 'youtube'].includes(source)) return 'social'
+    if (referrer) return 'referral'
+    
+    return 'unknown'
+  }
+
+  private captureCurrentSession(): AttributionData {
+    return {
+      source: this.getSource(),
+      medium: this.getMedium(),
+      campaign: this.getUrlParam('utm_campaign'),
+      content: this.getUrlParam('utm_content'),
+      term: this.getUrlParam('utm_term'),
+      gclid: this.getUrlParam('gclid'),
+      fbclid: this.getUrlParam('fbclid'),
+      msclkid: this.getUrlParam('msclkid'),
+      ttclid: this.getUrlParam('ttclid'),
+      landingPage: window.location.href,
+      referrer: document.referrer,
+      timestamp: new Date().toISOString()
+    }
+  }
+
+  private setCookie(name: string, value: string, days: number): void {
+    const expires = new Date(Date.now() + days * 24 * 60 * 60 * 1000).toUTCString()
+    document.cookie = `${name}=${encodeURIComponent(value)}; expires=${expires}; path=/; SameSite=Lax`
+  }
+
+  private getCookie(name: string): string | null {
+    const nameEQ = name + '='
+    const ca = document.cookie.split(';')
+    for (let i = 0; i < ca.length; i++) {
+      let c = ca[i]
+      while (c.charAt(0) === ' ') c = c.substring(1, c.length)
+      if (c.indexOf(nameEQ) === 0) {
+        return decodeURIComponent(c.substring(nameEQ.length, c.length))
+      }
+    }
+    return null
+  }
+
+  public trackAttribution(): void {
+    const currentSession = this.captureCurrentSession()
+    
+    // First touch (only set once per user)
+    const existingFirstTouch = this.getCookie('leadstick_first_touch')
+    if (!existingFirstTouch) {
+      this.setCookie('leadstick_first_touch', JSON.stringify(currentSession), 90) // 90 days
+    }
+    
+    // Last touch (always update)
+    this.setCookie('leadstick_last_touch', JSON.stringify(currentSession), 90)
+    
+    // Session ID (for current session only)
+    this.setCookie('leadstick_session_id', this.sessionId, 1) // 1 day
+  }
+
+  public getAttributionData(): { firstTouch: AttributionData; lastTouch: AttributionData; sessionId: string } {
+    const firstTouchCookie = this.getCookie('leadstick_first_touch')
+    const lastTouchCookie = this.getCookie('leadstick_last_touch')
+    
+    let firstTouch: AttributionData
+    let lastTouch: AttributionData
+    
+    try {
+      firstTouch = firstTouchCookie ? JSON.parse(firstTouchCookie) : this.captureCurrentSession()
+      lastTouch = lastTouchCookie ? JSON.parse(lastTouchCookie) : this.captureCurrentSession()
+    } catch {
+      // Fallback if cookie parsing fails
+      const currentSession = this.captureCurrentSession()
+      firstTouch = currentSession
+      lastTouch = currentSession
+    }
+    
+    return {
+      firstTouch,
+      lastTouch,
+      sessionId: this.sessionId
+    }
+  }
+}
+
 // Chat steps configuration
 const QUOTE_STEPS = [
   {
@@ -100,6 +272,9 @@ function LeadStickWidget() {
     finalMessage: ''
   })
   
+  // Initialize attribution tracking
+  const attributionTracker = AttributionTracker.getInstance()
+  
   const [messages, setMessages] = useState([
     {
       id: 1,
@@ -117,7 +292,7 @@ function LeadStickWidget() {
 
   const toggleChat = () => setIsOpen(!isOpen)
 
-  // Detect mobile/desktop
+  // Detect mobile/desktop and track attribution
   useEffect(() => {
     const checkMobile = () => {
       setIsMobile(window.innerWidth < 768)
@@ -125,6 +300,10 @@ function LeadStickWidget() {
     
     checkMobile()
     window.addEventListener('resize', checkMobile)
+    
+    // Track attribution data on component mount
+    attributionTracker.trackAttribution()
+    
     return () => window.removeEventListener('resize', checkMobile)
   }, [])
 
@@ -194,8 +373,11 @@ function LeadStickWidget() {
           addMessage("📱 What's your phone number?", 'ai')
         } else if (!leadData.phone) {
           setLeadData(prev => ({ ...prev, phone: userInput }))
-          addMessage("Perfect! I've got your details. I'll get back to you ASAP.", 'ai')
-          addMessage(`📋 Summary:\n📍 Location: ${leadData.location}\n🔧 Project: ${leadData.service}\n👤 Name: ${leadData.name}\n📱 Phone: ${userInput}`, 'ai')
+          addMessage("✉️ What's your email address?", 'ai')
+        } else if (!leadData.email) {
+          setLeadData(prev => ({ ...prev, email: userInput }))
+          addMessage("Perfect! I've got all your details. I'll get back to you ASAP.", 'ai')
+          addMessage(`📋 Summary:\n📍 Location: ${leadData.location}\n🔧 Project: ${leadData.service}\n👤 Name: ${leadData.name}\n📱 Phone: ${leadData.phone}\n✉️ Email: ${userInput}`, 'ai')
           addMessage("PHONE_BUTTON", 'ai')
           setCurrentStep('complete')
         }
@@ -212,6 +394,7 @@ function LeadStickWidget() {
       case 'contact': 
         if (!leadData.name) return "Enter your full name"
         if (!leadData.phone) return "Enter your phone number"
+        if (!leadData.email) return "Enter your email address"
         return ""
       default: return "Type your message..."
     }
@@ -238,18 +421,26 @@ function LeadStickWidget() {
 
   const submitLead = async () => {
     try {
-      // Track GA4 event
+      // Get attribution data
+      const attribution = attributionTracker.getAttributionData()
+      
+      // Track GA4 event with attribution
       if (typeof gtag !== 'undefined') {
         gtag('event', 'leadstick_completed', {
           business_name: CONFIG.business.name,
           service_selected: leadData.service,
           location: leadData.location,
           lead_source: 'leadstick-widget',
+          first_touch_source: attribution.firstTouch.source,
+          first_touch_medium: attribution.firstTouch.medium,
+          last_touch_source: attribution.lastTouch.source,
+          last_touch_medium: attribution.lastTouch.medium,
+          session_id: attribution.sessionId,
           value: 100
         })
       }
 
-      // Submit to API
+      // Submit to API with attribution data
       const response = await fetch(CONFIG.apiEndpoint, {
         method: 'POST',
         headers: {
@@ -257,6 +448,7 @@ function LeadStickWidget() {
         },
         body: JSON.stringify({
           ...leadData,
+          attribution,
           business: CONFIG.business.name,
           timestamp: new Date().toISOString(),
           source: 'leadstick-widget'
@@ -281,7 +473,7 @@ function LeadStickWidget() {
 
   // Trigger lead submission when complete
   useEffect(() => {
-    if (currentStep === 'complete' && leadData.location && leadData.service && leadData.name && leadData.phone) {
+    if (currentStep === 'complete' && leadData.location && leadData.service && leadData.name && leadData.phone && leadData.email) {
       submitLead()
     }
   }, [currentStep])
@@ -643,6 +835,35 @@ function LeadStickWidget() {
             </div>
           )}
 
+          {/* Powered by LeadStick branding */}
+          <div style={{
+            position: 'absolute',
+            bottom: '8px',
+            right: '16px',
+            fontSize: '10px',
+            color: '#9ca3af',
+            pointerEvents: 'auto',
+            zIndex: 10
+          }}>
+            <a 
+              href="https://leadstick.com" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              style={{
+                color: '#9ca3af',
+                textDecoration: 'none',
+                transition: 'color 0.2s',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '4px'
+              }}
+              onMouseOver={(e) => e.currentTarget.style.color = CONFIG.theme.primary}
+              onMouseOut={(e) => e.currentTarget.style.color = '#9ca3af'}
+            >
+              Powered by <span style={{ fontWeight: '500' }}>LeadStick</span>
+            </a>
+          </div>
+
           {/* Close button for mobile */}
           <button
             onClick={toggleChat}
@@ -952,6 +1173,37 @@ function LeadStickWidget() {
                 </form>
               </div>
             )}
+            
+            {/* Powered by LeadStick branding - Mobile */}
+            <div style={{
+              position: 'absolute',
+              bottom: '4px',
+              right: '8px',
+              fontSize: '10px',
+              color: '#9ca3af',
+              pointerEvents: 'auto',
+              background: 'rgba(255, 255, 255, 0.8)',
+              padding: '2px 4px',
+              borderRadius: '3px'
+            }}>
+              <a 
+                href="https://leadstick.com" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                style={{
+                  color: '#9ca3af',
+                  textDecoration: 'none',
+                  transition: 'color 0.2s',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px'
+                }}
+                onMouseOver={(e) => e.currentTarget.style.color = CONFIG.theme.primary}
+                onMouseOut={(e) => e.currentTarget.style.color = '#9ca3af'}
+              >
+                Powered by <span style={{ fontWeight: '500' }}>LeadStick</span>
+              </a>
+            </div>
           </div>
         </div>
       )}

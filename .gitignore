@@ -38,6 +38,9 @@ coverage/
 # TypeScript
 *.tsbuildinfo
 
+# Cloudflare Workers
+.wrangler/
+
 # Misc
 .cache/
 .parcel-cache/
