@@ -29,5 +29,5 @@ export const CONFIG = {
   ga4: {
     measurementId: "G-XXXXXXXXXX" // Will be configured during deployment
   },
-  apiEndpoint: "https://api.leadstick.com/submit"
+  apiEndpoint: "http://localhost:8787/submit"  // Will be updated to production URL
 } 
