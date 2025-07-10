@@ -345,11 +345,58 @@ function LeadStickWidget() {
 
 
 
+  const validateInput = (input: string, type: string): { valid: boolean; error?: string } => {
+    const trimmed = input.trim()
+    
+    if (!trimmed) {
+      return { valid: false, error: 'This field is required' }
+    }
+    
+    if (trimmed.length > 500) {
+      return { valid: false, error: 'Input too long (max 500 characters)' }
+    }
+    
+    if (type === 'email') {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+      if (!emailRegex.test(trimmed)) {
+        return { valid: false, error: 'Please enter a valid email address' }
+      }
+    }
+    
+    if (type === 'phone') {
+      const phoneRegex = /^[\d\s\-\+\(\)\.]+$/
+      if (!phoneRegex.test(trimmed) || trimmed.replace(/\D/g, '').length < 10) {
+        return { valid: false, error: 'Please enter a valid phone number' }
+      }
+    }
+    
+    return { valid: true }
+  }
+
   const handleSubmit = (e?: Event) => {
     e?.preventDefault()
     if (!input.trim()) return
 
     const userInput = input.trim()
+    
+    // Validate input based on current step
+    let validationType = 'general'
+    if (currentStep === 'contact') {
+      if (!leadData.name) {
+        validationType = 'name'
+      } else if (!leadData.phone) {
+        validationType = 'phone'
+      } else if (!leadData.email) {
+        validationType = 'email'
+      }
+    }
+    
+    const validation = validateInput(userInput, validationType)
+    if (!validation.valid) {
+      addMessage(validation.error!, 'ai')
+      return
+    }
+    
     addMessage(userInput, 'user')
     setInput("")
 
@@ -783,6 +830,7 @@ function LeadStickWidget() {
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
                   placeholder={getInputPlaceholder()}
+                  maxLength={500}
                   style={{
                     minHeight: '48px',
                     resize: 'none',
@@ -941,6 +989,52 @@ function LeadStickWidget() {
               borderBottom: '1px solid ' + CONFIG.theme.border,
               position: 'relative'
             }}>
+              {/* Tap To Call Button */}
+              <button
+                onClick={() => {
+                  // Track GA4 event
+                  if (typeof gtag !== 'undefined') {
+                    gtag('event', 'leadstick_phone_tapped', {
+                      business_name: CONFIG.business.name,
+                      phone_number: CONFIG.business.phone,
+                      source: 'mobile_chat_header',
+                      page_url: window.location.href,
+                      timestamp: new Date().toISOString()
+                    })
+                  }
+                  window.open(`tel:${CONFIG.business.phone}`, '_self')
+                }}
+                style={{
+                  position: 'absolute',
+                  top: '8px',
+                  left: '8px',
+                  backgroundColor: 'transparent',
+                  border: '1px solid ' + CONFIG.theme.border,
+                  borderRadius: '6px',
+                  padding: '6px 10px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  fontSize: '12px',
+                  fontWeight: '500',
+                  color: CONFIG.theme.primary,
+                  cursor: 'pointer',
+                  pointerEvents: 'auto',
+                  transition: 'all 0.2s'
+                }}
+                onMouseOver={(e) => {
+                  e.currentTarget.style.backgroundColor = CONFIG.theme.primary
+                  e.currentTarget.style.color = 'white'
+                }}
+                onMouseOut={(e) => {
+                  e.currentTarget.style.backgroundColor = 'transparent'
+                  e.currentTarget.style.color = CONFIG.theme.primary
+                }}
+              >
+                <PhoneIcon />
+                <span>Tap To Call</span>
+              </button>
+              
               <button
                 onClick={toggleChat}
                 style={{

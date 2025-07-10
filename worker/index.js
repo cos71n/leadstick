@@ -3,6 +3,67 @@
  * Simple, secure form processing with email delivery
  */
 
+// Input sanitization and validation functions
+function escapeHtml(text) {
+  if (typeof text !== 'string') return '';
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function validateEmail(email) {
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  return emailRegex.test(email);
+}
+
+function validatePhone(phone) {
+  const phoneRegex = /^[\d\s\-\+\(\)\.]+$/;
+  return phoneRegex.test(phone) && phone.replace(/\D/g, '').length >= 10;
+}
+
+function sanitizeInput(input, maxLength = 500) {
+  if (typeof input !== 'string') return '';
+  return input.trim().slice(0, maxLength);
+}
+
+function validateAndSanitizeLead(leadData) {
+  const errors = [];
+  
+  // Sanitize all inputs
+  const sanitized = {
+    name: sanitizeInput(leadData.name, 100),
+    phone: sanitizeInput(leadData.phone, 20),
+    email: sanitizeInput(leadData.email, 100),
+    location: sanitizeInput(leadData.location, 200),
+    service: sanitizeInput(leadData.service, 500),
+    finalMessage: sanitizeInput(leadData.finalMessage, 1000),
+    business: sanitizeInput(leadData.business, 100),
+    source: sanitizeInput(leadData.source, 50)
+  };
+  
+  // Validate required fields
+  if (!sanitized.name) errors.push('Name is required');
+  if (!sanitized.phone) errors.push('Phone is required');
+  if (!sanitized.email) errors.push('Email is required');
+  if (!sanitized.location) errors.push('Location is required');
+  if (!sanitized.service) errors.push('Service is required');
+  
+  // Validate email format
+  if (sanitized.email && !validateEmail(sanitized.email)) {
+    errors.push('Invalid email format');
+  }
+  
+  // Validate phone format
+  if (sanitized.phone && !validatePhone(sanitized.phone)) {
+    errors.push('Invalid phone number format');
+  }
+  
+  return { sanitized, errors };
+}
+
 export default {
   async fetch(request, env, ctx) {
     // CORS headers
@@ -32,10 +93,13 @@ export default {
       // Parse lead data
       const leadData = await request.json();
       
-      // Validate required fields
-      if (!leadData.name || !leadData.phone || !leadData.location || !leadData.service || !leadData.email) {
+      // Validate and sanitize lead data
+      const { sanitized, errors } = validateAndSanitizeLead(leadData);
+      
+      if (errors.length > 0) {
         return new Response(JSON.stringify({
-          error: 'Missing required fields: name, phone, email, location, service'
+          error: 'Validation failed',
+          details: errors
         }), { 
           status: 400, 
           headers: corsHeaders 
@@ -43,13 +107,13 @@ export default {
       }
 
       // Generate lead ID
-      const leadId = `lead_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
+      const leadId = `lead_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
 
       // Send email via Resend
-      const emailSent = await sendEmail(leadData, leadId, env);
+      const emailSent = await sendEmail(sanitized, leadId, env);
       
       // Track in GA4 (optional)
-      await trackGA4Event(leadData, leadId, env);
+      await trackGA4Event(sanitized, leadId, env);
 
       return new Response(JSON.stringify({
         success: true,
@@ -181,7 +245,7 @@ async function sendEmail(lead, leadId, env) {
       body: JSON.stringify({
         from: env.LEAD_EMAIL_FROM || 'LeadStick <noreply@leadstick.com>',
         to: [env.LEAD_EMAIL_RECIPIENT || 'leads@example.com'],
-        subject: `New Lead: ${lead.service} in ${lead.location}`,
+        subject: `New Lead: ${escapeHtml(lead.service)} in ${escapeHtml(lead.location)}`,
         html: `
           <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 0 auto; background: white;">
             
@@ -202,24 +266,24 @@ async function sendEmail(lead, leadId, env) {
                 <div style="display: grid; gap: 12px;">
                   <div style="display: flex; align-items: center;">
                     <span style="font-weight: 600; color: #374151; width: 100px; display: inline-block;">📍 Location:</span>
-                    <span style="color: #6b7280;">${lead.location}</span>
+                    <span style="color: #6b7280;">${escapeHtml(lead.location)}</span>
                   </div>
                   <div style="display: flex; align-items: center;">
                     <span style="font-weight: 600; color: #374151; width: 100px; display: inline-block;">🔧 Project:</span>
-                    <span style="color: #6b7280;">${lead.service}</span>
+                    <span style="color: #6b7280;">${escapeHtml(lead.service)}</span>
                   </div>
                   <div style="display: flex; align-items: center;">
                     <span style="font-weight: 600; color: #374151; width: 100px; display: inline-block;">👤 Name:</span>
-                    <span style="color: #6b7280;">${lead.name}</span>
+                    <span style="color: #6b7280;">${escapeHtml(lead.name)}</span>
                   </div>
                   <div style="display: flex; align-items: center;">
                     <span style="font-weight: 600; color: #374151; width: 100px; display: inline-block;">📱 Phone:</span>
-                    <a href="tel:${lead.phone}" style="color: #f97316; text-decoration: none; font-weight: 600;">${lead.phone}</a>
+                    <a href="tel:${escapeHtml(lead.phone)}" style="color: #f97316; text-decoration: none; font-weight: 600;">${escapeHtml(lead.phone)}</a>
                   </div>
                   ${lead.email ? `
                   <div style="display: flex; align-items: center;">
                     <span style="font-weight: 600; color: #374151; width: 100px; display: inline-block;">✉️ Email:</span>
-                    <a href="mailto:${lead.email}" style="color: #f97316; text-decoration: none;">${lead.email}</a>
+                    <a href="mailto:${escapeHtml(lead.email)}" style="color: #f97316; text-decoration: none;">${escapeHtml(lead.email)}</a>
                   </div>
                   ` : ''}
                 </div>
@@ -261,9 +325,9 @@ async function sendEmail(lead, leadId, env) {
               <!-- Footer -->
               <div style="border-top: 1px solid #e5e7eb; padding-top: 16px; margin-top: 20px;">
                 <p style="margin: 0; font-size: 12px; color: #9ca3af; text-align: center;">
-                  <strong>Lead ID:</strong> ${leadId} | 
-                  <strong>Submitted:</strong> ${lead.timestamp || new Date().toISOString()} |
-                  <strong>Source:</strong> ${lead.source || 'leadstick-widget'}
+                  <strong>Lead ID:</strong> ${escapeHtml(leadId)} | 
+                  <strong>Submitted:</strong> ${escapeHtml(lead.timestamp || new Date().toISOString())} |
+                  <strong>Source:</strong> ${escapeHtml(lead.source || 'leadstick-widget')}
                 </p>
                 <p style="margin: 8px 0 0 0; font-size: 11px; color: #9ca3af; text-align: center;">
                   Powered by <a href="https://leadstick.com" style="color: #f97316; text-decoration: none;">LeadStick</a>
@@ -296,9 +360,9 @@ async function trackGA4Event(lead, leadId, env) {
         events: [{
           name: 'leadstick_conversion',
           params: {
-            lead_id: leadId,
-            service: lead.service,
-            location: lead.location,
+            lead_id: escapeHtml(leadId),
+            service: escapeHtml(lead.service),
+            location: escapeHtml(lead.location),
             value: 100
           }
         }]
