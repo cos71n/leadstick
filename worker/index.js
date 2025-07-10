@@ -32,6 +32,18 @@ function sanitizeInput(input, maxLength = 500) {
 function validateAndSanitizeLead(leadData) {
   const errors = [];
   
+  // Spam prevention: Check honeypot field
+  if (leadData.website && leadData.website.trim() !== '') {
+    errors.push('Invalid form submission detected');
+    return { sanitized: null, errors, isSpam: true };
+  }
+  
+  // Spam prevention: Check submission time (minimum 5 seconds)
+  if (leadData.submissionTime && leadData.submissionTime < 5000) {
+    errors.push('Form submitted too quickly. Please take your time.');
+    return { sanitized: null, errors, isSpam: true };
+  }
+  
   // Sanitize all inputs
   const sanitized = {
     name: sanitizeInput(leadData.name, 100),
@@ -41,7 +53,10 @@ function validateAndSanitizeLead(leadData) {
     service: sanitizeInput(leadData.service, 500),
     finalMessage: sanitizeInput(leadData.finalMessage, 1000),
     business: sanitizeInput(leadData.business, 100),
-    source: sanitizeInput(leadData.source, 50)
+    source: sanitizeInput(leadData.source, 50),
+    // Include honeypot and submission time for logging (but not for email)
+    website: sanitizeInput(leadData.website || '', 100),
+    submissionTime: leadData.submissionTime
   };
   
   // Validate required fields
@@ -61,7 +76,25 @@ function validateAndSanitizeLead(leadData) {
     errors.push('Invalid phone number format');
   }
   
-  return { sanitized, errors };
+  // Additional spam checks
+  // Check for suspicious patterns in name field
+  const suspiciousPatterns = [
+    /https?:\/\//i,  // URLs
+    /www\./i,        // Website patterns
+    /\.(com|net|org|biz)/i,  // Domain extensions
+    /(.)\1{4,}/,     // Repeated characters (5 or more)
+    /<[^>]*>/,       // HTML tags
+  ];
+  
+  if (sanitized.name && suspiciousPatterns.some(pattern => pattern.test(sanitized.name))) {
+    errors.push('Invalid name format');
+  }
+  
+  if (sanitized.service && suspiciousPatterns.some(pattern => pattern.test(sanitized.service))) {
+    errors.push('Invalid service description');
+  }
+  
+  return { sanitized, errors, isSpam: false };
 }
 
 export default {
@@ -94,9 +127,19 @@ export default {
       const leadData = await request.json();
       
       // Validate and sanitize lead data
-      const { sanitized, errors } = validateAndSanitizeLead(leadData);
+      const { sanitized, errors, isSpam } = validateAndSanitizeLead(leadData);
       
       if (errors.length > 0) {
+        // Log spam attempts for monitoring
+        if (isSpam) {
+          console.warn('Spam attempt blocked:', {
+            reason: errors[0],
+            ip: request.headers.get('CF-Connecting-IP'),
+            userAgent: request.headers.get('User-Agent'),
+            timestamp: new Date().toISOString()
+          });
+        }
+        
         return new Response(JSON.stringify({
           error: 'Validation failed',
           details: errors

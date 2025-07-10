@@ -38,6 +38,10 @@ interface LeadData {
     lastTouch: AttributionData
     sessionId: string
   }
+  // Honeypot field - should remain empty
+  website?: string
+  // Time tracking for spam prevention
+  formOpenTime?: number
 }
 
 // Inline SVG Icons
@@ -269,7 +273,9 @@ function LeadStickWidget() {
     name: '',
     phone: '',
     email: '',
-    finalMessage: ''
+    finalMessage: '',
+    website: '', // Honeypot field
+    formOpenTime: Date.now() // Track when form was opened
   })
   
   // Initialize attribution tracking
@@ -317,7 +323,9 @@ function LeadStickWidget() {
         name: '',
         phone: '',
         email: '',
-        finalMessage: ''
+        finalMessage: '',
+        website: '', // Reset honeypot
+        formOpenTime: Date.now() // Track new session time
       })
       setMessages([
         {
@@ -468,6 +476,22 @@ function LeadStickWidget() {
 
   const submitLead = async () => {
     try {
+      // Spam prevention checks
+      // 1. Check honeypot field
+      if (leadData.website && leadData.website.trim() !== '') {
+        console.warn('Honeypot field filled - likely spam')
+        // Silently fail for bots
+        return
+      }
+      
+      // 2. Check time-based validation (minimum 5 seconds)
+      const timeElapsed = Date.now() - (leadData.formOpenTime || Date.now())
+      if (timeElapsed < 5000) {
+        console.warn('Form submitted too quickly - likely spam')
+        addMessage('Please take your time to fill out the form properly.', 'ai')
+        return
+      }
+      
       // Get attribution data
       const attribution = attributionTracker.getAttributionData()
       
@@ -498,7 +522,9 @@ function LeadStickWidget() {
           attribution,
           business: CONFIG.business.name,
           timestamp: new Date().toISOString(),
-          source: 'leadstick-widget'
+          source: 'leadstick-widget',
+          // Include submission time for server-side validation
+          submissionTime: timeElapsed
         })
       })
 
@@ -824,11 +850,29 @@ function LeadStickWidget() {
                 backgroundColor: CONFIG.theme.background,
                 padding: '4px'
               }}>
+                {/* Honeypot field - hidden from users but visible to bots */}
+                <input
+                  type="text"
+                  name="website"
+                  value={leadData.website}
+                  onChange={(e) => setLeadData(prev => ({ ...prev, website: e.target.value }))}
+                  style={{
+                    position: 'absolute',
+                    left: '-9999px',
+                    width: '1px',
+                    height: '1px',
+                    overflow: 'hidden'
+                  }}
+                  tabIndex={-1}
+                  autoComplete="off"
+                  aria-hidden="true"
+                />
                 <textarea
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
                   placeholder={getInputPlaceholder()}
                   maxLength={500}
+                  inputMode={currentStep === 'contact' && leadData.name && !leadData.phone ? 'tel' : 'text'}
                   style={{
                     minHeight: '48px',
                     resize: 'none',
@@ -844,7 +888,7 @@ function LeadStickWidget() {
                     boxSizing: 'border-box'
                   }}
                   onKeyDown={(e) => {
-                    if (e.key === 'Enter' && !e.shiftKey) {
+                    if (e.key === 'Enter' && !e.shiftKey && currentStep !== 'service') {
                       e.preventDefault()
                       handleSubmit()
                     }
@@ -1209,10 +1253,28 @@ function LeadStickWidget() {
                   backgroundColor: CONFIG.theme.background,
                   padding: '4px'
                 }}>
+                  {/* Honeypot field - hidden from users but visible to bots */}
+                  <input
+                    type="text"
+                    name="website"
+                    value={leadData.website}
+                    onChange={(e) => setLeadData(prev => ({ ...prev, website: e.target.value }))}
+                    style={{
+                      position: 'absolute',
+                      left: '-9999px',
+                      width: '1px',
+                      height: '1px',
+                      overflow: 'hidden'
+                    }}
+                    tabIndex={-1}
+                    autoComplete="off"
+                    aria-hidden="true"
+                  />
                   <textarea
                     value={input}
                     onChange={(e) => setInput(e.target.value)}
                     placeholder={getInputPlaceholder()}
+                    inputMode={currentStep === 'contact' && leadData.name && !leadData.phone ? 'tel' : 'text'}
                     style={{
                       minHeight: '48px',
                       resize: 'none',
@@ -1228,7 +1290,7 @@ function LeadStickWidget() {
                       boxSizing: 'border-box'
                     }}
                     onKeyDown={(e) => {
-                      if (e.key === 'Enter' && !e.shiftKey) {
+                      if (e.key === 'Enter' && !e.shiftKey && currentStep !== 'service') {
                         e.preventDefault()
                         handleSubmit()
                       }
