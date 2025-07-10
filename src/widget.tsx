@@ -63,11 +63,6 @@ const XIcon = () => (
   </svg>
 )
 
-const WrenchIcon = () => (
-  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-    <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>
-  </svg>
-)
 
 const CornerDownLeftIcon = () => (
   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -82,10 +77,195 @@ const CheckIcon = () => (
   </svg>
 )
 
-// Utility function (replaces cn)
-const classNames = (...classes: (string | undefined | false)[]) => {
-  return classes.filter(Boolean).join(' ')
-}
+// Chat Input Form Component
+const ChatInputForm = ({ 
+  input, 
+  setInput, 
+  leadData, 
+  setLeadData, 
+  handleSubmit, 
+  getInputPlaceholder, 
+  currentStep, 
+  CONFIG,
+  isMobile = false 
+}: {
+  input: string;
+  setInput: (value: string) => void;
+  leadData: LeadData;
+  setLeadData: (updater: (prev: LeadData) => LeadData) => void;
+  handleSubmit: (e?: Event) => void;
+  getInputPlaceholder: () => string;
+  currentStep: ChatStep;
+  CONFIG: any;
+  isMobile?: boolean;
+}) => (
+  <div style={{
+    borderTop: '1px solid ' + CONFIG.theme.border,
+    padding: '16px',
+    paddingBottom: isMobile ? '32px' : '16px'
+  }}>
+    <form onSubmit={handleSubmit} style={{
+      position: 'relative',
+      borderRadius: '8px',
+      border: '1px solid ' + CONFIG.theme.border,
+      backgroundColor: CONFIG.theme.background,
+      padding: '4px'
+    }}>
+      {/* Honeypot field - hidden from users but visible to bots */}
+      <input
+        type="text"
+        name="website"
+        value={leadData.website}
+        onChange={(e) => setLeadData(prev => ({ ...prev, website: e.target.value }))}
+        style={{
+          position: 'absolute',
+          left: '-9999px',
+          width: '1px',
+          height: '1px',
+          overflow: 'hidden'
+        }}
+        tabIndex={-1}
+        autoComplete="off"
+        aria-hidden="true"
+      />
+      <textarea
+        value={input}
+        onChange={(e) => setInput(e.target.value)}
+        placeholder={getInputPlaceholder()}
+        maxLength={500}
+        inputMode={currentStep === 'contact' && leadData.name && !leadData.phone ? 'tel' : 'text'}
+        style={{
+          minHeight: '48px',
+          resize: 'none',
+          borderRadius: '8px',
+          backgroundColor: CONFIG.theme.background,
+          border: 'none',
+          padding: '12px',
+          boxShadow: 'none',
+          outline: 'none',
+          width: 'calc(100% - 8px)',
+          fontSize: isMobile ? '16px' : '14px',
+          fontFamily: 'inherit',
+          boxSizing: 'border-box'
+        }}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' && !e.shiftKey && currentStep !== 'service') {
+            e.preventDefault()
+            handleSubmit()
+          }
+        }}
+      />
+      <div style={{
+        display: 'flex',
+        alignItems: 'center',
+        padding: '12px 12px 0',
+        justifyContent: 'space-between'
+      }}>
+        <button
+          type="submit"
+          disabled={!input.trim()}
+          style={{
+            gap: '6px',
+            backgroundColor: CONFIG.theme.primary,
+            color: 'white',
+            border: 'none',
+            borderRadius: '6px',
+            padding: isMobile ? '12px 16px' : '8px 12px',
+            fontSize: isMobile ? '16px' : '14px',
+            display: 'flex',
+            alignItems: 'center',
+            cursor: !input.trim() ? 'not-allowed' : 'pointer',
+            opacity: !input.trim() ? 0.5 : 1,
+            pointerEvents: 'auto'
+          }}
+        >
+          Send
+          <CornerDownLeftIcon />
+        </button>
+      </div>
+    </form>
+  </div>
+)
+
+// Chat Message Component
+const ChatMessage = ({ message, CONFIG }: { message: any; CONFIG: any }) => (
+  <div style={{
+    display: 'flex',
+    alignItems: 'flex-start',
+    gap: '8px',
+    marginBottom: '16px',
+    flexDirection: message.sender === 'user' ? 'row-reverse' : 'row'
+  }}>
+    {/* Avatar */}
+    <div style={{
+      width: '32px',
+      height: '32px',
+      borderRadius: '50%',
+      backgroundColor: message.sender === 'ai' ? CONFIG.theme.primary : '#f3f4f6',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      fontSize: '14px',
+      fontWeight: '600',
+      color: message.sender === 'ai' ? 'white' : CONFIG.theme.muted,
+      flexShrink: 0,
+      overflow: 'hidden'
+    }}>
+      {message.sender === 'ai' ? (
+        <img 
+          src={CONFIG.business.avatar} 
+          alt={CONFIG.business.agentName}
+          style={{
+            width: '100%',
+            height: '100%',
+            objectFit: 'cover'
+          }}
+          onError={(e) => {
+            e.currentTarget.style.display = 'none';
+            e.currentTarget.parentElement.textContent = 'M';
+          }}
+        />
+      ) : 'You'}
+    </div>
+    
+    {/* Message */}
+    <div style={{
+      borderRadius: '8px',
+      padding: '12px',
+      backgroundColor: message.sender === 'user' ? CONFIG.theme.primary : '#f3f4f6',
+      color: message.sender === 'user' ? 'white' : CONFIG.theme.text,
+      maxWidth: '80%'
+    }}>
+      {message.content === "PHONE_BUTTON" ? (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+          <p style={{ margin: 0 }}>Or call me directly for immediate assistance!</p>
+          <button
+            onClick={() => window.open(`tel:${CONFIG.business.phone}`, '_self')}
+            style={{
+              backgroundColor: CONFIG.theme.primary,
+              color: 'white',
+              border: 'none',
+              borderRadius: '6px',
+              padding: '8px 12px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              fontSize: '14px',
+              cursor: 'pointer',
+              width: 'fit-content',
+              pointerEvents: 'auto'
+            }}
+          >
+            <PhoneIcon />
+            {CONFIG.business.phone}
+          </button>
+        </div>
+      ) : (
+        <div style={{ whiteSpace: 'pre-line' }}>{message.content}</div>
+      )}
+    </div>
+  </div>
+)
 
 // Attribution Tracking System
 class AttributionTracker {
@@ -266,7 +446,8 @@ function LeadStickWidget() {
   const [isOpen, setIsOpen] = useState(false)
   const [isMobile, setIsMobile] = useState(false)
   const [currentStep, setCurrentStep] = useState<ChatStep>('location')
-  const chatBodyRef = useRef<HTMLDivElement>(null)
+  const desktopChatBodyRef = useRef<HTMLDivElement>(null)
+  const mobileChatBodyRef = useRef<HTMLDivElement>(null)
   const [leadData, setLeadData] = useState<LeadData>({
     location: '',
     service: '',
@@ -559,8 +740,11 @@ function LeadStickWidget() {
 
   // Auto-scroll chat to bottom when messages change
   useEffect(() => {
-    if (chatBodyRef.current) {
-      chatBodyRef.current.scrollTop = chatBodyRef.current.scrollHeight
+    if (desktopChatBodyRef.current) {
+      desktopChatBodyRef.current.scrollTop = desktopChatBodyRef.current.scrollHeight
+    }
+    if (mobileChatBodyRef.current) {
+      mobileChatBodyRef.current.scrollTop = mobileChatBodyRef.current.scrollHeight
     }
   }, [messages])
 
@@ -770,88 +954,14 @@ function LeadStickWidget() {
 
           {/* Chat Body */}
           <div 
-            ref={chatBodyRef}
+            ref={desktopChatBodyRef}
             style={{
               flexGrow: 1,
               overflowY: 'auto',
               padding: '16px'
             }}>
             {messages.map((message) => (
-              <div key={message.id} style={{
-                display: 'flex',
-                alignItems: 'flex-start',
-                gap: '8px',
-                marginBottom: '16px',
-                flexDirection: message.sender === 'user' ? 'row-reverse' : 'row'
-              }}>
-                {/* Avatar */}
-                <div style={{
-                  width: '32px',
-                  height: '32px',
-                  borderRadius: '50%',
-                  backgroundColor: message.sender === 'ai' ? CONFIG.theme.primary : '#f3f4f6',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontSize: '14px',
-                  fontWeight: '600',
-                  color: message.sender === 'ai' ? 'white' : CONFIG.theme.muted,
-                  flexShrink: 0,
-                  overflow: 'hidden'
-                }}>
-                  {message.sender === 'ai' ? (
-                    <img 
-                      src={CONFIG.business.avatar} 
-                      alt={CONFIG.business.agentName}
-                      style={{
-                        width: '100%',
-                        height: '100%',
-                        objectFit: 'cover'
-                      }}
-                      onError={(e) => {
-                        e.currentTarget.style.display = 'none';
-                        e.currentTarget.parentElement.textContent = 'M';
-                      }}
-                    />
-                  ) : 'You'}
-                </div>
-                
-                {/* Message */}
-                <div style={{
-                  borderRadius: '8px',
-                  padding: '12px',
-                  backgroundColor: message.sender === 'user' ? CONFIG.theme.primary : '#f3f4f6',
-                  color: message.sender === 'user' ? 'white' : CONFIG.theme.text,
-                  maxWidth: '80%'
-                }}>
-                  {message.content === "PHONE_BUTTON" ? (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                      <p style={{ margin: 0 }}>Or call me directly for immediate assistance!</p>
-                      <button
-                        onClick={() => window.open(`tel:${CONFIG.business.phone}`, '_self')}
-                        style={{
-                          backgroundColor: CONFIG.theme.primary,
-                          color: 'white',
-                          border: 'none',
-                          borderRadius: '6px',
-                          padding: '8px 12px',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '8px',
-                          fontSize: '14px',
-                          cursor: 'pointer',
-                          width: 'fit-content'
-                        }}
-                      >
-                        <PhoneIcon />
-                        {CONFIG.business.phone}
-                      </button>
-                    </div>
-                  ) : (
-                    <div style={{ whiteSpace: 'pre-line' }}>{message.content}</div>
-                  )}
-                </div>
-              </div>
+              <ChatMessage key={message.id} message={message} CONFIG={CONFIG} />
             ))}
 
 
@@ -859,91 +969,17 @@ function LeadStickWidget() {
 
           {/* Chat Footer */}
           {currentStep !== 'complete' && (
-            <div style={{
-              borderTop: '1px solid ' + CONFIG.theme.border,
-              padding: '16px'
-            }}>
-              <form onSubmit={handleSubmit} style={{
-                position: 'relative',
-                borderRadius: '8px',
-                border: '1px solid ' + CONFIG.theme.border,
-                backgroundColor: CONFIG.theme.background,
-                padding: '4px'
-              }}>
-                {/* Honeypot field - hidden from users but visible to bots */}
-                <input
-                  type="text"
-                  name="website"
-                  value={leadData.website}
-                  onChange={(e) => setLeadData(prev => ({ ...prev, website: e.target.value }))}
-                  style={{
-                    position: 'absolute',
-                    left: '-9999px',
-                    width: '1px',
-                    height: '1px',
-                    overflow: 'hidden'
-                  }}
-                  tabIndex={-1}
-                  autoComplete="off"
-                  aria-hidden="true"
-                />
-                <textarea
-                  value={input}
-                  onChange={(e) => setInput(e.target.value)}
-                  placeholder={getInputPlaceholder()}
-                  maxLength={500}
-                  inputMode={currentStep === 'contact' && leadData.name && !leadData.phone ? 'tel' : 'text'}
-                  style={{
-                    minHeight: '48px',
-                    resize: 'none',
-                    borderRadius: '8px',
-                    backgroundColor: CONFIG.theme.background,
-                    border: 'none',
-                    padding: '12px',
-                    boxShadow: 'none',
-                    outline: 'none',
-                    width: 'calc(100% - 8px)',
-                    fontSize: '14px',
-                    fontFamily: 'inherit',
-                    boxSizing: 'border-box'
-                  }}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' && !e.shiftKey && currentStep !== 'service') {
-                      e.preventDefault()
-                      handleSubmit()
-                    }
-                  }}
-                />
-                <div style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  padding: '12px 12px 0',
-                  justifyContent: 'space-between'
-                }}>
-
-                  <button
-                    type="submit"
-                    disabled={!input.trim()}
-                    style={{
-                      gap: '6px',
-                      backgroundColor: CONFIG.theme.primary,
-                      color: 'white',
-                      border: 'none',
-                      borderRadius: '6px',
-                      padding: '8px 12px',
-                      fontSize: '14px',
-                      display: 'flex',
-                      alignItems: 'center',
-                      cursor: !input.trim() ? 'not-allowed' : 'pointer',
-                      opacity: !input.trim() ? 0.5 : 1
-                    }}
-                  >
-                    Send
-                    <CornerDownLeftIcon />
-                  </button>
-                </div>
-              </form>
-            </div>
+            <ChatInputForm
+              input={input}
+              setInput={setInput}
+              leadData={leadData}
+              setLeadData={setLeadData}
+              handleSubmit={handleSubmit}
+              getInputPlaceholder={getInputPlaceholder}
+              currentStep={currentStep}
+              CONFIG={CONFIG}
+              isMobile={false}
+            />
           )}
 
           {/* Powered by LeadStick branding */}
@@ -1171,89 +1207,14 @@ function LeadStickWidget() {
 
             {/* Mobile Chat Body */}
             <div 
-              ref={chatBodyRef}
+              ref={mobileChatBodyRef}
               style={{
                 flexGrow: 1,
                 overflowY: 'auto',
                 padding: '16px'
               }}>
               {messages.map((message) => (
-                <div key={message.id} style={{
-                  display: 'flex',
-                  alignItems: 'flex-start',
-                  gap: '8px',
-                  marginBottom: '16px',
-                  flexDirection: message.sender === 'user' ? 'row-reverse' : 'row'
-                }}>
-                  {/* Avatar */}
-                  <div style={{
-                    width: '32px',
-                    height: '32px',
-                    borderRadius: '50%',
-                    backgroundColor: message.sender === 'ai' ? CONFIG.theme.primary : '#f3f4f6',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    fontSize: '14px',
-                    fontWeight: '600',
-                    color: message.sender === 'ai' ? 'white' : CONFIG.theme.muted,
-                    flexShrink: 0,
-                    overflow: 'hidden'
-                  }}>
-                    {message.sender === 'ai' ? (
-                      <img 
-                        src={CONFIG.business.avatar} 
-                        alt={CONFIG.business.agentName}
-                        style={{
-                          width: '100%',
-                          height: '100%',
-                          objectFit: 'cover'
-                        }}
-                        onError={(e) => {
-                          e.currentTarget.style.display = 'none';
-                          e.currentTarget.parentElement.textContent = 'M';
-                        }}
-                      />
-                    ) : 'You'}
-                  </div>
-                  
-                  {/* Message */}
-                  <div style={{
-                    borderRadius: '8px',
-                    padding: '12px',
-                    backgroundColor: message.sender === 'user' ? CONFIG.theme.primary : '#f3f4f6',
-                    color: message.sender === 'user' ? 'white' : CONFIG.theme.text,
-                    maxWidth: '80%'
-                  }}>
-                    {message.content === "PHONE_BUTTON" ? (
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                        <p style={{ margin: 0 }}>Or call me directly for immediate assistance!</p>
-                        <button
-                          onClick={() => window.open(`tel:${CONFIG.business.phone}`, '_self')}
-                          style={{
-                            backgroundColor: CONFIG.theme.primary,
-                            color: 'white',
-                            border: 'none',
-                            borderRadius: '6px',
-                            padding: '8px 12px',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '8px',
-                            fontSize: '14px',
-                            cursor: 'pointer',
-                            width: 'fit-content',
-                            pointerEvents: 'auto'
-                          }}
-                        >
-                          <PhoneIcon />
-                          {CONFIG.business.phone}
-                        </button>
-                      </div>
-                    ) : (
-                      <div style={{ whiteSpace: 'pre-line' }}>{message.content}</div>
-                    )}
-                  </div>
-                </div>
+                <ChatMessage key={message.id} message={message} CONFIG={CONFIG} />
               ))}
 
 
@@ -1261,92 +1222,17 @@ function LeadStickWidget() {
 
             {/* Mobile Chat Footer */}
             {currentStep !== 'complete' && (
-              <div style={{
-                borderTop: '1px solid ' + CONFIG.theme.border,
-                padding: '16px',
-                paddingBottom: '32px'
-              }}>
-                <form onSubmit={handleSubmit} style={{
-                  position: 'relative',
-                  borderRadius: '8px',
-                  border: '1px solid ' + CONFIG.theme.border,
-                  backgroundColor: CONFIG.theme.background,
-                  padding: '4px'
-                }}>
-                  {/* Honeypot field - hidden from users but visible to bots */}
-                  <input
-                    type="text"
-                    name="website"
-                    value={leadData.website}
-                    onChange={(e) => setLeadData(prev => ({ ...prev, website: e.target.value }))}
-                    style={{
-                      position: 'absolute',
-                      left: '-9999px',
-                      width: '1px',
-                      height: '1px',
-                      overflow: 'hidden'
-                    }}
-                    tabIndex={-1}
-                    autoComplete="off"
-                    aria-hidden="true"
-                  />
-                  <textarea
-                    value={input}
-                    onChange={(e) => setInput(e.target.value)}
-                    placeholder={getInputPlaceholder()}
-                    inputMode={currentStep === 'contact' && leadData.name && !leadData.phone ? 'tel' : 'text'}
-                    style={{
-                      minHeight: '48px',
-                      resize: 'none',
-                      borderRadius: '8px',
-                      backgroundColor: CONFIG.theme.background,
-                      border: 'none',
-                      padding: '12px',
-                      boxShadow: 'none',
-                      outline: 'none',
-                      width: 'calc(100% - 8px)',
-                      fontSize: '16px',
-                      fontFamily: 'inherit',
-                      boxSizing: 'border-box'
-                    }}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' && !e.shiftKey && currentStep !== 'service') {
-                        e.preventDefault()
-                        handleSubmit()
-                      }
-                    }}
-                  />
-                  <div style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    padding: '12px 12px 0',
-                    justifyContent: 'space-between'
-                  }}>
-
-                    <button
-                      type="submit"
-                      disabled={!input.trim()}
-                      style={{
-                        gap: '6px',
-                        backgroundColor: CONFIG.theme.primary,
-                        color: 'white',
-                        border: 'none',
-                        borderRadius: '6px',
-                        padding: '12px 16px',
-                        fontSize: '16px',
-                        display: 'flex',
-                        alignItems: 'center',
-                        cursor: !input.trim() ? 'not-allowed' : 'pointer',
-                        opacity: !input.trim() ? 0.5 : 1,
-                        pointerEvents: 'auto'
-                      }}
-                    >
-                      Send
-                      <CornerDownLeftIcon />
-                    </button>
-                  </div>
-                </form>
-              </div>
+              <ChatInputForm
+                input={input}
+                setInput={setInput}
+                leadData={leadData}
+                setLeadData={setLeadData}
+                handleSubmit={handleSubmit}
+                getInputPlaceholder={getInputPlaceholder}
+                currentStep={currentStep}
+                CONFIG={CONFIG}
+                isMobile={true}
+              />
             )}
             
             {/* Powered by LeadStick branding - Mobile */}
