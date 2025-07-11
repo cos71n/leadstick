@@ -299,16 +299,10 @@ async function authenticateAdmin(request, env, requireCsrf = false) {
 }
 
 // Enhanced logging for admin operations
-function logAdminOperation(request, operation, details = {}) {
+function logAdminOperation(operation, details = {}) {
   const timestamp = new Date().toISOString();
-  const ip = request.headers.get('CF-Connecting-IP') || 
-            request.headers.get('X-Forwarded-For') || 
-            'unknown';
-  const userAgent = request.headers.get('User-Agent') || 'unknown';
   
   console.log(`[ADMIN AUDIT] ${timestamp} - ${operation}`, {
-    ip,
-    userAgent,
     operation,
     ...details
   });
@@ -334,7 +328,9 @@ export default {
       'Content-Type': 'application/json',
       'X-Content-Type-Options': 'nosniff',
       'X-Frame-Options': 'DENY',
-      'Referrer-Policy': 'strict-origin-when-cross-origin'
+      'Referrer-Policy': 'strict-origin-when-cross-origin',
+      'Content-Security-Policy': "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none';",
+      'Strict-Transport-Security': 'max-age=31536000; includeSubDomains; preload'
     };
     
     // Restrict CORS for admin endpoints
@@ -431,7 +427,7 @@ export default {
         }
         
         if (hashHex !== adminPasswordHash) {
-          logAdminOperation(request, 'FAILED_LOGIN_ATTEMPT');
+          logAdminOperation('FAILED_LOGIN_ATTEMPT');
           return new Response(JSON.stringify({ 
             error: 'Invalid credentials' 
           }), { 
@@ -453,12 +449,10 @@ export default {
         // Store session in KV with 2 hour expiration
         await env.LEADSTICK_CONFIGS.put(sessionKey, JSON.stringify({
           createdAt: new Date().toISOString(),
-          ip: request.headers.get('CF-Connecting-IP') || 'unknown',
-          userAgent: request.headers.get('User-Agent') || 'unknown',
           csrfToken: csrfToken
         }), { expirationTtl: 7200 }); // 2 hours
         
-        logAdminOperation(request, 'SUCCESSFUL_LOGIN');
+        logAdminOperation('SUCCESSFUL_LOGIN');
         
         return new Response(JSON.stringify({ 
           success: true,
@@ -526,7 +520,7 @@ export default {
       // Check authentication
       const authResult = await authenticateAdmin(request, env);
       if (!authResult.valid) {
-        logAdminOperation(request, 'UNAUTHORIZED_ACCESS_ATTEMPT', { 
+        logAdminOperation('UNAUTHORIZED_ACCESS_ATTEMPT', { 
           endpoint: '/admin/clients',
           method: 'GET'
         });
@@ -538,7 +532,7 @@ export default {
         });
       }
 
-      logAdminOperation(request, 'LIST_CLIENTS');
+      logAdminOperation('LIST_CLIENTS');
       
       try {
         // List all client configs from KV
@@ -579,7 +573,7 @@ export default {
       // Check authentication with CSRF
       const authResult = await authenticateAdmin(request, env, true);
       if (!authResult.valid) {
-        logAdminOperation(request, 'UNAUTHORIZED_ACCESS_ATTEMPT', { 
+        logAdminOperation('UNAUTHORIZED_ACCESS_ATTEMPT', { 
           endpoint: '/admin/clients',
           method: 'POST'
         });
@@ -695,7 +689,7 @@ export default {
         // Save to KV
         await env.LEADSTICK_CONFIGS.put(configKey, JSON.stringify(sanitizedClientData));
         
-        logAdminOperation(request, 'CREATE_CLIENT', { 
+        logAdminOperation('CREATE_CLIENT', { 
           siteId: sanitizedClientData.siteId,
           businessName: sanitizedClientData.business.name 
         });
@@ -722,7 +716,7 @@ export default {
       // Check authentication with CSRF
       const authResult = await authenticateAdmin(request, env, true);
       if (!authResult.valid) {
-        logAdminOperation(request, 'UNAUTHORIZED_ACCESS_ATTEMPT', { 
+        logAdminOperation('UNAUTHORIZED_ACCESS_ATTEMPT', { 
           endpoint: url.pathname,
           method: 'PUT'
         });
@@ -846,7 +840,7 @@ export default {
         // Save updated config
         await env.LEADSTICK_CONFIGS.put(configKey, JSON.stringify(sanitizedClientData));
         
-        logAdminOperation(request, 'UPDATE_CLIENT', { 
+        logAdminOperation('UPDATE_CLIENT', { 
           siteId: sanitizedClientData.siteId,
           businessName: sanitizedClientData.business.name 
         });
@@ -873,7 +867,7 @@ export default {
       // Check authentication with CSRF
       const authResult = await authenticateAdmin(request, env, true);
       if (!authResult.valid) {
-        logAdminOperation(request, 'UNAUTHORIZED_ACCESS_ATTEMPT', { 
+        logAdminOperation('UNAUTHORIZED_ACCESS_ATTEMPT', { 
           endpoint: url.pathname,
           method: 'DELETE'
         });
@@ -913,7 +907,7 @@ export default {
         // Delete from KV
         await env.LEADSTICK_CONFIGS.delete(configKey);
         
-        logAdminOperation(request, 'DELETE_CLIENT', { 
+        logAdminOperation('DELETE_CLIENT', { 
           siteId: sanitizeInput(siteId, 50)
         });
         
@@ -949,10 +943,8 @@ export default {
       if (!rateLimitResult.allowed) {
         // Log rate limit violations
         console.warn('Rate limit exceeded:', {
-          ip: clientIP,
           reason: rateLimitResult.reason,
           remaining: rateLimitResult.remaining,
-          userAgent: request.headers.get('User-Agent'),
           timestamp: new Date().toISOString()
         });
         
@@ -991,8 +983,6 @@ export default {
         if (isSpam) {
           console.warn('Spam attempt blocked:', {
             reason: errors[0],
-            ip: clientIP,
-            userAgent: request.headers.get('User-Agent'),
             timestamp: new Date().toISOString()
           });
         }
