@@ -101,6 +101,13 @@
             border-radius: 8px;
             font-size: 14px;
             background: white;
+            transition: border-color 0.2s;
+        }
+
+        .search-box input:focus {
+            outline: none;
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
         }
 
         .search-box::before {
@@ -389,6 +396,32 @@
             box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
         }
 
+        .validation-error {
+            color: #dc2626;
+            font-size: 12px;
+            margin-top: 4px;
+            display: none;
+        }
+
+        .form-group.error input,
+        .form-group.error textarea,
+        .form-group.error select {
+            border-color: #dc2626;
+            background: #fef2f2;
+        }
+
+        .form-group.error input:focus,
+        .form-group.error textarea:focus,
+        .form-group.error select:focus {
+            border-color: #dc2626;
+            box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.1);
+        }
+
+        .search-box.error input {
+            border-color: #dc2626;
+            background: #fef2f2;
+        }
+
         .form-group .help-text {
             font-size: 12px;
             color: #6b7280;
@@ -649,8 +682,16 @@
 
         <div class="container">
             <div class="toolbar">
-                <div class="search-box">
-                    <input type="text" id="searchInput" placeholder="Search clients..." onkeyup="filterClients()">
+                <div class="search-box" id="searchBox">
+                    <input 
+                        type="text" 
+                        id="searchInput" 
+                        placeholder="Search clients..." 
+                        maxlength="100"
+                        oninput="validateSearchInput()"
+                        onkeyup="filterClients()"
+                    >
+                    <div id="searchError" class="validation-error"></div>
                 </div>
                 <button class="btn btn-primary" onclick="openNewClientModal()">
                     ➕ Add New Client
@@ -828,10 +869,134 @@
             `).join('');
         }
 
-        // Basic functionality
+        // Input validation functions
+        function validateSearchInput() {
+            const searchInput = document.getElementById('searchInput');
+            const searchBox = document.getElementById('searchBox');
+            const searchError = document.getElementById('searchError');
+            const searchTerm = searchInput.value;
+            
+            // Clear previous validation state
+            searchBox.classList.remove('error');
+            searchError.style.display = 'none';
+            searchError.textContent = '';
+            
+            // Skip validation for empty input
+            if (searchTerm.length === 0) {
+                return true;
+            }
+            
+            const errors = [];
+            
+            // Length validation
+            if (searchTerm.length > 100) {
+                errors.push('Search term is too long (max 100 characters)');
+            }
+            
+            // Security validation - prevent XSS and injection attempts
+            const dangerousChars = /<|>|'|"|;|--|\/\*|\*\/|script|javascript:|data:|vbscript:|onload|onerror/i;
+            if (dangerousChars.test(searchTerm)) {
+                errors.push('Search contains invalid characters');
+            }
+            
+            // Prevent potential SQL injection patterns
+            const sqlPatterns = /(\bselect\b|\binsert\b|\bupdate\b|\bdelete\b|\bdrop\b|\bunion\b|\bexec\b)/i;
+            if (sqlPatterns.test(searchTerm)) {
+                errors.push('Invalid search pattern');
+            }
+            
+            if (errors.length > 0) {
+                searchBox.classList.add('error');
+                searchError.textContent = errors[0];
+                searchError.style.display = 'block';
+                return false;
+            }
+            
+            return true;
+        }
+        
+        function sanitizeInput(input) {
+            if (typeof input !== 'string') return '';
+            return input.trim().replace(/[<>'"&]/g, '');
+        }
+        
+        function validateClientInput(inputId, value, type) {
+            const errors = [];
+            
+            switch (type) {
+                case 'siteId':
+                    if (!value) errors.push('Site ID is required');
+                    else if (value.length < 3) errors.push('Site ID must be at least 3 characters');
+                    else if (value.length > 50) errors.push('Site ID must be less than 50 characters');
+                    else if (!/^[a-zA-Z0-9-_]+$/.test(value)) errors.push('Site ID can only contain letters, numbers, hyphens, and underscores');
+                    break;
+                    
+                case 'businessName':
+                    if (!value) errors.push('Business name is required');
+                    else if (value.length < 2) errors.push('Business name must be at least 2 characters');
+                    else if (value.length > 100) errors.push('Business name must be less than 100 characters');
+                    break;
+                    
+                case 'email':
+                    if (!value) errors.push('Email is required');
+                    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) errors.push('Please enter a valid email address');
+                    else if (value.length > 100) errors.push('Email must be less than 100 characters');
+                    break;
+                    
+                case 'agentName':
+                    if (value && value.length > 50) errors.push('Agent name must be less than 50 characters');
+                    break;
+                    
+                case 'phone':
+                    if (value && !/^[\d\s\-\+\(\)\.]+$/.test(value)) errors.push('Please enter a valid phone number');
+                    else if (value && value.length > 20) errors.push('Phone number must be less than 20 characters');
+                    break;
+            }
+            
+            // Common security validation for all inputs
+            const dangerousChars = /<|>|script|javascript:|data:|vbscript:|onload|onerror/i;
+            if (dangerousChars.test(value)) {
+                errors.push('Input contains invalid characters');
+            }
+            
+            return errors;
+        }
+        
+        function showInputError(inputId, message) {
+            const input = document.getElementById(inputId);
+            const group = input.closest('.form-group');
+            let errorDiv = group.querySelector('.validation-error');
+            
+            if (!errorDiv) {
+                errorDiv = document.createElement('div');
+                errorDiv.className = 'validation-error';
+                group.appendChild(errorDiv);
+            }
+            
+            group.classList.add('error');
+            errorDiv.textContent = message;
+            errorDiv.style.display = 'block';
+        }
+        
+        function clearInputError(inputId) {
+            const input = document.getElementById(inputId);
+            const group = input.closest('.form-group');
+            const errorDiv = group.querySelector('.validation-error');
+            
+            group.classList.remove('error');
+            if (errorDiv) {
+                errorDiv.style.display = 'none';
+            }
+        }
+
+        // Enhanced search functionality with validation
         function filterClients() {
-            // Basic search functionality
-            const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+            // Validate search input first
+            if (!validateSearchInput()) {
+                return;
+            }
+            
+            const searchTerm = sanitizeInput(document.getElementById('searchInput').value.toLowerCase());
             const clientCards = document.querySelectorAll('.client-card');
 
             clientCards.forEach(card => {

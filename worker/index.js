@@ -29,6 +29,73 @@ function sanitizeInput(input, maxLength = 500) {
   return input.trim().slice(0, maxLength);
 }
 
+// Enhanced validation function for admin inputs
+function validateAdminInput(input, type, required = true) {
+  const errors = [];
+  
+  // Required field validation
+  if (required && (!input || input.trim() === '')) {
+    errors.push(`${type} is required`);
+    return { isValid: false, errors, sanitized: '' };
+  }
+  
+  // Skip further validation for optional empty fields
+  if (!required && (!input || input.trim() === '')) {
+    return { isValid: true, errors: [], sanitized: '' };
+  }
+  
+  const value = input.trim();
+  
+  // Common security validation for all inputs
+  const dangerousChars = /<|>|'|"|;|--|\/\*|\*\/|script|javascript:|data:|vbscript:|onload|onerror|eval|expression/i;
+  if (dangerousChars.test(value)) {
+    errors.push(`${type} contains invalid characters`);
+  }
+  
+  // Type-specific validation
+  switch (type) {
+    case 'siteId':
+      if (value.length < 3) errors.push('Site ID must be at least 3 characters');
+      if (value.length > 50) errors.push('Site ID must be less than 50 characters');
+      if (!/^[a-zA-Z0-9-_]+$/.test(value)) errors.push('Site ID can only contain letters, numbers, hyphens, and underscores');
+      break;
+      
+    case 'businessName':
+      if (value.length < 2) errors.push('Business name must be at least 2 characters');
+      if (value.length > 100) errors.push('Business name must be less than 100 characters');
+      break;
+      
+    case 'email':
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) errors.push('Please enter a valid email address');
+      if (value.length > 100) errors.push('Email must be less than 100 characters');
+      break;
+      
+    case 'agentName':
+      if (value.length > 50) errors.push('Agent name must be less than 50 characters');
+      break;
+      
+    case 'phone':
+      if (!/^[\d\s\-\+\(\)\.]+$/.test(value)) errors.push('Please enter a valid phone number');
+      if (value.length > 20) errors.push('Phone number must be less than 20 characters');
+      break;
+      
+    case 'avatar':
+      if (value.length > 200) errors.push('Avatar URL must be less than 200 characters');
+      // Basic URL validation
+      if (value && !/^https?:\/\/.+/.test(value)) errors.push('Avatar must be a valid HTTPS URL');
+      break;
+      
+    default:
+      if (value.length > 500) errors.push(`${type} is too long (max 500 characters)`);
+  }
+  
+  return {
+    isValid: errors.length === 0,
+    errors,
+    sanitized: sanitizeInput(value, type === 'email' ? 100 : (type === 'siteId' ? 50 : 500))
+  };
+}
+
 // Persistent rate limiting using Cloudflare KV
 // This approach persists across worker restarts and provides robust protection
 async function checkRateLimit(clientIP, env) {
@@ -302,9 +369,41 @@ export default {
       try {
         const { password } = await request.json();
         
+        // Enhanced input validation for authentication
         if (!password) {
           return new Response(JSON.stringify({ 
             error: 'Password required' 
+          }), { 
+            status: 400, 
+            headers: corsHeaders 
+          });
+        }
+        
+        // Validate password input
+        if (typeof password !== 'string') {
+          return new Response(JSON.stringify({ 
+            error: 'Invalid password format' 
+          }), { 
+            status: 400, 
+            headers: corsHeaders 
+          });
+        }
+        
+        // Length validation
+        if (password.length < 8 || password.length > 128) {
+          return new Response(JSON.stringify({ 
+            error: 'Invalid password length' 
+          }), { 
+            status: 400, 
+            headers: corsHeaders 
+          });
+        }
+        
+        // Security validation - prevent injection attempts
+        const dangerousChars = /<|>|'|"|;|--|\/\*|\*\/|script|select|insert|update|delete|drop|union|exec/i;
+        if (dangerousChars.test(password)) {
+          return new Response(JSON.stringify({ 
+            error: 'Invalid password format' 
           }), { 
             status: 400, 
             headers: corsHeaders 
@@ -495,10 +594,31 @@ export default {
       try {
         const clientData = await request.json();
         
+        // Enhanced validation for client data
+        const validationErrors = [];
+        
         // Validate required fields
-        if (!clientData.siteId || !clientData.business?.name || !clientData.business?.email) {
+        const siteIdValidation = validateAdminInput(clientData.siteId, 'siteId', true);
+        const businessNameValidation = validateAdminInput(clientData.business?.name, 'businessName', true);
+        const emailValidation = validateAdminInput(clientData.business?.email, 'email', true);
+        
+        // Validate optional fields
+        const phoneValidation = validateAdminInput(clientData.business?.phone, 'phone', false);
+        const agentNameValidation = validateAdminInput(clientData.business?.agentName, 'agentName', false);
+        const avatarValidation = validateAdminInput(clientData.business?.avatar, 'avatar', false);
+        
+        // Collect all validation errors
+        [siteIdValidation, businessNameValidation, emailValidation, phoneValidation, agentNameValidation, avatarValidation]
+          .forEach(validation => {
+            if (!validation.isValid) {
+              validationErrors.push(...validation.errors);
+            }
+          });
+        
+        if (validationErrors.length > 0) {
           return new Response(JSON.stringify({ 
-            error: 'Missing required fields: siteId, business.name, business.email' 
+            error: 'Validation failed',
+            details: validationErrors
           }), { 
             status: 400, 
             headers: corsHeaders 
@@ -506,7 +626,7 @@ export default {
         }
         
         // Check if client already exists
-        const configKey = `client_config_${clientData.siteId}`;
+        const configKey = `client_config_${siteIdValidation.sanitized}`;
         const existing = await env.LEADSTICK_CONFIGS.get(configKey);
         if (existing) {
           return new Response(JSON.stringify({ 
@@ -517,19 +637,59 @@ export default {
           });
         }
         
-        // Sanitize and validate input
+        // Validate and sanitize theme and message data
+        let sanitizedTheme = {};
+        let sanitizedMessages = {};
+        let sanitizedFlow = [];
+        
+        if (clientData.theme && typeof clientData.theme === 'object') {
+          // Validate theme colors
+          if (clientData.theme.primary && !/^#[0-9A-Fa-f]{6}$/.test(clientData.theme.primary)) {
+            validationErrors.push('Invalid primary theme color format');
+          } else {
+            sanitizedTheme.primary = clientData.theme.primary;
+          }
+        }
+        
+        if (clientData.messages && typeof clientData.messages === 'object') {
+          // Validate message content
+          Object.keys(clientData.messages).forEach(key => {
+            const messageValidation = validateAdminInput(clientData.messages[key], 'message', false);
+            if (!messageValidation.isValid) {
+              validationErrors.push(`Invalid message content for ${key}`);
+            } else {
+              sanitizedMessages[key] = messageValidation.sanitized;
+            }
+          });
+        }
+        
+        if (clientData.flow && Array.isArray(clientData.flow)) {
+          sanitizedFlow = clientData.flow.slice(0, 20); // Limit to 20 flow items
+        }
+        
+        if (validationErrors.length > 0) {
+          return new Response(JSON.stringify({ 
+            error: 'Validation failed',
+            details: validationErrors
+          }), { 
+            status: 400, 
+            headers: corsHeaders 
+          });
+        }
+        
+        // Create sanitized client data
         const sanitizedClientData = {
-          siteId: sanitizeInput(clientData.siteId, 50),
+          siteId: siteIdValidation.sanitized,
           business: {
-            name: sanitizeInput(clientData.business.name, 100),
-            email: sanitizeInput(clientData.business.email, 100),
-            phone: sanitizeInput(clientData.business.phone || '', 20),
-            agentName: sanitizeInput(clientData.business.agentName || '', 50),
-            avatar: sanitizeInput(clientData.business.avatar || '', 200)
+            name: businessNameValidation.sanitized,
+            email: emailValidation.sanitized,
+            phone: phoneValidation.sanitized,
+            agentName: agentNameValidation.sanitized,
+            avatar: avatarValidation.sanitized
           },
-          theme: clientData.theme || {},
-          messages: clientData.messages || {},
-          flow: clientData.flow || []
+          theme: sanitizedTheme,
+          messages: sanitizedMessages,
+          flow: sanitizedFlow
         };
 
         // Save to KV
@@ -600,19 +760,87 @@ export default {
           });
         }
         
-        // Sanitize and validate input
+        // Enhanced validation for client update data
+        const validationErrors = [];
+        
+        // Validate siteId from URL
+        const siteIdValidation = validateAdminInput(siteId, 'siteId', true);
+        if (!siteIdValidation.isValid) {
+          return new Response(JSON.stringify({ 
+            error: 'Invalid Site ID',
+            details: siteIdValidation.errors
+          }), { 
+            status: 400, 
+            headers: corsHeaders 
+          });
+        }
+        
+        // Validate business fields (all optional for updates)
+        const businessNameValidation = validateAdminInput(clientData.business?.name, 'businessName', false);
+        const emailValidation = validateAdminInput(clientData.business?.email, 'email', false);
+        const phoneValidation = validateAdminInput(clientData.business?.phone, 'phone', false);
+        const agentNameValidation = validateAdminInput(clientData.business?.agentName, 'agentName', false);
+        const avatarValidation = validateAdminInput(clientData.business?.avatar, 'avatar', false);
+        
+        // Collect validation errors
+        [businessNameValidation, emailValidation, phoneValidation, agentNameValidation, avatarValidation]
+          .forEach(validation => {
+            if (!validation.isValid) {
+              validationErrors.push(...validation.errors);
+            }
+          });
+        
+        // Validate theme and message data
+        let sanitizedTheme = {};
+        let sanitizedMessages = {};
+        let sanitizedFlow = [];
+        
+        if (clientData.theme && typeof clientData.theme === 'object') {
+          if (clientData.theme.primary && !/^#[0-9A-Fa-f]{6}$/.test(clientData.theme.primary)) {
+            validationErrors.push('Invalid primary theme color format');
+          } else {
+            sanitizedTheme.primary = clientData.theme.primary;
+          }
+        }
+        
+        if (clientData.messages && typeof clientData.messages === 'object') {
+          Object.keys(clientData.messages).forEach(key => {
+            const messageValidation = validateAdminInput(clientData.messages[key], 'message', false);
+            if (!messageValidation.isValid) {
+              validationErrors.push(`Invalid message content for ${key}`);
+            } else {
+              sanitizedMessages[key] = messageValidation.sanitized;
+            }
+          });
+        }
+        
+        if (clientData.flow && Array.isArray(clientData.flow)) {
+          sanitizedFlow = clientData.flow.slice(0, 20);
+        }
+        
+        if (validationErrors.length > 0) {
+          return new Response(JSON.stringify({ 
+            error: 'Validation failed',
+            details: validationErrors
+          }), { 
+            status: 400, 
+            headers: corsHeaders 
+          });
+        }
+        
+        // Create sanitized client data
         const sanitizedClientData = {
-          siteId: sanitizeInput(siteId, 50),
+          siteId: siteIdValidation.sanitized,
           business: {
-            name: sanitizeInput(clientData.business?.name || '', 100),
-            email: sanitizeInput(clientData.business?.email || '', 100),
-            phone: sanitizeInput(clientData.business?.phone || '', 20),
-            agentName: sanitizeInput(clientData.business?.agentName || '', 50),
-            avatar: sanitizeInput(clientData.business?.avatar || '', 200)
+            name: businessNameValidation.sanitized || '',
+            email: emailValidation.sanitized || '',
+            phone: phoneValidation.sanitized || '',
+            agentName: agentNameValidation.sanitized || '',
+            avatar: avatarValidation.sanitized || ''
           },
-          theme: clientData.theme || {},
-          messages: clientData.messages || {},
-          flow: clientData.flow || []
+          theme: sanitizedTheme,
+          messages: sanitizedMessages,
+          flow: sanitizedFlow
         };
         
         // Save updated config
