@@ -7,6 +7,8 @@ compatibility_date = "2024-07-01"
 ENVIRONMENT = "development"
 LEAD_EMAIL_RECIPIENT = "michael.costin@localdigital.com.au"
 LEAD_EMAIL_FROM = "LeadStick <hello@coscorp.com.au>"
+# CORS configuration for development
+ADMIN_ALLOWED_ORIGINS = "https://leadstick-dashboard.pages.dev,http://localhost:3000,http://127.0.0.1:3000"
 
 # Staging environment
 [env.staging]
@@ -15,6 +17,8 @@ name = "leadstick-api-staging"
 ENVIRONMENT = "staging"
 LEAD_EMAIL_RECIPIENT = "leads@quickservicepro.com"
 LEAD_EMAIL_FROM = "LeadStick <noreply@leadstick.com>"
+# CORS configuration for staging
+ADMIN_ALLOWED_ORIGINS = "https://leadstick-dashboard-staging.pages.dev,https://leadstick-dashboard.pages.dev"
 
 # Production environment
 [env.production]
@@ -23,6 +27,8 @@ name = "leadstick-api-production"
 ENVIRONMENT = "production"
 LEAD_EMAIL_RECIPIENT = "michael.costin@localdigital.com.au"
 LEAD_EMAIL_FROM = "LeadStick <hello@coscorp.com.au>"
+# CORS configuration for production (strict)
+ADMIN_ALLOWED_ORIGINS = "https://leadstick-dashboard.pages.dev"
 
 # KV Namespaces
 [[kv_namespaces]]

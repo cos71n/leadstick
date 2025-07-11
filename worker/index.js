@@ -312,12 +312,15 @@ export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
     
-    // Enhanced CORS headers - restrict to admin dashboard domain
-    const allowedOrigins = [
-      'https://leadstick-dashboard.pages.dev',
-      'http://localhost:3000', // For development
-      'http://127.0.0.1:3000'  // For development
-    ];
+    // Generate cryptographically secure nonce for CSP
+    const nonceBytes = new Uint8Array(16); // 128 bits
+    crypto.getRandomValues(nonceBytes);
+    const nonce = Array.from(nonceBytes).map(b => b.toString(16).padStart(2, '0')).join('');
+    
+    // Environment-based CORS configuration
+    const allowedOrigins = env.ADMIN_ALLOWED_ORIGINS 
+      ? env.ADMIN_ALLOWED_ORIGINS.split(',').map(origin => origin.trim())
+      : ['https://leadstick-dashboard.pages.dev']; // Fallback for production safety
     
     const origin = request.headers.get('Origin');
     const isAdminRequest = url.pathname.startsWith('/admin/');
@@ -329,7 +332,7 @@ export default {
       'X-Content-Type-Options': 'nosniff',
       'X-Frame-Options': 'DENY',
       'Referrer-Policy': 'strict-origin-when-cross-origin',
-      'Content-Security-Policy': "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none';",
+      'Content-Security-Policy': `default-src 'self'; script-src 'self' 'nonce-${nonce}'; style-src 'self' 'nonce-${nonce}'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; object-src 'none'; base-uri 'self';`,
       'Strict-Transport-Security': 'max-age=31536000; includeSubDomains; preload'
     };
     
@@ -363,6 +366,68 @@ export default {
     // Route: POST /admin/auth - Authenticate admin and get session token
     if (request.method === 'POST' && url.pathname === '/admin/auth') {
       try {
+        // Rate limiting for admin authentication
+        const clientIP = request.headers.get('CF-Connecting-IP') || request.headers.get('X-Forwarded-For') || 'unknown';
+        const rateLimitKey = `admin_auth_rate_limit_${clientIP}`;
+        
+        // Check for account lockout first
+        const lockoutKey = `admin_lockout_${clientIP}`;
+        const lockoutData = await env.LEADSTICK_CONFIGS.get(lockoutKey, 'json');
+        
+        if (lockoutData && lockoutData.lockedUntil > now) {
+          const timeRemaining = Math.ceil((lockoutData.lockedUntil - now) / 1000 / 60);
+          logAdminOperation('ACCOUNT_LOCKED', { clientIP, attemptsBeforeLockout: lockoutData.attempts });
+          
+          return new Response(JSON.stringify({ 
+            error: `Account temporarily locked due to repeated failed attempts. Please try again in ${timeRemaining} minutes.` 
+          }), { 
+            status: 423, // 423 Locked
+            headers: {
+              ...corsHeaders,
+              'Retry-After': Math.ceil((lockoutData.lockedUntil - now) / 1000).toString()
+            }
+          });
+        }
+
+        // Check current attempt count
+        const attemptData = await env.LEADSTICK_CONFIGS.get(rateLimitKey, 'json');
+        const now = Date.now();
+        const windowMs = 15 * 60 * 1000; // 15 minutes
+        const maxAttempts = 5; // Maximum 5 attempts per 15 minutes
+        const lockoutAttempts = 10; // Lockout after 10 failed attempts
+        
+        let attempts = 0;
+        let totalFailedAttempts = 0;
+        let windowStart = now;
+        
+        if (attemptData) {
+          attempts = attemptData.attempts || 0;
+          totalFailedAttempts = attemptData.totalFailedAttempts || 0;
+          windowStart = attemptData.windowStart || now;
+          
+          // Reset window if expired
+          if (now - windowStart > windowMs) {
+            attempts = 0;
+            windowStart = now;
+          }
+        }
+        
+        // Block if too many attempts in current window
+        if (attempts >= maxAttempts) {
+          const timeRemaining = Math.ceil((windowStart + windowMs - now) / 1000 / 60);
+          logAdminOperation('RATE_LIMITED', { clientIP, attempts, totalFailedAttempts });
+          
+          return new Response(JSON.stringify({ 
+            error: `Too many authentication attempts. Please try again in ${timeRemaining} minutes.` 
+          }), { 
+            status: 429, 
+            headers: {
+              ...corsHeaders,
+              'Retry-After': Math.ceil((windowStart + windowMs - now) / 1000).toString()
+            }
+          });
+        }
+        
         const { password } = await request.json();
         
         // Enhanced input validation for authentication
@@ -406,18 +471,12 @@ export default {
           });
         }
 
-        // Hash the provided password and compare with stored hash
-        const encoder = new TextEncoder();
-        const data = encoder.encode(password);
-        const hashBuffer = await crypto.subtle.digest('SHA-256', data);
-        const hashArray = Array.from(new Uint8Array(hashBuffer));
-        const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-        
-        // Get admin password hash from environment
+        // Get admin password hash and salt from environment
         const adminPasswordHash = env.ADMIN_PASSWORD_HASH;
+        const adminPasswordSalt = env.ADMIN_PASSWORD_SALT;
         
-        if (!adminPasswordHash) {
-          console.error('ADMIN_PASSWORD_HASH not configured');
+        if (!adminPasswordHash || !adminPasswordSalt) {
+          console.error('ADMIN_PASSWORD_HASH or ADMIN_PASSWORD_SALT not configured');
           return new Response(JSON.stringify({ 
             error: 'Authentication system not properly configured' 
           }), { 
@@ -426,8 +485,86 @@ export default {
           });
         }
         
+        // Hash the provided password with salt using PBKDF2
+        const encoder = new TextEncoder();
+        const passwordData = encoder.encode(password);
+        const saltData = encoder.encode(adminPasswordSalt);
+        
+        // Import password as key material
+        const keyMaterial = await crypto.subtle.importKey(
+          'raw',
+          passwordData,
+          'PBKDF2',
+          false,
+          ['deriveBits']
+        );
+        
+        // Derive key using PBKDF2 with 100,000 iterations
+        const derivedKey = await crypto.subtle.deriveBits(
+          {
+            name: 'PBKDF2',
+            salt: saltData,
+            iterations: 100000,
+            hash: 'SHA-256'
+          },
+          keyMaterial,
+          256 // 32 bytes = 256 bits
+        );
+        
+        const hashArray = Array.from(new Uint8Array(derivedKey));
+        const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+        
         if (hashHex !== adminPasswordHash) {
-          logAdminOperation('FAILED_LOGIN_ATTEMPT');
+          // Increment failed attempt counters
+          attempts++;
+          totalFailedAttempts++;
+          
+          // Check if we should trigger account lockout
+          if (totalFailedAttempts >= lockoutAttempts) {
+            const lockoutDuration = 60 * 60 * 1000; // 1 hour lockout
+            const lockedUntil = now + lockoutDuration;
+            
+            // Set account lockout
+            await env.LEADSTICK_CONFIGS.put(lockoutKey, JSON.stringify({
+              lockedUntil,
+              attempts: totalFailedAttempts,
+              lockoutTime: now
+            }), { expirationTtl: Math.ceil(lockoutDuration / 1000) });
+            
+            // Clear rate limit data since we're now locked
+            await env.LEADSTICK_CONFIGS.delete(rateLimitKey);
+            
+            logAdminOperation('ACCOUNT_LOCKOUT_TRIGGERED', { 
+              clientIP, 
+              totalFailedAttempts,
+              lockoutDurationMinutes: 60
+            });
+            
+            return new Response(JSON.stringify({ 
+              error: 'Account locked due to too many failed attempts. Please try again in 1 hour.' 
+            }), { 
+              status: 423, // 423 Locked
+              headers: {
+                ...corsHeaders,
+                'Retry-After': '3600' // 1 hour
+              }
+            });
+          }
+          
+          // Update attempt counter
+          await env.LEADSTICK_CONFIGS.put(rateLimitKey, JSON.stringify({
+            attempts,
+            totalFailedAttempts,
+            windowStart
+          }), { expirationTtl: Math.ceil(windowMs / 1000) });
+          
+          logAdminOperation('FAILED_LOGIN_ATTEMPT', { 
+            clientIP, 
+            attempts, 
+            totalFailedAttempts,
+            attemptsUntilLockout: lockoutAttempts - totalFailedAttempts
+          });
+          
           return new Response(JSON.stringify({ 
             error: 'Invalid credentials' 
           }), { 
@@ -436,8 +573,20 @@ export default {
           });
         }
         
-        // Generate cryptographically secure session token
-        const sessionData = crypto.randomUUID() + env.SESSION_SECRET + Date.now();
+        // Generate cryptographically secure session token with high entropy
+        const randomBytes = new Uint8Array(32); // 256 bits of entropy
+        crypto.getRandomValues(randomBytes);
+        const randomHex = Array.from(randomBytes).map(b => b.toString(16).padStart(2, '0')).join('');
+        
+        const sessionData = [
+          randomHex,
+          crypto.randomUUID(),
+          env.SESSION_SECRET || 'default-secret',
+          Date.now().toString(),
+          Math.random().toString(36), // Additional entropy
+          performance.now().toString() // High precision timestamp
+        ].join('|');
+        
         const sessionTokenBuffer = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(sessionData));
         const sessionToken = Array.from(new Uint8Array(sessionTokenBuffer))
           .map(b => b.toString(16).padStart(2, '0')).join('');
@@ -452,7 +601,11 @@ export default {
           csrfToken: csrfToken
         }), { expirationTtl: 7200 }); // 2 hours
         
-        logAdminOperation('SUCCESSFUL_LOGIN');
+        // Clear rate limit counter and any lockout on successful login
+        await env.LEADSTICK_CONFIGS.delete(rateLimitKey);
+        await env.LEADSTICK_CONFIGS.delete(lockoutKey);
+        
+        logAdminOperation('SUCCESSFUL_LOGIN', { clientIP });
         
         return new Response(JSON.stringify({ 
           success: true,
@@ -474,6 +627,53 @@ export default {
       }
     }
 
+    // Route: POST /admin/verify-session - Verify admin session
+    if (request.method === 'POST' && url.pathname === '/admin/verify-session') {
+      try {
+        const authResult = await authenticateAdmin(request, env);
+        if (!authResult.valid) {
+          return new Response(JSON.stringify({ 
+            valid: false,
+            error: authResult.error || 'Invalid session'
+          }), { 
+            status: 401, 
+            headers: corsHeaders 
+          });
+        }
+        
+        // Session is valid, return session info
+        return new Response(JSON.stringify({ 
+          valid: true,
+          sessionInfo: {
+            createdAt: authResult.session.createdAt,
+            csrfToken: authResult.session.csrfToken
+          }
+        }), { 
+          headers: corsHeaders 
+        });
+        
+      } catch (error) {
+        console.error('Session verification error:', error);
+        return new Response(JSON.stringify({ 
+          valid: false,
+          error: 'Session verification failed' 
+        }), { 
+          status: 500, 
+          headers: corsHeaders 
+        });
+      }
+    }
+
+    // Route: GET /admin/nonce - Get CSP nonce for admin dashboard
+    if (request.method === 'GET' && url.pathname === '/admin/nonce') {
+      return new Response(JSON.stringify({ 
+        nonce: nonce,
+        timestamp: Date.now()
+      }), { 
+        headers: corsHeaders 
+      });
+    }
+
     // Route: GET /api/config/:siteId
     if (request.method === 'GET' && url.pathname.startsWith('/api/config/')) {
       const siteId = url.pathname.split('/')[3];
@@ -487,9 +687,20 @@ export default {
         });
       }
 
+      // Validate siteId parameter
+      const siteIdValidation = validateAdminInput(siteId, 'siteId', true);
+      if (!siteIdValidation.isValid) {
+        return new Response(JSON.stringify({ 
+          error: 'Invalid Site ID format'
+        }), { 
+          status: 400, 
+          headers: corsHeaders 
+        });
+      }
+
       try {
         // Fetch config from KV
-        const configKey = `client_config_${siteId}`;
+        const configKey = `client_config_${siteIdValidation.sanitized}`;
         const config = await env.LEADSTICK_CONFIGS.get(configKey, 'json');
         
         if (!config) {
@@ -739,9 +950,21 @@ export default {
         });
       }
 
+      // Validate siteId parameter to prevent IDOR attacks
+      const siteIdValidation = validateAdminInput(siteId, 'siteId', true);
+      if (!siteIdValidation.isValid) {
+        return new Response(JSON.stringify({ 
+          error: 'Invalid Site ID format',
+          details: siteIdValidation.errors
+        }), { 
+          status: 400, 
+          headers: corsHeaders 
+        });
+      }
+
       try {
         const clientData = await request.json();
-        const configKey = `client_config_${siteId}`;
+        const configKey = `client_config_${siteIdValidation.sanitized}`;
         
         // Check if client exists
         const existing = await env.LEADSTICK_CONFIGS.get(configKey);
@@ -756,18 +979,6 @@ export default {
         
         // Enhanced validation for client update data
         const validationErrors = [];
-        
-        // Validate siteId from URL
-        const siteIdValidation = validateAdminInput(siteId, 'siteId', true);
-        if (!siteIdValidation.isValid) {
-          return new Response(JSON.stringify({ 
-            error: 'Invalid Site ID',
-            details: siteIdValidation.errors
-          }), { 
-            status: 400, 
-            headers: corsHeaders 
-          });
-        }
         
         // Validate business fields (all optional for updates)
         const businessNameValidation = validateAdminInput(clientData.business?.name, 'businessName', false);
@@ -890,8 +1101,20 @@ export default {
         });
       }
 
+      // Validate siteId parameter to prevent IDOR attacks
+      const siteIdValidation = validateAdminInput(siteId, 'siteId', true);
+      if (!siteIdValidation.isValid) {
+        return new Response(JSON.stringify({ 
+          error: 'Invalid Site ID format',
+          details: siteIdValidation.errors
+        }), { 
+          status: 400, 
+          headers: corsHeaders 
+        });
+      }
+
       try {
-        const configKey = `client_config_${siteId}`;
+        const configKey = `client_config_${siteIdValidation.sanitized}`;
         
         // Check if client exists
         const existing = await env.LEADSTICK_CONFIGS.get(configKey);
@@ -908,7 +1131,7 @@ export default {
         await env.LEADSTICK_CONFIGS.delete(configKey);
         
         logAdminOperation('DELETE_CLIENT', { 
-          siteId: sanitizeInput(siteId, 50)
+          siteId: siteIdValidation.sanitized
         });
         
         return new Response(JSON.stringify({ 
@@ -1082,15 +1305,15 @@ async function sendEmail(lead, leadId, recipientEmail, env) {
               ${type === 'first' ? '🎯 First Touch Attribution' : '🔄 Last Touch Attribution'}
             </h4>
             <table style="width: 100%; font-size: 13px; line-height: 1.4;">
-              <tr><td style="font-weight: 600; width: 80px; color: #374151;">Source:</td><td style="color: #6b7280;">${touch.source || 'direct'}</td></tr>
-              <tr><td style="font-weight: 600; color: #374151;">Medium:</td><td style="color: #6b7280;">${touch.medium || 'direct'}</td></tr>
-              ${touch.campaign ? `<tr><td style="font-weight: 600; color: #374151;">Campaign:</td><td style="color: #6b7280;">${touch.campaign}</td></tr>` : ''}
-              ${touch.content ? `<tr><td style="font-weight: 600; color: #374151;">Ad Content:</td><td style="color: #6b7280;">${touch.content}</td></tr>` : ''}
-              ${touch.term ? `<tr><td style="font-weight: 600; color: #374151;">Keyword:</td><td style="color: #6b7280;">${touch.term}</td></tr>` : ''}
-              ${touch.gclid ? `<tr><td style="font-weight: 600; color: #374151;">Google ID:</td><td style="color: #6b7280; font-family: monospace; font-size: 11px;">${touch.gclid.substring(0, 20)}...</td></tr>` : ''}
-              ${touch.fbclid ? `<tr><td style="font-weight: 600; color: #374151;">Facebook ID:</td><td style="color: #6b7280; font-family: monospace; font-size: 11px;">${touch.fbclid.substring(0, 20)}...</td></tr>` : ''}
-              ${touch.landingPage ? `<tr><td style="font-weight: 600; color: #374151;">Landing Page:</td><td style="color: #6b7280; word-break: break-all;">${touch.landingPage}</td></tr>` : ''}
-              ${touch.referrer ? `<tr><td style="font-weight: 600; color: #374151;">Referrer:</td><td style="color: #6b7280; word-break: break-all;">${touch.referrer}</td></tr>` : ''}
+              <tr><td style="font-weight: 600; width: 80px; color: #374151;">Source:</td><td style="color: #6b7280;">${escapeHtml(touch.source || 'direct')}</td></tr>
+              <tr><td style="font-weight: 600; color: #374151;">Medium:</td><td style="color: #6b7280;">${escapeHtml(touch.medium || 'direct')}</td></tr>
+              ${touch.campaign ? `<tr><td style="font-weight: 600; color: #374151;">Campaign:</td><td style="color: #6b7280;">${escapeHtml(touch.campaign)}</td></tr>` : ''}
+              ${touch.content ? `<tr><td style="font-weight: 600; color: #374151;">Ad Content:</td><td style="color: #6b7280;">${escapeHtml(touch.content)}</td></tr>` : ''}
+              ${touch.term ? `<tr><td style="font-weight: 600; color: #374151;">Keyword:</td><td style="color: #6b7280;">${escapeHtml(touch.term)}</td></tr>` : ''}
+              ${touch.gclid ? `<tr><td style="font-weight: 600; color: #374151;">Google ID:</td><td style="color: #6b7280; font-family: monospace; font-size: 11px;">${escapeHtml(touch.gclid.substring(0, 20))}...</td></tr>` : ''}
+              ${touch.fbclid ? `<tr><td style="font-weight: 600; color: #374151;">Facebook ID:</td><td style="color: #6b7280; font-family: monospace; font-size: 11px;">${escapeHtml(touch.fbclid.substring(0, 20))}...</td></tr>` : ''}
+              ${touch.landingPage ? `<tr><td style="font-weight: 600; color: #374151;">Landing Page:</td><td style="color: #6b7280; word-break: break-all;">${escapeHtml(touch.landingPage)}</td></tr>` : ''}
+              ${touch.referrer ? `<tr><td style="font-weight: 600; color: #374151;">Referrer:</td><td style="color: #6b7280; word-break: break-all;">${escapeHtml(touch.referrer)}</td></tr>` : ''}
             </table>
           </div>
         `;
@@ -1103,7 +1326,7 @@ async function sendEmail(lead, leadId, recipientEmail, env) {
           </h3>
           ${formatTouch(firstTouch, 'first')}
           ${formatTouch(lastTouch, 'last')}
-          ${sessionId ? `<p style="margin: 8px 0 0 0; font-size: 12px; color: #9ca3af;"><strong>Session ID:</strong> ${sessionId}</p>` : ''}
+          ${sessionId ? `<p style="margin: 8px 0 0 0; font-size: 12px; color: #9ca3af;"><strong>Session ID:</strong> ${escapeHtml(sessionId)}</p>` : ''}
         </div>
       `;
     };
@@ -1223,15 +1446,15 @@ async function sendEmail(lead, leadId, recipientEmail, env) {
                 <div style="display: grid; gap: 8px;">
                   <div style="display: flex; align-items: center;">
                     <span style="font-weight: 600; color: #92400e; width: 140px; display: inline-block;">Time to Convert:</span>
-                    <span style="color: #78350f;">${metrics.timeToConvert}</span>
+                    <span style="color: #78350f;">${escapeHtml(metrics.timeToConvert)}</span>
                   </div>
                   <div style="display: flex; align-items: flex-start;">
                     <span style="font-weight: 600; color: #92400e; width: 140px; display: inline-block; flex-shrink: 0;">Landing Page:</span>
-                    <a href="${metrics.landingPage}" style="color: #3b82f6; text-decoration: none; word-break: break-all; font-size: 13px;">${metrics.landingPage}</a>
+                    <a href="${escapeHtml(metrics.landingPage)}" style="color: #3b82f6; text-decoration: none; word-break: break-all; font-size: 13px;">${escapeHtml(metrics.landingPage)}</a>
                   </div>
                   <div style="display: flex; align-items: center;">
                     <span style="font-weight: 600; color: #92400e; width: 140px; display: inline-block;">Session ID:</span>
-                    <span style="color: #78350f; font-family: monospace; font-size: 12px;">${metrics.sessionId}</span>
+                    <span style="color: #78350f; font-family: monospace; font-size: 12px;">${escapeHtml(metrics.sessionId)}</span>
                   </div>
                 </div>
               </div>
@@ -1242,7 +1465,7 @@ async function sendEmail(lead, leadId, recipientEmail, env) {
                 <h4 style="margin: 0 0 8px 0; color: #065f46; font-size: 14px; font-weight: 600; display: flex; align-items: center;">
                   💡 Marketing Insight:
                 </h4>
-                <p style="margin: 0; color: #047857; font-size: 14px;">${marketingInsight}</p>
+                <p style="margin: 0; color: #047857; font-size: 14px;">${escapeHtml(marketingInsight)}</p>
               </div>
 
               <!-- Footer -->

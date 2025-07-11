@@ -721,16 +721,50 @@
         <!-- (I'll add these if needed - keeping this shorter for now) -->
     </div>
 
-    <script>
-        const API_BASE = 'https://leadstick-api.attribution.workers.dev';
-        let sessionToken = null;
-        let csrfToken = null;
-        let clients = [];
-        let editingClient = null;
-        let currentQuestions = [];
-        let editingQuestionIndex = -1;
+    <script id="main-script">
+        // CSP-safe script initialization
+        (async function initializeApp() {
+            try {
+                // Fetch nonce from API for CSP compliance
+                const nonceResponse = await fetch('https://leadstick-api.attribution.workers.dev/admin/nonce');
+                const nonceData = await nonceResponse.json();
+                
+                // Set nonce for any dynamically created scripts
+                window.CSP_NONCE = nonceData.nonce;
+                
+                // Initialize app constants
+                window.API_BASE = 'https://leadstick-api.attribution.workers.dev';
+                window.sessionToken = null;
+                window.csrfToken = null;
+                window.clients = [];
+                window.editingClient = null;
+                
+                // Continue with app initialization
+                initializeAppComponents();
+            } catch (error) {
+                console.error('Failed to initialize app:', error);
+                // Fallback initialization without nonce
+                window.API_BASE = 'https://leadstick-api.attribution.workers.dev';
+                window.sessionToken = null;
+                window.csrfToken = null;
+                window.clients = [];
+                window.editingClient = null;
+                initializeAppComponents();
+            }
+        })();
 
-        // Authentication check on page load
+        function initializeAppComponents() {
+            // Use global variables for consistency
+            const API_BASE = window.API_BASE;
+            let sessionToken = window.sessionToken;
+            let csrfToken = window.csrfToken;
+            let clients = window.clients;
+            let editingClient = window.editingClient;
+            
+            let currentQuestions = [];
+            let editingQuestionIndex = -1;
+
+            // Authentication check on page load
         document.addEventListener('DOMContentLoaded', async function() {
             const authCheckDiv = document.getElementById('authCheck');
             const mainContentDiv = document.getElementById('mainContent');
@@ -829,44 +863,110 @@
             container.style.display = 'grid';
             emptyState.style.display = 'none';
 
-            container.innerHTML = clients.map(client => `
-                <div class="client-card" data-site-id="${escapeHtml(client.siteId)}">
-                    <div class="client-header">
-                        <div class="client-info">
-                            <h3>${escapeHtml(client.businessName)}</h3>
-                            <div class="site-id">${escapeHtml(client.siteId)}</div>
-                        </div>
-                        <div class="theme-preview" style="background-color: ${escapeHtml(client.theme)}"></div>
-                    </div>
-                    
-                    <div class="client-details">
-                        <div class="client-detail">
-                            <span class="icon">👤</span>
-                            <span>${escapeHtml(client.agentName)}</span>
-                        </div>
-                        <div class="client-detail">
-                            <span class="icon">✉️</span>
-                            <span>${escapeHtml(client.email)}</span>
-                        </div>
-                        <div class="client-detail">
-                            <span class="icon">❓</span>
-                            <span class="questions-count">Questions configured</span>
-                        </div>
-                    </div>
-
-                    <div class="client-actions">
-                        <button class="btn btn-secondary btn-small" onclick="editClient('${escapeHtml(client.siteId)}')">
-                            ✏️ Edit
-                        </button>
-                        <button class="btn btn-primary btn-small" onclick="previewClient('${escapeHtml(client.siteId)}')">
-                            👁️ Preview
-                        </button>
-                        <button class="btn btn-danger btn-small" onclick="deleteClient('${escapeHtml(client.siteId)}')">
-                            🗑️ Delete
-                        </button>
-                    </div>
-                </div>
-            `).join('');
+            // Clear container safely
+            container.textContent = '';
+            
+            // Create client cards using safe DOM manipulation
+            clients.forEach(client => {
+                const clientCard = document.createElement('div');
+                clientCard.className = 'client-card';
+                clientCard.setAttribute('data-site-id', client.siteId);
+                
+                // Client header
+                const header = document.createElement('div');
+                header.className = 'client-header';
+                
+                const clientInfo = document.createElement('div');
+                clientInfo.className = 'client-info';
+                
+                const title = document.createElement('h3');
+                title.textContent = client.businessName;
+                clientInfo.appendChild(title);
+                
+                const siteIdDiv = document.createElement('div');
+                siteIdDiv.className = 'site-id';
+                siteIdDiv.textContent = client.siteId;
+                clientInfo.appendChild(siteIdDiv);
+                
+                const themePreview = document.createElement('div');
+                themePreview.className = 'theme-preview';
+                themePreview.style.backgroundColor = client.theme;
+                
+                header.appendChild(clientInfo);
+                header.appendChild(themePreview);
+                
+                // Client details
+                const details = document.createElement('div');
+                details.className = 'client-details';
+                
+                // Agent detail
+                const agentDetail = document.createElement('div');
+                agentDetail.className = 'client-detail';
+                const agentIcon = document.createElement('span');
+                agentIcon.className = 'icon';
+                agentIcon.textContent = '👤';
+                const agentName = document.createElement('span');
+                agentName.textContent = client.agentName;
+                agentDetail.appendChild(agentIcon);
+                agentDetail.appendChild(agentName);
+                
+                // Email detail
+                const emailDetail = document.createElement('div');
+                emailDetail.className = 'client-detail';
+                const emailIcon = document.createElement('span');
+                emailIcon.className = 'icon';
+                emailIcon.textContent = '✉️';
+                const emailSpan = document.createElement('span');
+                emailSpan.textContent = client.email;
+                emailDetail.appendChild(emailIcon);
+                emailDetail.appendChild(emailSpan);
+                
+                // Questions detail
+                const questionsDetail = document.createElement('div');
+                questionsDetail.className = 'client-detail';
+                const questionsIcon = document.createElement('span');
+                questionsIcon.className = 'icon';
+                questionsIcon.textContent = '❓';
+                const questionsSpan = document.createElement('span');
+                questionsSpan.className = 'questions-count';
+                questionsSpan.textContent = 'Questions configured';
+                questionsDetail.appendChild(questionsIcon);
+                questionsDetail.appendChild(questionsSpan);
+                
+                details.appendChild(agentDetail);
+                details.appendChild(emailDetail);
+                details.appendChild(questionsDetail);
+                
+                // Client actions
+                const actions = document.createElement('div');
+                actions.className = 'client-actions';
+                
+                const editBtn = document.createElement('button');
+                editBtn.className = 'btn btn-secondary btn-small';
+                editBtn.textContent = '✏️ Edit';
+                editBtn.onclick = () => editClient(client.siteId);
+                
+                const previewBtn = document.createElement('button');
+                previewBtn.className = 'btn btn-primary btn-small';
+                previewBtn.textContent = '👁️ Preview';
+                previewBtn.onclick = () => previewClient(client.siteId);
+                
+                const deleteBtn = document.createElement('button');
+                deleteBtn.className = 'btn btn-danger btn-small';
+                deleteBtn.textContent = '🗑️ Delete';
+                deleteBtn.onclick = () => deleteClient(client.siteId);
+                
+                actions.appendChild(editBtn);
+                actions.appendChild(previewBtn);
+                actions.appendChild(deleteBtn);
+                
+                // Assemble the card
+                clientCard.appendChild(header);
+                clientCard.appendChild(details);
+                clientCard.appendChild(actions);
+                
+                container.appendChild(clientCard);
+            });
         }
 
         // Input validation functions
@@ -1044,14 +1144,32 @@
 
         function showError(message) {
             const container = document.getElementById('statusMessage');
-            container.innerHTML = `<div class="error">${escapeHtml(message)}</div>`;
-            setTimeout(() => container.innerHTML = '', 5000);
+            
+            // Clear existing content safely
+            container.textContent = '';
+            
+            // Create error element safely
+            const errorDiv = document.createElement('div');
+            errorDiv.className = 'error';
+            errorDiv.textContent = message;
+            
+            container.appendChild(errorDiv);
+            setTimeout(() => container.textContent = '', 5000);
         }
 
         function showSuccess(message) {
             const container = document.getElementById('statusMessage');
-            container.innerHTML = `<div class="success">${escapeHtml(message)}</div>`;
-            setTimeout(() => container.innerHTML = '', 3000);
+            
+            // Clear existing content safely
+            container.textContent = '';
+            
+            // Create success element safely
+            const successDiv = document.createElement('div');
+            successDiv.className = 'success';
+            successDiv.textContent = message;
+            
+            container.appendChild(successDiv);
+            setTimeout(() => container.textContent = '', 3000);
         }
 
         function escapeHtml(text) {
@@ -1068,6 +1186,8 @@
         function setupDragAndDrop() {
             // Will implement when adding full modal functionality
         }
+        
+        } // End of initializeAppComponents function
     </script>
 </body>
 </html>
