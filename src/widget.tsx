@@ -1294,11 +1294,94 @@ export function initLeadStick() {
   container.id = 'leadstick-root'
   container.style.position = 'fixed'
   container.style.zIndex = '999999'
-  container.style.pointerEvents = 'auto'
+  container.style.pointerEvents = 'none'
   container.style.top = '0'
   container.style.left = '0'
   container.style.width = '100%'
   container.style.height = '100%'
+  
+  // Create shadow DOM for complete CSS isolation
+  const shadowRoot = container.attachShadow({ mode: 'open' })
+  
+  // Create shadow container
+  const shadowContainer = document.createElement('div')
+  shadowContainer.style.position = 'fixed'
+  shadowContainer.style.top = '0'
+  shadowContainer.style.left = '0'
+  shadowContainer.style.width = '100%'
+  shadowContainer.style.height = '100%'
+  shadowContainer.style.pointerEvents = 'none'
+  shadowContainer.style.zIndex = '999999'
+  
+  // Add CSS reset and base styles to shadow DOM
+  const style = document.createElement('style')
+  style.textContent = `
+    /* CSS Reset for complete isolation */
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+    
+    /* Prevent host site styles from leaking in */
+    :host {
+      all: initial;
+      display: block;
+    }
+    
+    /* Base typography reset */
+    h1, h2, h3, h4, h5, h6 {
+      font-weight: 600;
+      line-height: 1.2;
+    }
+    
+    p {
+      line-height: 1.5;
+    }
+    
+    button {
+      font-family: inherit;
+      font-size: inherit;
+      line-height: inherit;
+      color: inherit;
+      background: none;
+      border: none;
+      padding: 0;
+      margin: 0;
+      cursor: pointer;
+    }
+    
+    input, textarea {
+      font-family: inherit;
+      font-size: inherit;
+      line-height: inherit;
+      color: inherit;
+      background: none;
+      border: none;
+      padding: 0;
+      margin: 0;
+      outline: none;
+    }
+    
+    a {
+      color: inherit;
+      text-decoration: none;
+    }
+    
+    /* Ensure proper text rendering */
+    html, body {
+      text-rendering: optimizeLegibility;
+      -webkit-text-size-adjust: 100%;
+      -moz-text-size-adjust: 100%;
+      text-size-adjust: 100%;
+    }
+  `
+  
+  shadowRoot.appendChild(style)
+  shadowRoot.appendChild(shadowContainer)
   
   // Allow pointer events only on interactive elements
   container.addEventListener('click', (e) => {
@@ -1309,8 +1392,8 @@ export function initLeadStick() {
 
   document.body.appendChild(container)
 
-  // Render the Preact widget
-  render(h(LeadStickWidget, {}), container)
+  // Render the Preact widget inside shadow DOM
+  render(h(LeadStickWidget, {}), shadowContainer)
 }
 
 // Auto-initialize if script is loaded
