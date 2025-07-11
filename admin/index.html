@@ -592,12 +592,39 @@
     </style>
 </head>
 <body>
-    <div class="header">
-        <h1>🚀 LeadStick Dashboard</h1>
-        <p>Manage your client widget configurations with advanced question builder</p>
+    <!-- Password Protection Modal -->
+    <div id="authModal" class="modal active" style="display: flex;">
+        <div class="modal-content" style="max-width: 400px;">
+            <div class="modal-header">
+                <h2>🔐 Admin Access Required</h2>
+            </div>
+            <form id="authForm" onsubmit="authenticate(event)">
+                <div class="form-group">
+                    <label for="adminPassword">Admin Password</label>
+                    <input type="password" id="adminPassword" name="adminPassword" required 
+                           placeholder="Enter admin password">
+                    <div class="help-text">Contact the system administrator for access</div>
+                </div>
+                <div id="authError" style="color: #dc2626; font-size: 14px; margin-bottom: 16px; display: none;"></div>
+                <div class="modal-actions">
+                    <button type="submit" class="btn btn-primary">
+                        Access Dashboard
+                    </button>
+                </div>
+            </form>
+        </div>
     </div>
 
-    <div class="container">
+    <div id="mainDashboard" style="display: none;">
+        <div class="header">
+            <h1>🚀 LeadStick Dashboard</h1>
+            <p>Manage your client widget configurations with advanced question builder</p>
+            <button onclick="logout()" style="position: absolute; top: 20px; right: 20px; background: #dc2626; color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer;">
+                Logout
+            </button>
+        </div>
+
+        <div class="container">
         <div class="toolbar">
             <div class="search-box">
                 <input type="text" id="searchInput" placeholder="Search clients..." onkeyup="filterClients()">
@@ -820,10 +847,29 @@
 
     <script>
         const API_BASE = 'https://leadstick-api.attribution.workers.dev';
+        let sessionToken = null;
         let clients = [];
         let editingClient = null;
         let currentQuestions = [];
         let editingQuestionIndex = -1;
+
+        // Create authenticated fetch function
+        function authenticatedFetch(url, options = {}) {
+            if (!sessionToken) {
+                throw new Error('Not authenticated');
+            }
+            
+            const authHeaders = {
+                'Authorization': `Bearer ${sessionToken}`,
+                'Content-Type': 'application/json',
+                ...options.headers
+            };
+            
+            return fetch(url, {
+                ...options,
+                headers: authHeaders
+            });
+        }
 
         // Initialize dashboard
         document.addEventListener('DOMContentLoaded', function() {
@@ -867,7 +913,7 @@
         async function loadClients() {
             try {
                 showLoading(true);
-                const response = await fetch(`${API_BASE}/admin/clients`);
+                const response = await authenticatedFetch(`${API_BASE}/admin/clients`);
                 const data = await response.json();
 
                 if (!response.ok) {
@@ -1370,11 +1416,8 @@
                 
                 const method = editingClient ? 'PUT' : 'POST';
 
-                const response = await fetch(url, {
+                const response = await authenticatedFetch(url, {
                     method: method,
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
                     body: JSON.stringify(clientData)
                 });
 
@@ -1403,7 +1446,7 @@
             }
 
             try {
-                const response = await fetch(`${API_BASE}/admin/clients/${siteId}`, {
+                const response = await authenticatedFetch(`${API_BASE}/admin/clients/${siteId}`, {
                     method: 'DELETE'
                 });
 
@@ -1549,6 +1592,88 @@
                 }
             }, { offset: Number.NEGATIVE_INFINITY }).element;
         }
+
+        // Authentication system
+        let isAuthenticated = false;
+
+        async function authenticate(event) {
+            event.preventDefault();
+            const password = document.getElementById('adminPassword').value;
+            
+            try {
+                // Send password to server for authentication
+                const response = await fetch(`${API_BASE}/admin/auth`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ password })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok && data.token) {
+                    isAuthenticated = true;
+                    sessionToken = data.token;
+                    sessionStorage.setItem('leadstick_admin_token', sessionToken);
+                    document.getElementById('authModal').style.display = 'none';
+                    document.getElementById('mainDashboard').style.display = 'block';
+                    loadClients(); // Load clients after successful authentication
+                } else {
+                    document.getElementById('authError').style.display = 'block';
+                    document.getElementById('authError').textContent = data.error || 'Invalid password. Please try again.';
+                    document.getElementById('adminPassword').value = '';
+                }
+            } catch (error) {
+                console.error('Authentication error:', error);
+                document.getElementById('authError').style.display = 'block';
+                document.getElementById('authError').textContent = 'Authentication failed. Please try again.';
+                document.getElementById('adminPassword').value = '';
+            }
+        }
+
+        function logout() {
+            isAuthenticated = false;
+            sessionToken = null;
+            sessionStorage.removeItem('leadstick_admin_token');
+            document.getElementById('authModal').style.display = 'flex';
+            document.getElementById('mainDashboard').style.display = 'none';
+            document.getElementById('adminPassword').value = '';
+            document.getElementById('authError').style.display = 'none';
+        }
+
+        function checkAuth() {
+            const storedToken = sessionStorage.getItem('leadstick_admin_token');
+            if (storedToken) {
+                isAuthenticated = true;
+                sessionToken = storedToken;
+                document.getElementById('authModal').style.display = 'none';
+                document.getElementById('mainDashboard').style.display = 'block';
+                return true;
+            }
+            return false;
+        }
+
+        // Override API functions to check authentication
+        const originalLoadClients = loadClients;
+        loadClients = function() {
+            if (!isAuthenticated) {
+                console.warn('Unauthorized access attempt');
+                return;
+            }
+            return originalLoadClients();
+        };
+
+        // Initialize authentication check
+        document.addEventListener('DOMContentLoaded', function() {
+            if (!checkAuth()) {
+                // Don't load clients if not authenticated
+                return;
+            }
+            setupColorInputSync();
+            setupDragAndDrop();
+        });
     </script>
+    </div> <!-- Close mainDashboard -->
 </body>
 </html>

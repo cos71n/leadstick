@@ -208,21 +208,145 @@ function validateAndSanitizeLead(leadData) {
   return { sanitized, errors, isSpam: false };
 }
 
+// Authentication middleware
+async function authenticateAdmin(request, env) {
+  const authHeader = request.headers.get('Authorization');
+  
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return false;
+  }
+  
+  const token = authHeader.substring(7); // Remove "Bearer " prefix
+  
+  // Check if it's a session token (UUID format)
+  if (token.includes('-')) {
+    const sessionKey = `admin_session_${token}`;
+    const session = await env.LEADSTICK_CONFIGS.get(sessionKey);
+    return session !== null;
+  }
+  
+  // Fallback to API key for backwards compatibility (will be removed)
+  const adminApiKey = env.ADMIN_API_KEY;
+  return adminApiKey && token === adminApiKey;
+}
+
+// Enhanced logging for admin operations
+function logAdminOperation(request, operation, details = {}) {
+  const timestamp = new Date().toISOString();
+  const ip = request.headers.get('CF-Connecting-IP') || 
+            request.headers.get('X-Forwarded-For') || 
+            'unknown';
+  const userAgent = request.headers.get('User-Agent') || 'unknown';
+  
+  console.log(`[ADMIN AUDIT] ${timestamp} - ${operation}`, {
+    ip,
+    userAgent,
+    operation,
+    ...details
+  });
+}
+
 export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
     
-    // CORS headers
-    const corsHeaders = {
-      'Access-Control-Allow-Origin': '*',
+    // Enhanced CORS headers - restrict to admin dashboard domain
+    const allowedOrigins = [
+      'https://leadstick-dashboard.pages.dev',
+      'http://localhost:3000', // For development
+      'http://127.0.0.1:3000'  // For development
+    ];
+    
+    const origin = request.headers.get('Origin');
+    const isAdminRequest = url.pathname.startsWith('/admin/');
+    
+    let corsHeaders = {
       'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type',
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization',
       'Content-Type': 'application/json'
     };
+    
+    // Restrict CORS for admin endpoints
+    if (isAdminRequest) {
+      if (origin && allowedOrigins.includes(origin)) {
+        corsHeaders['Access-Control-Allow-Origin'] = origin;
+      } else {
+        corsHeaders['Access-Control-Allow-Origin'] = 'https://leadstick-dashboard.pages.dev';
+      }
+    } else {
+      // Public endpoints can still use wildcard for widget functionality
+      corsHeaders['Access-Control-Allow-Origin'] = '*';
+    }
 
     // Handle preflight requests
     if (request.method === 'OPTIONS') {
       return new Response(null, { headers: corsHeaders });
+    }
+
+    // Route: POST /admin/auth - Authenticate admin and get session token
+    if (request.method === 'POST' && url.pathname === '/admin/auth') {
+      try {
+        const { password } = await request.json();
+        
+        if (!password) {
+          return new Response(JSON.stringify({ 
+            error: 'Password required' 
+          }), { 
+            status: 400, 
+            headers: corsHeaders 
+          });
+        }
+
+        // Hash the provided password and compare with stored hash
+        const encoder = new TextEncoder();
+        const data = encoder.encode(password);
+        const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+        const hashArray = Array.from(new Uint8Array(hashBuffer));
+        const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+        
+        // Get admin password hash from environment or use default (CHANGE THIS!)
+        const adminPasswordHash = env.ADMIN_PASSWORD_HASH || '8c6976e5b5410415bde908bd4dee15dfb167a9c873fc4bb8a81f6f2ab448a918';
+        
+        if (hashHex !== adminPasswordHash) {
+          logAdminOperation(request, 'FAILED_LOGIN_ATTEMPT');
+          return new Response(JSON.stringify({ 
+            error: 'Invalid credentials' 
+          }), { 
+            status: 401, 
+            headers: corsHeaders 
+          });
+        }
+        
+        // Generate secure session token
+        const sessionToken = crypto.randomUUID() + '-' + crypto.randomUUID();
+        const sessionKey = `admin_session_${sessionToken}`;
+        
+        // Store session in KV with 24 hour expiration
+        await env.LEADSTICK_CONFIGS.put(sessionKey, JSON.stringify({
+          createdAt: new Date().toISOString(),
+          ip: request.headers.get('CF-Connecting-IP') || 'unknown',
+          userAgent: request.headers.get('User-Agent') || 'unknown'
+        }), { expirationTtl: 86400 }); // 24 hours
+        
+        logAdminOperation(request, 'SUCCESSFUL_LOGIN');
+        
+        return new Response(JSON.stringify({ 
+          success: true,
+          token: sessionToken,
+          expiresIn: 86400
+        }), { 
+          headers: corsHeaders 
+        });
+        
+      } catch (error) {
+        console.error('Authentication error:', error);
+        return new Response(JSON.stringify({ 
+          error: 'Authentication failed' 
+        }), { 
+          status: 500, 
+          headers: corsHeaders 
+        });
+      }
     }
 
     // Route: GET /api/config/:siteId
@@ -268,6 +392,22 @@ export default {
 
     // Route: GET /admin/clients - List all clients
     if (request.method === 'GET' && url.pathname === '/admin/clients') {
+      // Check authentication
+      if (!(await authenticateAdmin(request, env))) {
+        logAdminOperation(request, 'UNAUTHORIZED_ACCESS_ATTEMPT', { 
+          endpoint: '/admin/clients',
+          method: 'GET'
+        });
+        return new Response(JSON.stringify({ 
+          error: 'Unauthorized. Valid API key required.' 
+        }), { 
+          status: 401, 
+          headers: corsHeaders 
+        });
+      }
+
+      logAdminOperation(request, 'LIST_CLIENTS');
+      
       try {
         // List all client configs from KV
         const list = await env.LEADSTICK_CONFIGS.list({ prefix: 'client_config_' });
@@ -304,6 +444,20 @@ export default {
 
     // Route: POST /admin/clients - Create new client
     if (request.method === 'POST' && url.pathname === '/admin/clients') {
+      // Check authentication
+      if (!(await authenticateAdmin(request, env))) {
+        logAdminOperation(request, 'UNAUTHORIZED_ACCESS_ATTEMPT', { 
+          endpoint: '/admin/clients',
+          method: 'POST'
+        });
+        return new Response(JSON.stringify({ 
+          error: 'Unauthorized. Valid API key required.' 
+        }), { 
+          status: 401, 
+          headers: corsHeaders 
+        });
+      }
+
       try {
         const clientData = await request.json();
         
@@ -329,8 +483,28 @@ export default {
           });
         }
         
+        // Sanitize and validate input
+        const sanitizedClientData = {
+          siteId: sanitizeInput(clientData.siteId, 50),
+          business: {
+            name: sanitizeInput(clientData.business.name, 100),
+            email: sanitizeInput(clientData.business.email, 100),
+            phone: sanitizeInput(clientData.business.phone || '', 20),
+            agentName: sanitizeInput(clientData.business.agentName || '', 50),
+            avatar: sanitizeInput(clientData.business.avatar || '', 200)
+          },
+          theme: clientData.theme || {},
+          messages: clientData.messages || {},
+          flow: clientData.flow || []
+        };
+
         // Save to KV
-        await env.LEADSTICK_CONFIGS.put(configKey, JSON.stringify(clientData));
+        await env.LEADSTICK_CONFIGS.put(configKey, JSON.stringify(sanitizedClientData));
+        
+        logAdminOperation(request, 'CREATE_CLIENT', { 
+          siteId: sanitizedClientData.siteId,
+          businessName: sanitizedClientData.business.name 
+        });
         
         return new Response(JSON.stringify({ 
           success: true, 
@@ -351,6 +525,20 @@ export default {
 
     // Route: PUT /admin/clients/:siteId - Update client
     if (request.method === 'PUT' && url.pathname.startsWith('/admin/clients/')) {
+      // Check authentication
+      if (!(await authenticateAdmin(request, env))) {
+        logAdminOperation(request, 'UNAUTHORIZED_ACCESS_ATTEMPT', { 
+          endpoint: url.pathname,
+          method: 'PUT'
+        });
+        return new Response(JSON.stringify({ 
+          error: 'Unauthorized. Valid API key required.' 
+        }), { 
+          status: 401, 
+          headers: corsHeaders 
+        });
+      }
+
       const siteId = url.pathname.split('/')[3];
       
       if (!siteId) {
@@ -377,11 +565,28 @@ export default {
           });
         }
         
-        // Ensure siteId matches
-        clientData.siteId = siteId;
+        // Sanitize and validate input
+        const sanitizedClientData = {
+          siteId: sanitizeInput(siteId, 50),
+          business: {
+            name: sanitizeInput(clientData.business?.name || '', 100),
+            email: sanitizeInput(clientData.business?.email || '', 100),
+            phone: sanitizeInput(clientData.business?.phone || '', 20),
+            agentName: sanitizeInput(clientData.business?.agentName || '', 50),
+            avatar: sanitizeInput(clientData.business?.avatar || '', 200)
+          },
+          theme: clientData.theme || {},
+          messages: clientData.messages || {},
+          flow: clientData.flow || []
+        };
         
         // Save updated config
-        await env.LEADSTICK_CONFIGS.put(configKey, JSON.stringify(clientData));
+        await env.LEADSTICK_CONFIGS.put(configKey, JSON.stringify(sanitizedClientData));
+        
+        logAdminOperation(request, 'UPDATE_CLIENT', { 
+          siteId: sanitizedClientData.siteId,
+          businessName: sanitizedClientData.business.name 
+        });
         
         return new Response(JSON.stringify({ 
           success: true, 
@@ -402,6 +607,20 @@ export default {
 
     // Route: DELETE /admin/clients/:siteId - Delete client
     if (request.method === 'DELETE' && url.pathname.startsWith('/admin/clients/')) {
+      // Check authentication
+      if (!(await authenticateAdmin(request, env))) {
+        logAdminOperation(request, 'UNAUTHORIZED_ACCESS_ATTEMPT', { 
+          endpoint: url.pathname,
+          method: 'DELETE'
+        });
+        return new Response(JSON.stringify({ 
+          error: 'Unauthorized. Valid API key required.' 
+        }), { 
+          status: 401, 
+          headers: corsHeaders 
+        });
+      }
+
       const siteId = url.pathname.split('/')[3];
       
       if (!siteId) {
@@ -429,6 +648,10 @@ export default {
         
         // Delete from KV
         await env.LEADSTICK_CONFIGS.delete(configKey);
+        
+        logAdminOperation(request, 'DELETE_CLIENT', { 
+          siteId: sanitizeInput(siteId, 50)
+        });
         
         return new Response(JSON.stringify({ 
           success: true, 
