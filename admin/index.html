@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>LeadStick Dashboard - Enhanced</title>
+    <title>LeadStick Admin - Login</title>
     <style>
         * {
             margin: 0;
@@ -13,1595 +13,187 @@
 
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: #f8fafc;
-            color: #1f2937;
-            line-height: 1.6;
-        }
-
-        .header {
-            background: white;
-            padding: 20px;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-            border-bottom: 1px solid #e5e7eb;
-        }
-
-        .header h1 {
-            color: #1f2937;
-            font-size: 24px;
-            font-weight: 600;
-        }
-
-        .header p {
-            color: #6b7280;
-            margin-top: 4px;
-        }
-
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 30px 20px;
-        }
-
-        .toolbar {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 30px;
-            gap: 20px;
-        }
-
-        .search-box {
-            flex: 1;
-            max-width: 400px;
-            position: relative;
-        }
-
-        .search-box input {
-            width: 100%;
-            padding: 12px 16px 12px 40px;
-            border: 1px solid #d1d5db;
-            border-radius: 8px;
-            font-size: 14px;
-            background: white;
-        }
-
-        .search-box::before {
-            content: '🔍';
-            position: absolute;
-            left: 12px;
-            top: 50%;
-            transform: translateY(-50%);
-            font-size: 16px;
-        }
-
-        .btn {
-            padding: 12px 24px;
-            border: none;
-            border-radius: 8px;
-            font-size: 14px;
-            font-weight: 500;
-            cursor: pointer;
-            transition: all 0.2s;
-            text-decoration: none;
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-        }
-
-        .btn-primary {
-            background: #3b82f6;
-            color: white;
-        }
-
-        .btn-primary:hover {
-            background: #2563eb;
-            transform: translateY(-1px);
-        }
-
-        .btn-secondary {
-            background: #6b7280;
-            color: white;
-        }
-
-        .btn-secondary:hover {
-            background: #4b5563;
-        }
-
-        .btn-danger {
-            background: #dc2626;
-            color: white;
-        }
-
-        .btn-danger:hover {
-            background: #b91c1c;
-        }
-
-        .btn-small {
-            padding: 8px 16px;
-            font-size: 13px;
-        }
-
-        .clients-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
-            gap: 20px;
-        }
-
-        .client-card {
-            background: white;
-            border-radius: 12px;
-            padding: 24px;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-            border: 1px solid #e5e7eb;
-            transition: all 0.2s;
-        }
-
-        .client-card:hover {
-            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-            transform: translateY(-2px);
-        }
-
-        .client-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: flex-start;
-            margin-bottom: 16px;
-        }
-
-        .client-info h3 {
-            color: #1f2937;
-            font-size: 18px;
-            font-weight: 600;
-            margin-bottom: 4px;
-        }
-
-        .client-info .site-id {
-            color: #6b7280;
-            font-size: 14px;
-            font-family: monospace;
-            background: #f3f4f6;
-            padding: 2px 6px;
-            border-radius: 4px;
-        }
-
-        .theme-preview {
-            width: 40px;
-            height: 40px;
-            border-radius: 8px;
-            border: 2px solid #e5e7eb;
-            flex-shrink: 0;
-        }
-
-        .client-details {
-            margin-bottom: 16px;
-        }
-
-        .client-detail {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            margin-bottom: 8px;
-            font-size: 14px;
-        }
-
-        .client-detail .icon {
-            width: 16px;
-            text-align: center;
-        }
-
-        .questions-count {
-            background: #f0f9ff;
-            color: #0369a1;
-            padding: 4px 8px;
-            border-radius: 4px;
-            font-size: 12px;
-            font-weight: 500;
-        }
-
-        .client-actions {
-            display: flex;
-            gap: 8px;
-            margin-top: 20px;
-            padding-top: 16px;
-            border-top: 1px solid #f3f4f6;
-        }
-
-        .loading {
-            text-align: center;
-            padding: 60px 20px;
-            color: #6b7280;
-        }
-
-        .error {
-            background: #fee2e2;
-            color: #991b1b;
-            padding: 16px;
-            border-radius: 8px;
-            margin-bottom: 20px;
-            border: 1px solid #fca5a5;
-        }
-
-        .success {
-            background: #d1fae5;
-            color: #065f46;
-            padding: 16px;
-            border-radius: 8px;
-            margin-bottom: 20px;
-            border: 1px solid #6ee7b7;
-        }
-
-        .empty-state {
-            text-align: center;
-            padding: 80px 20px;
-            color: #6b7280;
-        }
-
-        .empty-state h3 {
-            color: #374151;
-            margin-bottom: 8px;
-        }
-
-        .modal {
-            display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0,0,0,0.5);
-            z-index: 1000;
-        }
-
-        .modal.active {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
             display: flex;
             align-items: center;
             justify-content: center;
+            color: #333;
         }
 
-        .modal-content {
+        .login-container {
             background: white;
-            border-radius: 12px;
-            padding: 30px;
-            max-width: 900px;
-            width: 95%;
-            max-height: 95vh;
-            overflow-y: auto;
+            border-radius: 16px;
+            padding: 40px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            width: 100%;
+            max-width: 400px;
+            text-align: center;
         }
 
-        .modal-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 24px;
+        .logo {
+            margin-bottom: 30px;
         }
 
-        .modal-header h2 {
-            color: #1f2937;
-            font-size: 20px;
-            font-weight: 600;
+        .logo h1 {
+            color: #333;
+            font-size: 28px;
+            font-weight: 700;
+            margin-bottom: 8px;
         }
 
-        .close-btn {
-            background: none;
-            border: none;
-            font-size: 24px;
-            cursor: pointer;
-            color: #6b7280;
-            padding: 4px;
-        }
-
-        .modal-tabs {
-            display: flex;
-            border-bottom: 1px solid #e5e7eb;
-            margin-bottom: 24px;
-        }
-
-        .modal-tab {
-            padding: 12px 24px;
-            background: none;
-            border: none;
-            cursor: pointer;
+        .logo p {
+            color: #666;
             font-size: 14px;
-            font-weight: 500;
-            color: #6b7280;
-            border-bottom: 2px solid transparent;
-            transition: all 0.2s;
-        }
-
-        .modal-tab.active {
-            color: #3b82f6;
-            border-bottom-color: #3b82f6;
-        }
-
-        .tab-content {
-            display: none;
-        }
-
-        .tab-content.active {
-            display: block;
         }
 
         .form-group {
             margin-bottom: 20px;
+            text-align: left;
         }
 
         .form-group label {
             display: block;
             margin-bottom: 6px;
-            font-weight: 500;
-            color: #374151;
-        }
-
-        .form-group input,
-        .form-group textarea,
-        .form-group select {
-            width: 100%;
-            padding: 12px;
-            border: 1px solid #d1d5db;
-            border-radius: 8px;
+            font-weight: 600;
+            color: #333;
             font-size: 14px;
-            background: white;
         }
 
-        .form-group input:focus,
-        .form-group textarea:focus,
-        .form-group select:focus {
-            outline: none;
-            border-color: #3b82f6;
-            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
-        }
-
-        .form-group .help-text {
-            font-size: 12px;
-            color: #6b7280;
-            margin-top: 4px;
-        }
-
-        .color-input {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-        }
-
-        .color-input input[type="color"] {
-            width: 50px;
-            height: 40px;
-            border: none;
-            border-radius: 6px;
-            cursor: pointer;
-        }
-
-        .color-input input[type="text"] {
-            flex: 1;
-        }
-
-        .questions-builder {
-            border: 1px solid #e5e7eb;
+        .form-group input {
+            width: 100%;
+            padding: 14px 16px;
+            border: 2px solid #e1e5e9;
             border-radius: 8px;
-            background: #f8fafc;
-            padding: 20px;
+            font-size: 16px;
+            transition: border-color 0.2s ease;
+            background: #f8f9fa;
         }
 
-        .questions-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
+        .form-group input:focus {
+            outline: none;
+            border-color: #667eea;
+            background: white;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .error {
+            background: #fee2e2;
+            color: #dc2626;
+            padding: 12px 16px;
+            border-radius: 8px;
             margin-bottom: 20px;
+            font-size: 14px;
+            text-align: left;
+            display: none;
         }
 
-        .questions-header h3 {
-            color: #1f2937;
+        .btn {
+            width: 100%;
+            padding: 14px 16px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
             font-size: 16px;
             font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s ease;
         }
 
-        .add-question-dropdown {
-            position: relative;
-            display: inline-block;
+        .btn:hover {
+            transform: translateY(-1px);
         }
 
-        .dropdown-content {
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .loading {
             display: none;
-            position: absolute;
-            right: 0;
-            background: white;
-            min-width: 200px;
-            box-shadow: 0 8px 16px rgba(0,0,0,0.1);
-            border-radius: 8px;
-            border: 1px solid #e5e7eb;
-            z-index: 1;
-        }
-
-        .dropdown-content.show {
-            display: block;
-        }
-
-        .dropdown-item {
-            display: block;
-            padding: 12px 16px;
-            text-decoration: none;
-            color: #374151;
-            border: none;
-            background: none;
-            width: 100%;
-            text-align: left;
-            cursor: pointer;
+            margin-top: 16px;
+            color: #666;
             font-size: 14px;
         }
 
-        .dropdown-item:hover {
-            background: #f3f4f6;
-        }
-
-        .question-list {
-            min-height: 100px;
-        }
-
-        .question-item {
-            background: white;
-            border: 1px solid #e5e7eb;
-            border-radius: 8px;
+        .security-notice {
+            margin-top: 30px;
             padding: 16px;
-            margin-bottom: 12px;
-            cursor: move;
-            transition: all 0.2s;
+            background: #f0f9ff;
+            border-radius: 8px;
+            border-left: 4px solid #3b82f6;
         }
 
-        .question-item:hover {
-            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-        }
-
-        .question-item.dragging {
-            opacity: 0.5;
-            transform: rotate(5deg);
-        }
-
-        .question-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: flex-start;
-            margin-bottom: 12px;
-        }
-
-        .question-info h4 {
-            color: #1f2937;
-            font-size: 14px;
-            font-weight: 600;
-            margin-bottom: 4px;
-        }
-
-        .question-type {
-            color: #6b7280;
-            font-size: 12px;
-            background: #f3f4f6;
-            padding: 2px 6px;
-            border-radius: 4px;
-        }
-
-        .question-actions {
-            display: flex;
-            gap: 8px;
-        }
-
-        .question-actions button {
-            padding: 6px 12px;
-            font-size: 12px;
-            border: none;
-            border-radius: 6px;
-            cursor: pointer;
-            background: #f3f4f6;
-            color: #6b7280;
-        }
-
-        .question-actions button:hover {
-            background: #e5e7eb;
-        }
-
-        .question-preview {
-            color: #6b7280;
+        .security-notice p {
+            color: #1e40af;
             font-size: 13px;
-            line-height: 1.4;
-        }
-
-        .options-list {
-            margin-top: 8px;
-            padding-left: 16px;
-        }
-
-        .options-list li {
-            color: #9ca3af;
-            font-size: 12px;
-        }
-
-        .question-editor-modal .modal-content {
-            max-width: 600px;
-        }
-
-        .option-builder {
-            border: 1px solid #e5e7eb;
-            border-radius: 6px;
-            padding: 12px;
-            margin-top: 8px;
-        }
-
-        .option-item {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            margin-bottom: 8px;
-        }
-
-        .option-item input {
-            flex: 1;
             margin: 0;
         }
 
-        .option-item button {
-            padding: 4px 8px;
-            background: #fee2e2;
-            color: #dc2626;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 12px;
-        }
-
-        .modal-actions {
-            display: flex;
-            gap: 12px;
-            justify-content: flex-end;
-            margin-top: 30px;
-            padding-top: 20px;
-            border-top: 1px solid #f3f4f6;
-        }
-
-        .drag-handle {
-            color: #9ca3af;
-            cursor: move;
-            margin-right: 8px;
-        }
-
-        @media (max-width: 768px) {
-            .toolbar {
-                flex-direction: column;
-                align-items: stretch;
-            }
-
-            .search-box {
-                max-width: none;
-            }
-
-            .clients-grid {
-                grid-template-columns: 1fr;
-            }
-
-            .client-actions {
-                flex-direction: column;
-            }
-
-            .modal-content {
-                width: 95%;
-                padding: 20px;
-                margin: 10px;
-            }
-
-            .modal-tabs {
-                overflow-x: auto;
+        @media (max-width: 480px) {
+            .login-container {
+                margin: 20px;
+                padding: 30px 20px;
             }
         }
     </style>
 </head>
 <body>
-    <!-- Password Protection Modal -->
-    <div id="authModal" class="modal active" style="display: flex;">
-        <div class="modal-content" style="max-width: 400px;">
-            <div class="modal-header">
-                <h2>🔐 Admin Access Required</h2>
-            </div>
-            <form id="authForm" onsubmit="authenticate(event)">
-                <div class="form-group">
-                    <label for="adminPassword">Admin Password</label>
-                    <input type="password" id="adminPassword" name="adminPassword" required 
-                           placeholder="Enter admin password">
-                    <div class="help-text">Contact the system administrator for access</div>
-                </div>
-                <div id="authError" style="color: #dc2626; font-size: 14px; margin-bottom: 16px; display: none;"></div>
-                <div class="modal-actions">
-                    <button type="submit" class="btn btn-primary">
-                        Access Dashboard
-                    </button>
-                </div>
-            </form>
+    <div class="login-container">
+        <div class="logo">
+            <h1>🔐 LeadStick Admin</h1>
+            <p>Secure Administrator Access</p>
         </div>
-    </div>
 
-    <div id="mainDashboard" style="display: none;">
-        <div class="header">
-            <h1>🚀 LeadStick Dashboard</h1>
-            <p>Manage your client widget configurations with advanced question builder</p>
-            <button onclick="logout()" style="position: absolute; top: 20px; right: 20px; background: #dc2626; color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer;">
-                Logout
+        <form id="loginForm" onsubmit="handleLogin(event)">
+            <div class="form-group">
+                <label for="password">Administrator Password</label>
+                <input 
+                    type="password" 
+                    id="password" 
+                    name="password" 
+                    required 
+                    placeholder="Enter your admin password"
+                    autocomplete="current-password"
+                >
+            </div>
+
+            <div id="errorMessage" class="error"></div>
+
+            <button type="submit" class="btn" id="loginBtn">
+                Access Dashboard
             </button>
-        </div>
 
-        <div class="container">
-        <div class="toolbar">
-            <div class="search-box">
-                <input type="text" id="searchInput" placeholder="Search clients..." onkeyup="filterClients()">
+            <div id="loadingMessage" class="loading">
+                Authenticating...
             </div>
-            <button class="btn btn-primary" onclick="openNewClientModal()">
-                ➕ Add New Client
-            </button>
-        </div>
+        </form>
 
-        <div id="statusMessage"></div>
-        
-        <div id="loadingState" class="loading">
-            <div>Loading clients...</div>
-        </div>
-
-        <div id="clientsContainer" class="clients-grid" style="display: none;">
-            <!-- Clients will be loaded here -->
-        </div>
-
-        <div id="emptyState" class="empty-state" style="display: none;">
-            <h3>No clients yet</h3>
-            <p>Get started by adding your first client configuration</p>
-            <button class="btn btn-primary" onclick="openNewClientModal()" style="margin-top: 20px;">
-                ➕ Add Your First Client
-            </button>
-        </div>
-    </div>
-
-    <!-- New/Edit Client Modal -->
-    <div id="clientModal" class="modal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h2 id="modalTitle">Add New Client</h2>
-                <button class="close-btn" onclick="closeModal()">&times;</button>
-            </div>
-
-            <div class="modal-tabs">
-                <button class="modal-tab active" onclick="switchTab('basic')">📋 Basic Details</button>
-                <button class="modal-tab" onclick="switchTab('questions')">❓ Questions</button>
-                <button class="modal-tab" onclick="switchTab('theme')">🎨 Theme</button>
-            </div>
-
-            <form id="clientForm" onsubmit="saveClient(event)">
-                <!-- Basic Details Tab -->
-                <div id="basic-tab" class="tab-content active">
-                    <div class="form-group">
-                        <label for="siteId">Site ID *</label>
-                        <input type="text" id="siteId" name="siteId" required 
-                               pattern="[a-z0-9-]+" 
-                               placeholder="e.g., plumber-joe-123">
-                        <div class="help-text">Unique identifier (lowercase letters, numbers, and hyphens only)</div>
-                    </div>
-
-                    <div class="form-group">
-                        <label for="businessName">Business Name *</label>
-                        <input type="text" id="businessName" name="businessName" required 
-                               placeholder="e.g., Joe's Plumbing Services">
-                    </div>
-
-                    <div class="form-group">
-                        <label for="agentName">Agent Name *</label>
-                        <input type="text" id="agentName" name="agentName" required 
-                               placeholder="e.g., Joe">
-                        <div class="help-text">The person who will represent the business in the chat</div>
-                    </div>
-
-                    <div class="form-group">
-                        <label for="email">Email Address *</label>
-                        <input type="email" id="email" name="email" required 
-                               placeholder="e.g., joe@plumbingservices.com">
-                        <div class="help-text">Where lead notifications will be sent</div>
-                    </div>
-
-                    <div class="form-group">
-                        <label for="phone">Phone Number</label>
-                        <input type="tel" id="phone" name="phone" 
-                               placeholder="e.g., 0400 123 456">
-                    </div>
-
-                    <div class="form-group">
-                        <label for="welcomeMessage">Welcome Message</label>
-                        <textarea id="welcomeMessage" name="welcomeMessage" rows="3" 
-                                  placeholder="Hi! I'm [Agent Name]. How can I help you today?"></textarea>
-                        <div class="help-text">First message shown to visitors</div>
-                    </div>
-                </div>
-
-                <!-- Questions Tab -->
-                <div id="questions-tab" class="tab-content">
-                    <div class="questions-builder">
-                        <div class="questions-header">
-                            <h3>Question Flow</h3>
-                            <div class="add-question-dropdown">
-                                <button type="button" class="btn btn-primary btn-small" onclick="toggleQuestionDropdown()">
-                                    ➕ Add Question
-                                </button>
-                                <div id="questionDropdown" class="dropdown-content">
-                                    <button type="button" class="dropdown-item" onclick="addQuestion('text')">
-                                        📝 Single Line Text
-                                    </button>
-                                    <button type="button" class="dropdown-item" onclick="addQuestion('textarea')">
-                                        📄 Multi-line Text
-                                    </button>
-                                    <button type="button" class="dropdown-item" onclick="addQuestion('select')">
-                                        📋 Single Choice
-                                    </button>
-                                    <button type="button" class="dropdown-item" onclick="addQuestion('multiselect')">
-                                        ☑️ Multiple Choice
-                                    </button>
-                                    <button type="button" class="dropdown-item" onclick="addQuestion('name')">
-                                        👤 Full Name
-                                    </button>
-                                    <button type="button" class="dropdown-item" onclick="addQuestion('first_name')">
-                                        👤 First Name
-                                    </button>
-                                    <button type="button" class="dropdown-item" onclick="addQuestion('last_name')">
-                                        👤 Last Name
-                                    </button>
-                                    <button type="button" class="dropdown-item" onclick="addQuestion('email')">
-                                        ✉️ Email Address
-                                    </button>
-                                    <button type="button" class="dropdown-item" onclick="addQuestion('phone')">
-                                        📱 Phone Number
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div id="questionsList" class="question-list">
-                            <!-- Questions will be added here -->
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Theme Tab -->
-                <div id="theme-tab" class="tab-content">
-                    <div class="form-group">
-                        <label for="primaryColor">Primary Color</label>
-                        <div class="color-input">
-                            <input type="color" id="primaryColor" name="primaryColor" value="#3b82f6">
-                            <input type="text" id="primaryColorText" name="primaryColorText" value="#3b82f6" 
-                                   placeholder="#3b82f6" pattern="^#[0-9A-Fa-f]{6}$">
-                        </div>
-                        <div class="help-text">Main theme color for the widget</div>
-                    </div>
-                </div>
-
-                <div class="modal-actions">
-                    <button type="button" class="btn btn-secondary" onclick="closeModal()">Cancel</button>
-                    <button type="submit" class="btn btn-primary" id="saveButton">
-                        <span id="saveButtonText">Save Client</span>
-                    </button>
-                </div>
-            </form>
-        </div>
-    </div>
-
-    <!-- Question Editor Modal -->
-    <div id="questionEditorModal" class="modal question-editor-modal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h2 id="questionEditorTitle">Edit Question</h2>
-                <button class="close-btn" onclick="closeQuestionEditor()">&times;</button>
-            </div>
-
-            <form id="questionEditorForm" onsubmit="saveQuestion(event)">
-                <div class="form-group">
-                    <label for="questionText">Question Text *</label>
-                    <input type="text" id="questionText" name="questionText" required 
-                           placeholder="What would you like to ask?">
-                </div>
-
-                <div class="form-group">
-                    <label for="questionType">Question Type *</label>
-                    <select id="questionType" name="questionType" onchange="updateQuestionTypeOptions()" required>
-                        <option value="text">Single Line Text</option>
-                        <option value="textarea">Multi-line Text</option>
-                        <option value="select">Single Choice</option>
-                        <option value="multiselect">Multiple Choice</option>
-                        <option value="name">Full Name</option>
-                        <option value="first_name">First Name</option>
-                        <option value="last_name">Last Name</option>
-                        <option value="email">Email Address</option>
-                        <option value="phone">Phone Number</option>
-                    </select>
-                </div>
-
-                <div class="form-group">
-                    <label for="questionPlaceholder">Placeholder Text</label>
-                    <input type="text" id="questionPlaceholder" name="questionPlaceholder" 
-                           placeholder="Enter placeholder text...">
-                </div>
-
-                <div id="optionsSection" class="form-group" style="display: none;">
-                    <label>Options</label>
-                    <div class="option-builder">
-                        <div id="optionsList">
-                            <!-- Options will be added here -->
-                        </div>
-                        <button type="button" class="btn btn-secondary btn-small" onclick="addOption()">
-                            ➕ Add Option
-                        </button>
-                    </div>
-                </div>
-
-                <div class="form-group">
-                    <label>
-                        <input type="checkbox" id="questionRequired" name="questionRequired">
-                        Required field
-                    </label>
-                </div>
-
-                <div class="modal-actions">
-                    <button type="button" class="btn btn-secondary" onclick="closeQuestionEditor()">Cancel</button>
-                    <button type="submit" class="btn btn-primary">Save Question</button>
-                </div>
-            </form>
+        <div class="security-notice">
+            <p>🛡️ This is a secure admin area. All access attempts are logged and monitored.</p>
         </div>
     </div>
 
     <script>
         const API_BASE = 'https://leadstick-api.attribution.workers.dev';
-        let sessionToken = null;
-        let clients = [];
-        let editingClient = null;
-        let currentQuestions = [];
-        let editingQuestionIndex = -1;
-
-        // Create authenticated fetch function
-        function authenticatedFetch(url, options = {}) {
-            if (!sessionToken) {
-                throw new Error('Not authenticated');
-            }
-            
-            const authHeaders = {
-                'Authorization': `Bearer ${sessionToken}`,
-                'Content-Type': 'application/json',
-                ...options.headers
-            };
-            
-            return fetch(url, {
-                ...options,
-                headers: authHeaders
-            });
-        }
-
-        // Initialize dashboard
-        document.addEventListener('DOMContentLoaded', function() {
-            loadClients();
-            setupColorInputSync();
-            setupDragAndDrop();
-        });
-
-        // Tab switching
-        function switchTab(tabName) {
-            // Update tab buttons
-            document.querySelectorAll('.modal-tab').forEach(tab => {
-                tab.classList.remove('active');
-            });
-            event.target.classList.add('active');
-
-            // Update tab content
-            document.querySelectorAll('.tab-content').forEach(content => {
-                content.classList.remove('active');
-            });
-            document.getElementById(tabName + '-tab').classList.add('active');
-        }
-
-        // Sync color picker and text input
-        function setupColorInputSync() {
-            const colorPicker = document.getElementById('primaryColor');
-            const colorText = document.getElementById('primaryColorText');
-
-            colorPicker.addEventListener('input', (e) => {
-                colorText.value = e.target.value;
-            });
-
-            colorText.addEventListener('input', (e) => {
-                if (/^#[0-9A-Fa-f]{6}$/.test(e.target.value)) {
-                    colorPicker.value = e.target.value;
-                }
-            });
-        }
-
-        // Load all clients
-        async function loadClients() {
-            try {
-                showLoading(true);
-                const response = await authenticatedFetch(`${API_BASE}/admin/clients`);
-                const data = await response.json();
-
-                if (!response.ok) {
-                    throw new Error(data.error || 'Failed to load clients');
-                }
-
-                clients = data.clients || [];
-                renderClients();
-            } catch (error) {
-                showError('Failed to load clients: ' + error.message);
-            } finally {
-                showLoading(false);
-            }
-        }
-
-        // Render clients grid
-        function renderClients() {
-            const container = document.getElementById('clientsContainer');
-            const emptyState = document.getElementById('emptyState');
-
-            if (clients.length === 0) {
-                container.style.display = 'none';
-                emptyState.style.display = 'block';
-                return;
-            }
-
-            container.style.display = 'grid';
-            emptyState.style.display = 'none';
-
-            container.innerHTML = clients.map(client => `
-                <div class="client-card" data-site-id="${client.siteId}">
-                    <div class="client-header">
-                        <div class="client-info">
-                            <h3>${escapeHtml(client.businessName)}</h3>
-                            <div class="site-id">${escapeHtml(client.siteId)}</div>
-                        </div>
-                        <div class="theme-preview" style="background-color: ${client.theme}"></div>
-                    </div>
-                    
-                    <div class="client-details">
-                        <div class="client-detail">
-                            <span class="icon">👤</span>
-                            <span>${escapeHtml(client.agentName)}</span>
-                        </div>
-                        <div class="client-detail">
-                            <span class="icon">✉️</span>
-                            <span>${escapeHtml(client.email)}</span>
-                        </div>
-                        <div class="client-detail">
-                            <span class="icon">❓</span>
-                            <span class="questions-count">Questions configured</span>
-                        </div>
-                    </div>
-
-                    <div class="client-actions">
-                        <button class="btn btn-secondary btn-small" onclick="editClient('${client.siteId}')">
-                            ✏️ Edit
-                        </button>
-                        <button class="btn btn-primary btn-small" onclick="previewClient('${client.siteId}')">
-                            👁️ Preview
-                        </button>
-                        <button class="btn btn-danger btn-small" onclick="deleteClient('${client.siteId}')">
-                            🗑️ Delete
-                        </button>
-                    </div>
-                </div>
-            `).join('');
-        }
-
-        // Filter clients based on search
-        function filterClients() {
-            const searchTerm = document.getElementById('searchInput').value.toLowerCase();
-            const clientCards = document.querySelectorAll('.client-card');
-
-            clientCards.forEach(card => {
-                const siteId = card.dataset.siteId.toLowerCase();
-                const businessName = card.querySelector('h3').textContent.toLowerCase();
-                const email = card.querySelector('.client-detail:nth-child(2) span:last-child').textContent.toLowerCase();
-
-                if (siteId.includes(searchTerm) || businessName.includes(searchTerm) || email.includes(searchTerm)) {
-                    card.style.display = 'block';
-                } else {
-                    card.style.display = 'none';
-                }
-            });
-        }
-
-        // Open new client modal
-        function openNewClientModal() {
-            editingClient = null;
-            currentQuestions = getDefaultQuestions();
-            document.getElementById('modalTitle').textContent = 'Add New Client';
-            document.getElementById('saveButtonText').textContent = 'Save Client';
-            document.getElementById('clientForm').reset();
-            document.getElementById('primaryColor').value = '#3b82f6';
-            document.getElementById('primaryColorText').value = '#3b82f6';
-            document.getElementById('siteId').disabled = false;
-            
-            // Switch to basic tab
-            switchTabProgrammatic('basic');
-            
-            renderQuestions();
-            document.getElementById('clientModal').classList.add('active');
-        }
-
-        function switchTabProgrammatic(tabName) {
-            document.querySelectorAll('.modal-tab').forEach(tab => {
-                tab.classList.remove('active');
-            });
-            document.querySelector(`[onclick="switchTab('${tabName}')"]`).classList.add('active');
-
-            document.querySelectorAll('.tab-content').forEach(content => {
-                content.classList.remove('active');
-            });
-            document.getElementById(tabName + '-tab').classList.add('active');
-        }
-
-        // Get default questions for new clients
-        function getDefaultQuestions() {
-            return [
-                {
-                    id: 'location',
-                    type: 'text',
-                    question: 'What\'s your location?',
-                    placeholder: 'Enter your address or suburb',
-                    required: true
-                },
-                {
-                    id: 'inquiry',
-                    type: 'textarea',
-                    question: 'Tell me about your project',
-                    placeholder: 'Describe what you need help with...',
-                    required: true
-                },
-                {
-                    id: 'name',
-                    type: 'name',
-                    question: 'What\'s your name?',
-                    placeholder: 'Enter your full name',
-                    required: true
-                },
-                {
-                    id: 'email',
-                    type: 'email',
-                    question: 'What\'s your email address?',
-                    placeholder: 'Enter your email',
-                    required: true
-                },
-                {
-                    id: 'phone',
-                    type: 'phone',
-                    question: 'What\'s your phone number?',
-                    placeholder: 'Enter your phone number',
-                    required: true
-                }
-            ];
-        }
-
-        // Edit existing client
-        async function editClient(siteId) {
-            try {
-                const response = await fetch(`${API_BASE}/api/config/${siteId}`);
-                const config = await response.json();
-
-                if (!response.ok) {
-                    throw new Error(config.error || 'Failed to load client config');
-                }
-
-                editingClient = siteId;
-                currentQuestions = config.flow || getDefaultQuestions();
-                
-                document.getElementById('modalTitle').textContent = 'Edit Client';
-                document.getElementById('saveButtonText').textContent = 'Update Client';
-                
-                // Populate form
-                document.getElementById('siteId').value = config.siteId;
-                document.getElementById('siteId').disabled = true;
-                document.getElementById('businessName').value = config.business?.name || '';
-                document.getElementById('agentName').value = config.business?.agentName || '';
-                document.getElementById('email').value = config.business?.email || '';
-                document.getElementById('phone').value = config.business?.phone || '';
-                document.getElementById('primaryColor').value = config.theme?.primary || '#3b82f6';
-                document.getElementById('primaryColorText').value = config.theme?.primary || '#3b82f6';
-                document.getElementById('welcomeMessage').value = config.messages?.welcome || '';
-
-                switchTabProgrammatic('basic');
-                renderQuestions();
-                document.getElementById('clientModal').classList.add('active');
-            } catch (error) {
-                showError('Failed to load client: ' + error.message);
-            }
-        }
-
-        // Question dropdown toggle
-        function toggleQuestionDropdown() {
-            const dropdown = document.getElementById('questionDropdown');
-            dropdown.classList.toggle('show');
-        }
-
-        // Close dropdowns when clicking outside
-        document.addEventListener('click', function(e) {
-            if (!e.target.matches('.btn')) {
-                document.getElementById('questionDropdown').classList.remove('show');
-            }
-        });
-
-        // Add question
-        function addQuestion(type) {
-            const question = createQuestionTemplate(type);
-            currentQuestions.push(question);
-            renderQuestions();
-            document.getElementById('questionDropdown').classList.remove('show');
-        }
-
-        // Create question template based on type
-        function createQuestionTemplate(type) {
-            const templates = {
-                'text': {
-                    type: 'text',
-                    question: 'Enter your question',
-                    placeholder: 'Type your answer...',
-                    required: true
-                },
-                'textarea': {
-                    type: 'textarea',
-                    question: 'Enter your question',
-                    placeholder: 'Type your detailed answer...',
-                    required: true
-                },
-                'select': {
-                    type: 'select',
-                    question: 'Choose an option',
-                    options: ['Option 1', 'Option 2', 'Option 3'],
-                    required: true
-                },
-                'multiselect': {
-                    type: 'multiselect',
-                    question: 'Select all that apply',
-                    options: ['Option 1', 'Option 2', 'Option 3'],
-                    required: true
-                },
-                'name': {
-                    type: 'name',
-                    question: 'What\'s your full name?',
-                    placeholder: 'Enter your full name',
-                    required: true
-                },
-                'first_name': {
-                    type: 'first_name',
-                    question: 'What\'s your first name?',
-                    placeholder: 'Enter your first name',
-                    required: true
-                },
-                'last_name': {
-                    type: 'last_name',
-                    question: 'What\'s your last name?',
-                    placeholder: 'Enter your last name',
-                    required: true
-                },
-                'email': {
-                    type: 'email',
-                    question: 'What\'s your email address?',
-                    placeholder: 'Enter your email',
-                    required: true
-                },
-                'phone': {
-                    type: 'phone',
-                    question: 'What\'s your phone number?',
-                    placeholder: 'Enter your phone number',
-                    required: true
-                }
-            };
-
-            const template = templates[type] || templates['text'];
-            return {
-                id: 'question_' + Date.now(),
-                ...template
-            };
-        }
-
-        // Render questions list
-        function renderQuestions() {
-            const container = document.getElementById('questionsList');
-            
-            if (currentQuestions.length === 0) {
-                container.innerHTML = '<p style="text-align: center; color: #6b7280; padding: 20px;">No questions added yet. Click "Add Question" to get started.</p>';
-                return;
-            }
-
-            container.innerHTML = currentQuestions.map((question, index) => `
-                <div class="question-item" draggable="true" data-index="${index}">
-                    <div class="question-header">
-                        <div class="question-info">
-                            <span class="drag-handle">⋮⋮</span>
-                            <h4>${escapeHtml(question.question)}</h4>
-                            <div class="question-type">${getQuestionTypeLabel(question.type)}</div>
-                        </div>
-                        <div class="question-actions">
-                            <button type="button" onclick="editQuestion(${index})">✏️ Edit</button>
-                            <button type="button" onclick="deleteQuestion(${index})">🗑️</button>
-                        </div>
-                    </div>
-                    <div class="question-preview">
-                        ${question.placeholder ? `Placeholder: "${question.placeholder}"` : ''}
-                        ${question.required ? ' • Required' : ''}
-                        ${question.options ? `
-                            <ul class="options-list">
-                                ${question.options.slice(0, 3).map(opt => `<li>${escapeHtml(opt)}</li>`).join('')}
-                                ${question.options.length > 3 ? `<li>...and ${question.options.length - 3} more</li>` : ''}
-                            </ul>
-                        ` : ''}
-                    </div>
-                </div>
-            `).join('');
-        }
-
-        // Get question type label
-        function getQuestionTypeLabel(type) {
-            const labels = {
-                'text': 'Single Line Text',
-                'textarea': 'Multi-line Text',
-                'select': 'Single Choice',
-                'multiselect': 'Multiple Choice',
-                'name': 'Full Name',
-                'first_name': 'First Name',
-                'last_name': 'Last Name',
-                'email': 'Email Address',
-                'phone': 'Phone Number'
-            };
-            return labels[type] || type;
-        }
-
-        // Edit question
-        function editQuestion(index) {
-            editingQuestionIndex = index;
-            const question = currentQuestions[index];
-            
-            document.getElementById('questionEditorTitle').textContent = 'Edit Question';
-            document.getElementById('questionText').value = question.question;
-            document.getElementById('questionType').value = question.type;
-            document.getElementById('questionPlaceholder').value = question.placeholder || '';
-            document.getElementById('questionRequired').checked = question.required || false;
-            
-            // Handle options for select types
-            if (question.options) {
-                renderOptions(question.options);
-            }
-            
-            updateQuestionTypeOptions();
-            document.getElementById('questionEditorModal').classList.add('active');
-        }
-
-        // Delete question
-        function deleteQuestion(index) {
-            if (confirm('Are you sure you want to delete this question?')) {
-                currentQuestions.splice(index, 1);
-                renderQuestions();
-            }
-        }
-
-        // Update question type options
-        function updateQuestionTypeOptions() {
-            const type = document.getElementById('questionType').value;
-            const optionsSection = document.getElementById('optionsSection');
-            
-            if (type === 'select' || type === 'multiselect') {
-                optionsSection.style.display = 'block';
-                if (editingQuestionIndex === -1) {
-                    renderOptions(['Option 1', 'Option 2']);
-                }
-            } else {
-                optionsSection.style.display = 'none';
-            }
-        }
-
-        // Render options
-        function renderOptions(options = []) {
-            const container = document.getElementById('optionsList');
-            container.innerHTML = options.map((option, index) => `
-                <div class="option-item">
-                    <input type="text" value="${escapeHtml(option)}" onchange="updateOption(${index}, this.value)">
-                    <button type="button" onclick="removeOption(${index})">×</button>
-                </div>
-            `).join('');
-        }
-
-        // Add option
-        function addOption() {
-            const container = document.getElementById('optionsList');
-            const index = container.children.length;
-            const optionDiv = document.createElement('div');
-            optionDiv.className = 'option-item';
-            optionDiv.innerHTML = `
-                <input type="text" value="New Option" onchange="updateOption(${index}, this.value)">
-                <button type="button" onclick="removeOption(${index})">×</button>
-            `;
-            container.appendChild(optionDiv);
-        }
-
-        // Update option
-        function updateOption(index, value) {
-            // This will be handled when saving the question
-        }
-
-        // Remove option
-        function removeOption(index) {
-            document.getElementById('optionsList').children[index].remove();
-            // Re-index remaining options
-            Array.from(document.getElementById('optionsList').children).forEach((item, newIndex) => {
-                const input = item.querySelector('input');
-                const button = item.querySelector('button');
-                input.setAttribute('onchange', `updateOption(${newIndex}, this.value)`);
-                button.setAttribute('onclick', `removeOption(${newIndex})`);
-            });
-        }
-
-        // Save question
-        function saveQuestion(event) {
+        
+        async function handleLogin(event) {
             event.preventDefault();
             
-            const formData = new FormData(event.target);
-            const questionData = {
-                id: editingQuestionIndex >= 0 ? currentQuestions[editingQuestionIndex].id : 'question_' + Date.now(),
-                type: formData.get('questionType'),
-                question: formData.get('questionText'),
-                placeholder: formData.get('questionPlaceholder'),
-                required: formData.get('questionRequired') === 'on'
-            };
-
-            // Handle options for select types
-            if (questionData.type === 'select' || questionData.type === 'multiselect') {
-                const options = Array.from(document.getElementById('optionsList').children)
-                    .map(item => item.querySelector('input').value.trim())
-                    .filter(option => option.length > 0);
-                questionData.options = options;
-            }
-
-            if (editingQuestionIndex >= 0) {
-                currentQuestions[editingQuestionIndex] = questionData;
-            } else {
-                currentQuestions.push(questionData);
-            }
-
-            renderQuestions();
-            closeQuestionEditor();
-        }
-
-        // Close question editor
-        function closeQuestionEditor() {
-            document.getElementById('questionEditorModal').classList.remove('active');
-            editingQuestionIndex = -1;
-        }
-
-        // Setup drag and drop for questions
-        function setupDragAndDrop() {
-            // This will be implemented with the existing drag events
-        }
-
-        // Save client (create or update)
-        async function saveClient(event) {
-            event.preventDefault();
+            const password = document.getElementById('password').value;
+            const errorDiv = document.getElementById('errorMessage');
+            const loadingDiv = document.getElementById('loadingMessage');
+            const loginBtn = document.getElementById('loginBtn');
             
-            const saveButton = document.getElementById('saveButton');
-            const originalText = document.getElementById('saveButtonText').textContent;
+            // Reset UI
+            errorDiv.style.display = 'none';
+            loadingDiv.style.display = 'block';
+            loginBtn.disabled = true;
+            loginBtn.textContent = 'Authenticating...';
             
             try {
-                saveButton.disabled = true;
-                document.getElementById('saveButtonText').textContent = 'Saving...';
-
-                const formData = new FormData(event.target);
-                const clientData = {
-                    siteId: formData.get('siteId'),
-                    business: {
-                        name: formData.get('businessName'),
-                        agentName: formData.get('agentName'),
-                        email: formData.get('email'),
-                        phone: formData.get('phone') || '',
-                        avatar: `/avatar-${formData.get('agentName').toLowerCase()}.png`
-                    },
-                    theme: {
-                        primary: formData.get('primaryColor'),
-                        primaryHover: adjustColor(formData.get('primaryColor'), -20),
-                        secondary: '#f3f4f6',
-                        background: '#ffffff',
-                        text: '#1f2937',
-                        muted: '#6b7280',
-                        border: '#e5e7eb'
-                    },
-                    messages: {
-                        welcome: formData.get('welcomeMessage') || `Hi! I'm ${formData.get('agentName')}. How can I help you today?`,
-                        complete: `Thanks! I'll review your request and get back to you soon.`,
-                        phoneButton: `Need immediate help? Call me directly!`
-                    },
-                    flow: currentQuestions
-                };
-
-                const url = editingClient 
-                    ? `${API_BASE}/admin/clients/${editingClient}`
-                    : `${API_BASE}/admin/clients`;
-                
-                const method = editingClient ? 'PUT' : 'POST';
-
-                const response = await authenticatedFetch(url, {
-                    method: method,
-                    body: JSON.stringify(clientData)
-                });
-
-                const result = await response.json();
-
-                if (!response.ok) {
-                    throw new Error(result.error || 'Failed to save client');
-                }
-
-                showSuccess(editingClient ? 'Client updated successfully!' : 'Client created successfully!');
-                closeModal();
-                loadClients();
-
-            } catch (error) {
-                showError('Failed to save client: ' + error.message);
-            } finally {
-                saveButton.disabled = false;
-                document.getElementById('saveButtonText').textContent = originalText;
-            }
-        }
-
-        // Delete client
-        async function deleteClient(siteId) {
-            if (!confirm(`Are you sure you want to delete "${siteId}"? This cannot be undone.`)) {
-                return;
-            }
-
-            try {
-                const response = await authenticatedFetch(`${API_BASE}/admin/clients/${siteId}`, {
-                    method: 'DELETE'
-                });
-
-                const result = await response.json();
-
-                if (!response.ok) {
-                    throw new Error(result.error || 'Failed to delete client');
-                }
-
-                showSuccess('Client deleted successfully!');
-                loadClients();
-
-            } catch (error) {
-                showError('Failed to delete client: ' + error.message);
-            }
-        }
-
-        // Preview client widget
-        function previewClient(siteId) {
-            const previewUrl = `https://pub-2cf19529958742fea36d2ac68c558716.r2.dev/test-dynamic-config.html`;
-            window.open(previewUrl, '_blank');
-        }
-
-        // Close modal
-        function closeModal() {
-            document.getElementById('clientModal').classList.remove('active');
-            editingClient = null;
-            currentQuestions = [];
-        }
-
-        // Utility functions
-        function showLoading(show) {
-            document.getElementById('loadingState').style.display = show ? 'block' : 'none';
-        }
-
-        function showError(message) {
-            const container = document.getElementById('statusMessage');
-            container.innerHTML = `<div class="error">${escapeHtml(message)}</div>`;
-            setTimeout(() => container.innerHTML = '', 5000);
-        }
-
-        function showSuccess(message) {
-            const container = document.getElementById('statusMessage');
-            container.innerHTML = `<div class="success">${escapeHtml(message)}</div>`;
-            setTimeout(() => container.innerHTML = '', 3000);
-        }
-
-        function escapeHtml(text) {
-            const div = document.createElement('div');
-            div.textContent = text;
-            return div.innerHTML;
-        }
-
-        function adjustColor(hex, amount) {
-            const num = parseInt(hex.replace('#', ''), 16);
-            const amt = Math.round(2.55 * amount);
-            const R = (num >> 16) + amt;
-            const G = (num >> 8 & 0x00FF) + amt;
-            const B = (num & 0x0000FF) + amt;
-            return '#' + (0x1000000 + (R < 255 ? R < 1 ? 0 : R : 255) * 0x10000 +
-                (G < 255 ? G < 1 ? 0 : G : 255) * 0x100 +
-                (B < 255 ? B < 1 ? 0 : B : 255)).toString(16).slice(1);
-        }
-
-        // Close modals when clicking outside
-        document.getElementById('clientModal').addEventListener('click', function(e) {
-            if (e.target === this) {
-                closeModal();
-            }
-        });
-
-        document.getElementById('questionEditorModal').addEventListener('click', function(e) {
-            if (e.target === this) {
-                closeQuestionEditor();
-            }
-        });
-
-        // Close modals with Escape key
-        document.addEventListener('keydown', function(e) {
-            if (e.key === 'Escape') {
-                closeModal();
-                closeQuestionEditor();
-            }
-        });
-
-        // Drag and drop functionality for questions
-        document.addEventListener('DOMContentLoaded', function() {
-            let draggedElement = null;
-
-            document.addEventListener('dragstart', function(e) {
-                if (e.target.classList.contains('question-item')) {
-                    draggedElement = e.target;
-                    e.target.classList.add('dragging');
-                }
-            });
-
-            document.addEventListener('dragend', function(e) {
-                if (e.target.classList.contains('question-item')) {
-                    e.target.classList.remove('dragging');
-                    draggedElement = null;
-                }
-            });
-
-            document.addEventListener('dragover', function(e) {
-                e.preventDefault();
-                const container = document.getElementById('questionsList');
-                if (container.contains(e.target)) {
-                    const afterElement = getDragAfterElement(container, e.clientY);
-                    if (afterElement == null) {
-                        container.appendChild(draggedElement);
-                    } else {
-                        container.insertBefore(draggedElement, afterElement);
-                    }
-                }
-            });
-
-            document.addEventListener('drop', function(e) {
-                e.preventDefault();
-                if (draggedElement) {
-                    // Update currentQuestions array based on new order
-                    const questionItems = Array.from(document.getElementById('questionsList').children);
-                    const newOrder = questionItems.map(item => {
-                        const index = parseInt(item.dataset.index);
-                        return currentQuestions[index];
-                    });
-                    currentQuestions = newOrder;
-                    renderQuestions();
-                }
-            });
-        });
-
-        function getDragAfterElement(container, y) {
-            const draggableElements = [...container.querySelectorAll('.question-item:not(.dragging)')];
-            
-            return draggableElements.reduce((closest, child) => {
-                const box = child.getBoundingClientRect();
-                const offset = y - box.top - box.height / 2;
-                
-                if (offset < 0 && offset > closest.offset) {
-                    return { offset: offset, element: child };
-                } else {
-                    return closest;
-                }
-            }, { offset: Number.NEGATIVE_INFINITY }).element;
-        }
-
-        // Authentication system
-        let isAuthenticated = false;
-
-        async function authenticate(event) {
-            event.preventDefault();
-            const password = document.getElementById('adminPassword').value;
-            
-            try {
-                // Send password to server for authentication
                 const response = await fetch(`${API_BASE}/admin/auth`, {
                     method: 'POST',
                     headers: {
@@ -1613,67 +205,46 @@
                 const data = await response.json();
                 
                 if (response.ok && data.token) {
-                    isAuthenticated = true;
-                    sessionToken = data.token;
-                    sessionStorage.setItem('leadstick_admin_token', sessionToken);
-                    document.getElementById('authModal').style.display = 'none';
-                    document.getElementById('mainDashboard').style.display = 'block';
-                    loadClients(); // Load clients after successful authentication
+                    // Store authentication data
+                    sessionStorage.setItem('leadstick_admin_token', data.token);
+                    sessionStorage.setItem('leadstick_csrf_token', data.csrfToken);
+                    
+                    // Redirect to admin dashboard
+                    window.location.href = './dashboard.html';
                 } else {
-                    document.getElementById('authError').style.display = 'block';
-                    document.getElementById('authError').textContent = data.error || 'Invalid password. Please try again.';
-                    document.getElementById('adminPassword').value = '';
+                    showError(data.error || 'Invalid credentials. Please try again.');
                 }
             } catch (error) {
-                console.error('Authentication error:', error);
-                document.getElementById('authError').style.display = 'block';
-                document.getElementById('authError').textContent = 'Authentication failed. Please try again.';
-                document.getElementById('adminPassword').value = '';
+                console.error('Login error:', error);
+                showError('Authentication failed. Please check your connection and try again.');
+            } finally {
+                loadingDiv.style.display = 'none';
+                loginBtn.disabled = false;
+                loginBtn.textContent = 'Access Dashboard';
+                document.getElementById('password').value = '';
             }
         }
-
-        function logout() {
-            isAuthenticated = false;
-            sessionToken = null;
-            sessionStorage.removeItem('leadstick_admin_token');
-            document.getElementById('authModal').style.display = 'flex';
-            document.getElementById('mainDashboard').style.display = 'none';
-            document.getElementById('adminPassword').value = '';
-            document.getElementById('authError').style.display = 'none';
+        
+        function showError(message) {
+            const errorDiv = document.getElementById('errorMessage');
+            errorDiv.textContent = message;
+            errorDiv.style.display = 'block';
         }
-
-        function checkAuth() {
-            const storedToken = sessionStorage.getItem('leadstick_admin_token');
-            if (storedToken) {
-                isAuthenticated = true;
-                sessionToken = storedToken;
-                document.getElementById('authModal').style.display = 'none';
-                document.getElementById('mainDashboard').style.display = 'block';
-                return true;
-            }
-            return false;
-        }
-
-        // Override API functions to check authentication
-        const originalLoadClients = loadClients;
-        loadClients = function() {
-            if (!isAuthenticated) {
-                console.warn('Unauthorized access attempt');
-                return;
-            }
-            return originalLoadClients();
-        };
-
-        // Initialize authentication check
+        
+        // Check if already authenticated
         document.addEventListener('DOMContentLoaded', function() {
-            if (!checkAuth()) {
-                // Don't load clients if not authenticated
-                return;
+            const token = sessionStorage.getItem('leadstick_admin_token');
+            const csrfToken = sessionStorage.getItem('leadstick_csrf_token');
+            
+            if (token && csrfToken) {
+                // Already authenticated, redirect to dashboard
+                window.location.href = './dashboard.html';
             }
-            setupColorInputSync();
-            setupDragAndDrop();
         });
+        
+        // Security: Clear any existing admin data on page load
+        sessionStorage.removeItem('leadstick_admin_token');
+        sessionStorage.removeItem('leadstick_csrf_token');
     </script>
-    </div> <!-- Close mainDashboard -->
 </body>
 </html>

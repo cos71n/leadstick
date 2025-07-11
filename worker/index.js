@@ -29,113 +29,105 @@ function sanitizeInput(input, maxLength = 500) {
   return input.trim().slice(0, maxLength);
 }
 
-// In-memory rate limiting for standalone deployment
-// This approach works without external dependencies but resets on worker restart
-const rateLimitStore = new Map();
-
-function cleanupOldEntries() {
-  const currentTime = Date.now();
-  const oneHourAgo = currentTime - (60 * 60 * 1000);
-  
-  for (const [key, data] of rateLimitStore.entries()) {
-    if (data.lastCleanup && data.lastCleanup < oneHourAgo) {
-      // Clean up old time windows
-      const timeWindows = Object.keys(data.windows || {});
-      for (const window of timeWindows) {
-        const windowTime = parseInt(window) * 1000 * 60 * 60; // Convert back to timestamp
-        if (windowTime < oneHourAgo) {
-          delete data.windows[window];
-        }
-      }
-      
-      // Remove IP entry if no active windows
-      if (Object.keys(data.windows || {}).length === 0) {
-        rateLimitStore.delete(key);
-      } else {
-        data.lastCleanup = currentTime;
-      }
-    }
-  }
-}
-
-function checkRateLimit(clientIP, env) {
-  // Cleanup old entries periodically
-  if (Math.random() < 0.1) { // 10% chance to cleanup on each request
-    cleanupOldEntries();
-  }
-  
+// Persistent rate limiting using Cloudflare KV
+// This approach persists across worker restarts and provides robust protection
+async function checkRateLimit(clientIP, env) {
   const currentTime = Date.now();
   const timeWindow = Math.floor(currentTime / (1000 * 60 * 60)); // 1 hour windows
+  const rateLimitKey = `rate_limit_${clientIP}`;
   
-  // Get or create IP entry
-  let ipData = rateLimitStore.get(clientIP);
-  if (!ipData) {
-    ipData = { 
+  try {
+    // Get existing rate limit data from KV
+    const existingData = await env.LEADSTICK_CONFIGS.get(rateLimitKey);
+    let ipData = existingData ? JSON.parse(existingData) : { 
       windows: {}, 
-      lastSubmission: 0, 
-      lastCleanup: currentTime 
+      lastSubmission: 0 
     };
-    rateLimitStore.set(clientIP, ipData);
-  }
-  
-  // Get current window count
-  const windowCount = ipData.windows[timeWindow] || 0;
-  
-  // Check hourly limit
-  if (windowCount >= 5) {
+    
+    // Clean up old windows (older than 3 hours)
+    const threeHoursAgo = timeWindow - 3;
+    for (const window of Object.keys(ipData.windows)) {
+      if (parseInt(window) < threeHoursAgo) {
+        delete ipData.windows[window];
+      }
+    }
+    
+    // Get current window count
+    const windowCount = ipData.windows[timeWindow] || 0;
+    
+    // Check hourly limit
+    if (windowCount >= 5) {
+      return { 
+        allowed: false, 
+        remaining: 0, 
+        resetTime: (timeWindow + 1) * 1000 * 60 * 60, // Next hour
+        reason: 'hourly_limit_exceeded'
+      };
+    }
+    
+    // Check progressive delay
+    const timeSinceLastSubmission = currentTime - ipData.lastSubmission;
+    const requiredDelay = Math.min(windowCount * 30000, 300000); // 30s * attempts, max 5 minutes
+    
+    if (windowCount >= 3 && timeSinceLastSubmission < requiredDelay) {
+      return { 
+        allowed: false, 
+        remaining: 5 - windowCount,
+        retryAfter: Math.ceil((requiredDelay - timeSinceLastSubmission) / 1000),
+        reason: 'progressive_delay'
+      };
+    }
+    
     return { 
-      allowed: false, 
-      remaining: 0, 
-      resetTime: (timeWindow + 1) * 1000 * 60 * 60, // Next hour
-      reason: 'hourly_limit_exceeded'
-    };
-  }
-  
-  // Check progressive delay
-  const timeSinceLastSubmission = currentTime - ipData.lastSubmission;
-  const requiredDelay = Math.min(windowCount * 30000, 300000); // 30s * attempts, max 5 minutes
-  
-  if (windowCount >= 3 && timeSinceLastSubmission < requiredDelay) {
-    return { 
-      allowed: false, 
+      allowed: true, 
       remaining: 5 - windowCount,
-      retryAfter: Math.ceil((requiredDelay - timeSinceLastSubmission) / 1000),
-      reason: 'progressive_delay'
+      count: windowCount
+    };
+  } catch (error) {
+    console.error('Rate limit check failed:', error);
+    // Fail open - allow the request if KV is unavailable
+    return { 
+      allowed: true, 
+      remaining: 5,
+      count: 0
     };
   }
-  
-  return { 
-    allowed: true, 
-    remaining: 5 - windowCount,
-    count: windowCount
-  };
 }
 
-function updateRateLimit(clientIP, env) {
+async function updateRateLimit(clientIP, env) {
   const currentTime = Date.now();
   const timeWindow = Math.floor(currentTime / (1000 * 60 * 60)); // 1 hour windows
+  const rateLimitKey = `rate_limit_${clientIP}`;
   
-  // Get or create IP entry
-  let ipData = rateLimitStore.get(clientIP);
-  if (!ipData) {
-    ipData = { 
+  try {
+    // Get existing rate limit data from KV
+    const existingData = await env.LEADSTICK_CONFIGS.get(rateLimitKey);
+    let ipData = existingData ? JSON.parse(existingData) : { 
       windows: {}, 
-      lastSubmission: 0, 
-      lastCleanup: currentTime 
+      lastSubmission: 0 
     };
-    rateLimitStore.set(clientIP, ipData);
-  }
-  
-  // Increment count for current window
-  ipData.windows[timeWindow] = (ipData.windows[timeWindow] || 0) + 1;
-  ipData.lastSubmission = currentTime;
-  
-  // Limit memory usage - keep only last 3 hours of data
-  const threeHoursAgo = timeWindow - 3;
-  for (const window of Object.keys(ipData.windows)) {
-    if (parseInt(window) < threeHoursAgo) {
-      delete ipData.windows[window];
+    
+    // Increment count for current window
+    ipData.windows[timeWindow] = (ipData.windows[timeWindow] || 0) + 1;
+    ipData.lastSubmission = currentTime;
+    
+    // Clean up old windows (older than 3 hours)
+    const threeHoursAgo = timeWindow - 3;
+    for (const window of Object.keys(ipData.windows)) {
+      if (parseInt(window) < threeHoursAgo) {
+        delete ipData.windows[window];
+      }
     }
+    
+    // Store updated data in KV with 4 hour expiration
+    await env.LEADSTICK_CONFIGS.put(
+      rateLimitKey, 
+      JSON.stringify(ipData), 
+      { expirationTtl: 14400 } // 4 hours
+    );
+  } catch (error) {
+    console.error('Rate limit update failed:', error);
+    // Continue processing even if rate limit update fails
   }
 }
 
@@ -209,25 +201,34 @@ function validateAndSanitizeLead(leadData) {
 }
 
 // Authentication middleware
-async function authenticateAdmin(request, env) {
+async function authenticateAdmin(request, env, requireCsrf = false) {
   const authHeader = request.headers.get('Authorization');
   
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    return false;
+    return { valid: false, session: null };
   }
   
   const token = authHeader.substring(7); // Remove "Bearer " prefix
   
-  // Check if it's a session token (UUID format)
-  if (token.includes('-')) {
-    const sessionKey = `admin_session_${token}`;
-    const session = await env.LEADSTICK_CONFIGS.get(sessionKey);
-    return session !== null;
+  // Only accept session tokens (no more API key fallback)
+  const sessionKey = `admin_session_${token}`;
+  const sessionData = await env.LEADSTICK_CONFIGS.get(sessionKey);
+  
+  if (!sessionData) {
+    return { valid: false, session: null };
   }
   
-  // Fallback to API key for backwards compatibility (will be removed)
-  const adminApiKey = env.ADMIN_API_KEY;
-  return adminApiKey && token === adminApiKey;
+  const session = JSON.parse(sessionData);
+  
+  // CSRF validation for state-changing operations
+  if (requireCsrf) {
+    const csrfToken = request.headers.get('X-CSRF-Token');
+    if (!csrfToken || csrfToken !== session.csrfToken) {
+      return { valid: false, session: null, error: 'Invalid CSRF token' };
+    }
+  }
+  
+  return { valid: true, session: session };
 }
 
 // Enhanced logging for admin operations
@@ -262,19 +263,32 @@ export default {
     
     let corsHeaders = {
       'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-      'Content-Type': 'application/json'
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-CSRF-Token',
+      'Content-Type': 'application/json',
+      'X-Content-Type-Options': 'nosniff',
+      'X-Frame-Options': 'DENY',
+      'Referrer-Policy': 'strict-origin-when-cross-origin'
     };
     
     // Restrict CORS for admin endpoints
     if (isAdminRequest) {
       if (origin && allowedOrigins.includes(origin)) {
         corsHeaders['Access-Control-Allow-Origin'] = origin;
+        corsHeaders['Access-Control-Allow-Credentials'] = 'true';
       } else {
-        corsHeaders['Access-Control-Allow-Origin'] = 'https://leadstick-dashboard.pages.dev';
+        // Reject unauthorized origins for admin endpoints
+        return new Response(JSON.stringify({ 
+          error: 'Access denied: Invalid origin' 
+        }), { 
+          status: 403, 
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Content-Type-Options': 'nosniff'
+          }
+        });
       }
     } else {
-      // Public endpoints can still use wildcard for widget functionality
+      // Public endpoints allow all origins for widget functionality
       corsHeaders['Access-Control-Allow-Origin'] = '*';
     }
 
@@ -304,8 +318,18 @@ export default {
         const hashArray = Array.from(new Uint8Array(hashBuffer));
         const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
         
-        // Get admin password hash from environment or use default (CHANGE THIS!)
-        const adminPasswordHash = env.ADMIN_PASSWORD_HASH || '8c6976e5b5410415bde908bd4dee15dfb167a9c873fc4bb8a81f6f2ab448a918';
+        // Get admin password hash from environment
+        const adminPasswordHash = env.ADMIN_PASSWORD_HASH;
+        
+        if (!adminPasswordHash) {
+          console.error('ADMIN_PASSWORD_HASH not configured');
+          return new Response(JSON.stringify({ 
+            error: 'Authentication system not properly configured' 
+          }), { 
+            status: 500, 
+            headers: corsHeaders 
+          });
+        }
         
         if (hashHex !== adminPasswordHash) {
           logAdminOperation(request, 'FAILED_LOGIN_ATTEMPT');
@@ -317,23 +341,31 @@ export default {
           });
         }
         
-        // Generate secure session token
-        const sessionToken = crypto.randomUUID() + '-' + crypto.randomUUID();
+        // Generate cryptographically secure session token
+        const sessionData = crypto.randomUUID() + env.SESSION_SECRET + Date.now();
+        const sessionTokenBuffer = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(sessionData));
+        const sessionToken = Array.from(new Uint8Array(sessionTokenBuffer))
+          .map(b => b.toString(16).padStart(2, '0')).join('');
         const sessionKey = `admin_session_${sessionToken}`;
         
-        // Store session in KV with 24 hour expiration
+        // Generate CSRF token
+        const csrfToken = crypto.randomUUID();
+        
+        // Store session in KV with 2 hour expiration
         await env.LEADSTICK_CONFIGS.put(sessionKey, JSON.stringify({
           createdAt: new Date().toISOString(),
           ip: request.headers.get('CF-Connecting-IP') || 'unknown',
-          userAgent: request.headers.get('User-Agent') || 'unknown'
-        }), { expirationTtl: 86400 }); // 24 hours
+          userAgent: request.headers.get('User-Agent') || 'unknown',
+          csrfToken: csrfToken
+        }), { expirationTtl: 7200 }); // 2 hours
         
         logAdminOperation(request, 'SUCCESSFUL_LOGIN');
         
         return new Response(JSON.stringify({ 
           success: true,
           token: sessionToken,
-          expiresIn: 86400
+          csrfToken: csrfToken,
+          expiresIn: 7200
         }), { 
           headers: corsHeaders 
         });
@@ -393,13 +425,14 @@ export default {
     // Route: GET /admin/clients - List all clients
     if (request.method === 'GET' && url.pathname === '/admin/clients') {
       // Check authentication
-      if (!(await authenticateAdmin(request, env))) {
+      const authResult = await authenticateAdmin(request, env);
+      if (!authResult.valid) {
         logAdminOperation(request, 'UNAUTHORIZED_ACCESS_ATTEMPT', { 
           endpoint: '/admin/clients',
           method: 'GET'
         });
         return new Response(JSON.stringify({ 
-          error: 'Unauthorized. Valid API key required.' 
+          error: authResult.error || 'Unauthorized. Valid session required.' 
         }), { 
           status: 401, 
           headers: corsHeaders 
@@ -444,14 +477,15 @@ export default {
 
     // Route: POST /admin/clients - Create new client
     if (request.method === 'POST' && url.pathname === '/admin/clients') {
-      // Check authentication
-      if (!(await authenticateAdmin(request, env))) {
+      // Check authentication with CSRF
+      const authResult = await authenticateAdmin(request, env, true);
+      if (!authResult.valid) {
         logAdminOperation(request, 'UNAUTHORIZED_ACCESS_ATTEMPT', { 
           endpoint: '/admin/clients',
           method: 'POST'
         });
         return new Response(JSON.stringify({ 
-          error: 'Unauthorized. Valid API key required.' 
+          error: authResult.error || 'Unauthorized. Valid session required.' 
         }), { 
           status: 401, 
           headers: corsHeaders 
@@ -525,14 +559,15 @@ export default {
 
     // Route: PUT /admin/clients/:siteId - Update client
     if (request.method === 'PUT' && url.pathname.startsWith('/admin/clients/')) {
-      // Check authentication
-      if (!(await authenticateAdmin(request, env))) {
+      // Check authentication with CSRF
+      const authResult = await authenticateAdmin(request, env, true);
+      if (!authResult.valid) {
         logAdminOperation(request, 'UNAUTHORIZED_ACCESS_ATTEMPT', { 
           endpoint: url.pathname,
           method: 'PUT'
         });
         return new Response(JSON.stringify({ 
-          error: 'Unauthorized. Valid API key required.' 
+          error: authResult.error || 'Unauthorized. Valid session required.' 
         }), { 
           status: 401, 
           headers: corsHeaders 
@@ -607,14 +642,15 @@ export default {
 
     // Route: DELETE /admin/clients/:siteId - Delete client
     if (request.method === 'DELETE' && url.pathname.startsWith('/admin/clients/')) {
-      // Check authentication
-      if (!(await authenticateAdmin(request, env))) {
+      // Check authentication with CSRF
+      const authResult = await authenticateAdmin(request, env, true);
+      if (!authResult.valid) {
         logAdminOperation(request, 'UNAUTHORIZED_ACCESS_ATTEMPT', { 
           endpoint: url.pathname,
           method: 'DELETE'
         });
         return new Response(JSON.stringify({ 
-          error: 'Unauthorized. Valid API key required.' 
+          error: authResult.error || 'Unauthorized. Valid session required.' 
         }), { 
           status: 401, 
           headers: corsHeaders 
@@ -680,7 +716,7 @@ export default {
                       'unknown';
       
       // Check rate limit before processing
-      const rateLimitResult = checkRateLimit(clientIP, env);
+      const rateLimitResult = await checkRateLimit(clientIP, env);
       
       if (!rateLimitResult.allowed) {
         // Log rate limit violations
@@ -743,7 +779,7 @@ export default {
       }
       
       // Update rate limit counter after successful validation
-      updateRateLimit(clientIP, env);
+      await updateRateLimit(clientIP, env);
 
       // Generate lead ID
       const leadId = `lead_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
