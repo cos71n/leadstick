@@ -442,7 +442,7 @@ const QUOTE_STEPS = [
 ]
 
 // Consolidated Widget Component
-function LeadStickWidget() {
+function LeadStickWidget({ CONFIG }: { CONFIG: any }) {
   const [isOpen, setIsOpen] = useState(false)
   const [isMobile, setIsMobile] = useState(false)
   const [currentStep, setCurrentStep] = useState<ChatStep>('location')
@@ -462,18 +462,23 @@ function LeadStickWidget() {
   // Initialize attribution tracking
   const attributionTracker = AttributionTracker.getInstance()
   
-  const [messages, setMessages] = useState([
-    {
-      id: 1,
-      content: `Hi, Matt here. Let me know a little about your stone project. Your message comes straight to my phone and I'll send your quote ASAP`,
-      sender: "ai",
-    },
-    {
-      id: 2,
-      content: "📍 First, what's your location/suburb?",
-      sender: "ai",
-    },
-  ])
+  const [messages, setMessages] = useState(() => {
+    const welcomeMessage = CONFIG.messages?.welcome || `Hi, ${CONFIG.business.agentName} here. Let me know a little about your project. Your message comes straight to my phone and I'll send your quote ASAP`;
+    const firstQuestion = CONFIG.flow?.[0]?.question || "📍 First, what's your location/suburb?";
+    
+    return [
+      {
+        id: 1,
+        content: welcomeMessage,
+        sender: "ai",
+      },
+      {
+        id: 2,
+        content: firstQuestion,
+        sender: "ai",
+      },
+    ];
+  })
 
   const [input, setInput] = useState("")
 
@@ -508,15 +513,18 @@ function LeadStickWidget() {
         website: '', // Reset honeypot
         formOpenTime: Date.now() // Track new session time
       })
+      const welcomeMessage = CONFIG.messages?.welcome || `Hi, ${CONFIG.business.agentName} here. Let me know a little about your project. Your message comes straight to my phone and I'll send your quote ASAP`;
+      const firstQuestion = CONFIG.flow?.[0]?.question || "📍 First, what's your location/suburb?";
+      
       setMessages([
         {
           id: 1,
-          content: `Hi, Matt here. Let me know a little about your stone project. Your message comes straight to my phone and I'll send your quote ASAP`,
+          content: welcomeMessage,
           sender: "ai",
         },
         {
           id: 2,
-          content: "📍 First, what's your location/suburb?",
+          content: firstQuestion,
           sender: "ai",
         },
       ])
@@ -704,6 +712,7 @@ function LeadStickWidget() {
           business: CONFIG.business.name,
           timestamp: new Date().toISOString(),
           source: 'leadstick-widget',
+          siteId: CONFIG.siteId,
           // Include submission time for server-side validation
           submissionTime: timeElapsed
         })
@@ -1273,14 +1282,39 @@ function LeadStickWidget() {
 }
 
 // Initialize widget when script loads
-export function initLeadStick() {
+export async function initLeadStick(options?: { siteId?: string }) {
+  let finalConfig = CONFIG; // Default config as fallback
+  
+  // If siteId provided, fetch configuration from API
+  if (options?.siteId) {
+    try {
+      const response = await fetch(`${CONFIG.apiEndpoint}/api/config/${options.siteId}`);
+      if (response.ok) {
+        const customConfig = await response.json();
+        // Merge with default config, prioritizing custom config
+        finalConfig = {
+          ...CONFIG,
+          ...customConfig,
+          business: { ...CONFIG.business, ...(customConfig.business || {}) },
+          theme: { ...CONFIG.theme, ...(customConfig.theme || {}) },
+          siteId: options.siteId
+        };
+      } else {
+        console.warn(`LeadStick: Could not load config for siteId '${options.siteId}', using default config`);
+      }
+    } catch (error) {
+      console.warn('LeadStick: Failed to fetch configuration, using default config:', error);
+    }
+  }
+  
   // Track GA4 widget opened event
   if (typeof gtag !== 'undefined') {
     gtag('event', 'leadstick_started', {
-      business_name: CONFIG.business.name,
+      business_name: finalConfig.business.name,
       widget_version: '1.0.0',
       page_url: window.location.href,
-      device_type: window.innerWidth < 768 ? 'mobile' : 'desktop'
+      device_type: window.innerWidth < 768 ? 'mobile' : 'desktop',
+      site_id: finalConfig.siteId || 'default'
     })
   }
 
@@ -1392,16 +1426,22 @@ export function initLeadStick() {
 
   document.body.appendChild(container)
 
-  // Render the Preact widget inside shadow DOM
-  render(h(LeadStickWidget, {}), shadowContainer)
+  // Render the Preact widget inside shadow DOM with dynamic config
+  render(h(LeadStickWidget, { CONFIG: finalConfig }), shadowContainer)
 }
 
-// Auto-initialize if script is loaded
+// Auto-initialize if script is loaded (with global config if available)
 if (typeof window !== 'undefined') {
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', initLeadStick)
-  } else {
-    initLeadStick()
+  // Make initLeadStick globally available
+  (window as any).LeadStick = { init: initLeadStick };
+  
+  // Auto-init only if no custom config is expected
+  if (!(window as any).__leadstickConfig) {
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', () => initLeadStick())
+    } else {
+      initLeadStick()
+    }
   }
 }
 

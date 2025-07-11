@@ -713,4 +713,479 @@ gtag('event', 'leadstick_completed', {
 - **Security**: Zero vulnerabilities, proper secrets management
 - **Monitoring**: Complete integration documentation and troubleshooting guide
 
-**💡 NEXT STEPS**: Ready to deploy on any website with a single script tag! 
+**💡 NEXT STEPS**: Ready to deploy on any website with a single script tag!
+
+# LeadStick Multi-Client Configuration Plan
+
+## Overview
+Transform LeadStick from a single-client widget to a multi-tenant system where each client can have:
+- Custom branding (colors, logo, business info)
+- Custom question flows (different questions, types, order)
+- Custom email recipients
+- Custom styling
+
+## Architecture Plan
+
+### 1. Configuration Storage
+**Cloudflare KV Structure:**
+```
+Key: client_config_{siteId}
+Value: JSON configuration object
+```
+
+### 2. Configuration Schema
+```json
+{
+  "siteId": "unique-client-id",
+  "business": {
+    "name": "Business Name",
+    "email": "recipient@example.com",
+    "phone": "555-0123",
+    "agentName": "John",
+    "avatar": "https://..."
+  },
+  "theme": {
+    "primary": "#FF6B35",
+    "primaryHover": "#FF5722",
+    "secondary": "#f3f4f6",
+    "background": "#ffffff",
+    "text": "#1f2937",
+    "muted": "#6b7280",
+    "border": "#e5e7eb"
+  },
+  "flow": [
+    {
+      "id": "step1",
+      "type": "text|select|multiselect|contact",
+      "question": "What's your question?",
+      "placeholder": "Enter placeholder text",
+      "options": ["Option 1", "Option 2"], // for select/multiselect
+      "validation": {
+        "required": true,
+        "minLength": 3,
+        "maxLength": 500
+      }
+    }
+  ],
+  "messages": {
+    "welcome": "Custom welcome message",
+    "complete": "Custom completion message"
+  }
+}
+```
+
+### 3. Implementation Steps
+
+#### Phase 1: Core Infrastructure (MVP)
+1. **Update Widget to Accept siteId**
+   - Modify `initLeadStick()` to accept `{ siteId: 'client1' }`
+   - Fetch configuration from API on widget load
+
+2. **Create Configuration API Endpoint**
+   - Add `/api/config/:siteId` endpoint to worker
+   - Fetch from Cloudflare KV
+   - Return 404 if config not found
+
+3. **Update Widget to Use Dynamic Config**
+   - Replace hardcoded CONFIG with fetched config
+   - Make all components use dynamic config
+   - Handle loading state while fetching
+
+4. **Update Email System**
+   - Use business.email from config for recipient
+   - Include siteId in email subject/body
+
+#### Phase 2: Configuration Management
+1. **Create Simple Admin Interface**
+   - Basic HTML page with form
+   - JSON editor for configuration
+   - Preview widget with current config
+   - Save to Cloudflare KV
+
+2. **Add Validation**
+   - Validate config structure
+   - Ensure required fields
+   - Test email delivery
+
+#### Phase 3: Enhanced Features
+1. **Question Types**
+   - Text input
+   - Single select (dropdown/buttons)
+   - Multi-select (checkboxes)
+   - Date picker
+   - File upload
+   - Conditional logic
+
+2. **Advanced Flows**
+   - Branching logic (if X then show Y)
+   - Skip logic
+   - Dynamic placeholders
+
+## File Changes Required
+
+### 1. `/src/widget.tsx`
+- [ ] Add config fetching on init
+- [ ] Make all components accept dynamic config
+- [ ] Add loading state
+- [ ] Support dynamic question flows
+- [ ] Remove hardcoded values
+
+### 2. `/src/worker.ts`
+- [ ] Add `/api/config/:siteId` endpoint
+- [ ] Setup Cloudflare KV binding
+- [ ] Update email to use config recipient
+- [ ] Add siteId to lead data
+
+### 3. `/wrangler.toml`
+- [ ] Add KV namespace binding
+- [ ] Update environment variables
+
+### 4. New Files
+- [ ] `/admin/index.html` - Config editor
+- [ ] `/admin/editor.js` - Editor logic
+- [ ] `/src/types.ts` - TypeScript interfaces
+
+## Testing Plan
+
+### Test Clients
+1. **Client 1: Plumber**
+   - Questions: Location → Issue Type → Urgency → Contact
+   - Blue theme
+   - Email to plumber@example.com
+
+2. **Client 2: Landscaper**
+   - Questions: Property Type → Service Needed → Budget → Timeline → Contact
+   - Green theme
+   - Email to landscaper@example.com
+
+3. **Client 3: Dentist**
+   - Questions: Treatment Type → Insurance → Preferred Time → Contact
+   - Teal theme
+   - Email to dentist@example.com
+
+## Deployment Strategy
+
+### MVP (3-4 clients)
+1. Manually create JSON configs
+2. Upload to Cloudflare KV via Wrangler CLI
+3. Test each client thoroughly
+
+### Scale (100+ clients)
+1. Build proper admin dashboard
+2. Add authentication
+3. Implement usage tracking
+4. Add billing integration
+
+## Example Client Embed Code
+```html
+<!-- Client 1 -->
+<script src="https://cdn.leadstick.com/widget.js"></script>
+<script>
+  LeadStick.init({ 
+    siteId: 'plumber-joe-123'
+  });
+</script>
+
+<!-- Client 2 -->
+<script src="https://cdn.leadstick.com/widget.js"></script>
+<script>
+  LeadStick.init({ 
+    siteId: 'landscaper-green-456'
+  });
+</script>
+```
+
+## Current Status
+- [x] Analyzed current architecture
+- [x] Designed configuration schema
+- [x] Implement config fetching ✅
+- [x] Update widget for dynamic flows ✅
+- [x] Create config management ✅
+- [x] Test with multiple clients ✅
+
+## ✅ IMPLEMENTATION COMPLETE!
+
+### What's Working:
+1. **Configuration API**: `/api/config/{siteId}` endpoint fully functional
+2. **KV Storage**: 3 client configs uploaded and accessible
+3. **Dynamic Widget**: Widget fetches config and applies theming/messages
+4. **Email Routing**: Emails route to client-specific addresses
+5. **Test Infrastructure**: Test page available for validation
+
+### Test URLs:
+- **Test Page**: https://pub-2cf19529958742fea36d2ac68c558716.r2.dev/test-dynamic-config.html
+- **Widget CDN**: https://pub-2cf19529958742fea36d2ac68c558716.r2.dev/leadstick.umd.js
+- **API Examples**:
+  - https://leadstick-api.attribution.workers.dev/api/config/plumber-joe
+  - https://leadstick-api.attribution.workers.dev/api/config/green-thumb-landscaping
+  - https://leadstick-api.attribution.workers.dev/api/config/smile-dental-clinic
+
+### Integration Example:
+```html
+<script src="https://pub-2cf19529958742fea36d2ac68c558716.r2.dev/leadstick.umd.js"></script>
+<script>
+  LeadStick.init({ siteId: 'plumber-joe' });
+</script>
+```
+
+# LeadStick Configuration Dashboard Plan
+
+## Problem Statement
+Need a simple web dashboard to configure client widgets without manually editing JSON files or using Wrangler CLI commands.
+
+## Requirements
+- **Visual editor** for all client widget settings
+- **Live preview** of widget with changes
+- **Easy client management** (add, edit, delete)
+- **Form builder** for custom questions
+- **Integration code generator** for clients
+
+## Architecture Plan
+
+### Option 1: Cloudflare Pages Dashboard (Recommended)
+**Why**: Integrates perfectly with existing Cloudflare infrastructure
+
+**Tech Stack**:
+- **Frontend**: Vanilla HTML/CSS/JavaScript (keep it simple)
+- **Hosting**: Cloudflare Pages (free, fast, integrated)
+- **Authentication**: Cloudflare Access (secure admin access)
+- **API**: Extend existing Worker with admin endpoints
+- **Storage**: Same Cloudflare KV we're already using
+
+### Option 2: Next.js Dashboard
+**Why**: More powerful but adds complexity
+
+**Tech Stack**:
+- **Frontend**: Next.js with React
+- **Hosting**: Vercel or Cloudflare Pages
+- **Authentication**: Simple password protection
+- **API**: API routes + Cloudflare Worker integration
+
+### Option 3: Simple Static Dashboard
+**Why**: Fastest to build, no server needed
+
+**Tech Stack**:
+- **Frontend**: Single HTML file with inline JS/CSS
+- **Authentication**: Basic password protection
+- **API**: Direct calls to existing Worker
+- **Hosting**: Same R2 bucket as widget
+
+## Recommended Approach: Option 1 (Cloudflare Pages)
+
+### Implementation Plan
+
+#### Phase 1: Core Dashboard (Day 1)
+1. **Client List View**
+   - Table showing all clients with basic info
+   - Search/filter functionality
+   - Add new client button
+   - Edit/delete actions
+
+2. **Basic Client Editor**
+   - Form for business details (name, email, phone, agent name)
+   - Color picker for theme
+   - Save/cancel buttons
+   - Live validation
+
+3. **Worker API Extensions**
+   - `GET /admin/clients` - List all clients
+   - `POST /admin/clients` - Create new client
+   - `PUT /admin/clients/{siteId}` - Update client
+   - `DELETE /admin/clients/{siteId}` - Delete client
+
+#### Phase 2: Advanced Features (Day 2)
+1. **Question Builder**
+   - Drag & drop question ordering
+   - Question type selector (text, select, multiselect)
+   - Option editor for select questions
+   - Validation rules editor
+
+2. **Live Preview**
+   - Embedded widget preview
+   - Real-time updates as you edit
+   - Mobile/desktop view toggle
+
+3. **Theme Customizer**
+   - Visual color picker
+   - Preview of colors in widget
+   - Preset theme templates
+
+#### Phase 3: Advanced Management (Day 3)
+1. **Integration Assistant**
+   - Copy-paste integration code
+   - QR code for mobile testing
+   - Installation instructions
+
+2. **Analytics Integration**
+   - Basic lead statistics per client
+   - Widget performance metrics
+   - Configuration usage tracking
+
+3. **Bulk Operations**
+   - Export/import configurations
+   - Duplicate client settings
+   - Bulk theme updates
+
+## File Structure
+```
+/admin/
+├── index.html              # Main dashboard
+├── styles.css              # Dashboard styling
+├── app.js                  # Dashboard logic
+├── components/
+│   ├── client-list.js      # Client management
+│   ├── client-editor.js    # Configuration editor
+│   ├── question-builder.js # Question flow builder
+│   └── theme-picker.js     # Color customization
+└── lib/
+    ├── api.js              # API wrapper
+    ├── validation.js       # Form validation
+    └── utils.js            # Helper functions
+```
+
+## Dashboard Features Breakdown
+
+### 1. Client Management
+```
+┌─────────────────────────────────────┐
+│ LeadStick Dashboard                 │
+├─────────────────────────────────────┤
+│ [+ New Client]           [Search]   │
+├─────────────────────────────────────┤
+│ Client Name    │ Email   │ Actions  │
+├─────────────────────────────────────┤
+│ Joe's Plumbing │ joe@... │ [Edit]   │
+│ Green Thumb    │ info@.. │ [Edit]   │
+│ Smile Dental   │ app@... │ [Edit]   │
+└─────────────────────────────────────┘
+```
+
+### 2. Client Editor Interface
+```
+┌─────────────────────────────────────┐
+│ Edit Client: Joe's Plumbing         │
+├─────────────────────────────────────┤
+│ Business Details                    │
+│ ├ Business Name: [Joe's Plumbing]   │
+│ ├ Agent Name: [Joe]                 │
+│ ├ Phone: [0400 123 456]             │
+│ └ Email: [joe@plumbing.com]         │
+├─────────────────────────────────────┤
+│ Theme                               │
+│ ├ Primary Color: [🎨 #2563eb]       │
+│ └ Preview: [Widget Preview]         │
+├─────────────────────────────────────┤
+│ Questions & Flow                    │
+│ ├ [+ Add Question]                  │
+│ ├ 1. Location (text)     [↕] [✏️]   │
+│ ├ 2. Issue (select)      [↕] [✏️]   │
+│ └ 3. Urgency (select)    [↕] [✏️]   │
+├─────────────────────────────────────┤
+│ [Save Changes] [Cancel] [Preview]   │
+└─────────────────────────────────────┘
+```
+
+### 3. Question Builder
+```
+┌─────────────────────────────────────┐
+│ Question Builder                    │
+├─────────────────────────────────────┤
+│ Question Text:                      │
+│ [What plumbing issue are you having?]│
+│                                     │
+│ Question Type: [Select ▼]           │
+│ ├ Text Input                        │
+│ ├ Single Select                     │
+│ ├ Multi Select                      │
+│ └ Contact Details                   │
+│                                     │
+│ Options (for select types):         │
+│ ├ [Blocked drain]        [×]        │
+│ ├ [Leaking tap]          [×]        │
+│ ├ [+ Add Option]                    │
+│                                     │
+│ Validation:                         │
+│ ├ ☑ Required                        │
+│ └ Min Length: [5]                   │
+│                                     │
+│ [Save Question] [Cancel]            │
+└─────────────────────────────────────┘
+```
+
+## Security Considerations
+
+### Authentication Options
+1. **Simple Password Protection** (MVP)
+   - Single admin password
+   - Session-based auth
+   - Perfect for single user
+
+2. **Cloudflare Access** (Recommended)
+   - Enterprise-grade security
+   - Email-based authentication
+   - Free for small teams
+
+3. **Basic Auth** (Simplest)
+   - Browser-based login
+   - No session management
+   - Good for proof of concept
+
+### API Security
+- Admin endpoints require authentication
+- Rate limiting on all admin operations
+- Input validation and sanitization
+- CORS restrictions for admin APIs
+
+## Implementation Steps
+
+### ✅ Day 1: MVP Dashboard - COMPLETE!
+1. **Setup Cloudflare Pages project** ✅
+2. **Create basic HTML dashboard** with client list ✅
+3. **Add Worker admin endpoints** for CRUD operations ✅
+4. **Basic client editor** with business details and theme ✅
+5. **Deploy and test** with existing clients ✅
+
+**🎉 DASHBOARD IS LIVE**: https://7664b719.leadstick-dashboard.pages.dev
+
+### Day 2: Question Builder
+1. **Add question builder interface**
+2. **Implement drag-drop reordering**
+3. **Add question type selectors**
+4. **Live preview integration**
+5. **Save/load question configurations**
+
+### Day 3: Polish & Advanced Features
+1. **Add authentication system**
+2. **Improve UI/UX with better styling**
+3. **Add integration code generator**
+4. **Error handling and validation**
+5. **Basic analytics dashboard**
+
+## Deployment Strategy
+
+### Development
+- Local development with Wrangler dev
+- Test admin endpoints with existing clients
+- Iterate on UI/UX quickly
+
+### Staging
+- Deploy to Cloudflare Pages preview
+- Test with real client configurations
+- Validate all CRUD operations
+
+### Production
+- Deploy to custom domain (admin.leadstick.com)
+- Setup Cloudflare Access for security
+- Monitor usage and performance
+
+## Benefits of This Approach
+
+1. **No Technical Skills Required**: Point-and-click interface
+2. **Instant Preview**: See changes immediately
+3. **Scalable**: Handles hundreds of clients easily
+4. **Integrated**: Uses same infrastructure as widget
+5. **Fast**: Cloudflare global network
+6. **Secure**: Enterprise-grade authentication options
+7. **Cost Effective**: Mostly free Cloudflare services
+
+This dashboard will transform client onboarding from a 30-minute technical process to a 5-minute point-and-click workflow! 

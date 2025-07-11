@@ -1,0 +1,83 @@
+{
+  "siteId": "smile-dental-clinic",
+  "business": {
+    "name": "Smile Dental Clinic",
+    "email": "appointments@smiledentalclinic.com",
+    "phone": "0422 333 444",
+    "agentName": "Dr. Emily",
+    "avatar": "/emily-avatar.png"
+  },
+  "theme": {
+    "primary": "#06b6d4",
+    "primaryHover": "#0891b2",
+    "secondary": "#f0fdfa",
+    "background": "#ffffff",
+    "text": "#1f2937",
+    "muted": "#6b7280",
+    "border": "#e5e7eb"
+  },
+  "flow": [
+    {
+      "id": "treatment",
+      "type": "select",
+      "question": "What brings you to Smile Dental today?",
+      "options": [
+        "Regular checkup & clean",
+        "Toothache or pain",
+        "Cosmetic dentistry",
+        "Teeth whitening",
+        "Wisdom teeth",
+        "Emergency dental care",
+        "Children's dentistry",
+        "Other dental concern"
+      ],
+      "validation": {
+        "required": true
+      }
+    },
+    {
+      "id": "insurance",
+      "type": "select",
+      "question": "Do you have private health insurance?",
+      "options": [
+        "Yes - Medibank",
+        "Yes - Bupa",
+        "Yes - HCF",
+        "Yes - NIB",
+        "Yes - Other fund",
+        "No insurance",
+        "Not sure"
+      ],
+      "validation": {
+        "required": true
+      }
+    },
+    {
+      "id": "preferred_time",
+      "type": "multiselect",
+      "question": "When are you generally available?",
+      "placeholder": "Select all suitable times",
+      "options": [
+        "Weekday mornings",
+        "Weekday afternoons",
+        "Weekday evenings",
+        "Saturday mornings",
+        "Saturday afternoons"
+      ],
+      "validation": {
+        "required": true,
+        "minSelection": 1
+      }
+    },
+    {
+      "id": "contact",
+      "type": "contact",
+      "question": "Almost done! Your contact details please"
+    }
+  ],
+  "messages": {
+    "welcome": "Hi! I'm Dr. Emily from Smile Dental Clinic. We're here to make your dental visit comfortable and stress-free. Let's find the perfect appointment time for you.",
+    "complete": "Thank you! Our receptionist will call you within 2 hours to schedule your appointment. We look forward to seeing you soon!",
+    "phoneButton": "Need urgent care? Call us now!"
+  }
+}

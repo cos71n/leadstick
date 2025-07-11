@@ -1,0 +1,71 @@
+{
+  "siteId": "plumber-joe",
+  "business": {
+    "name": "Joe's Plumbing Services",
+    "email": "joe@plumbingservices.com",
+    "phone": "0400 123 456",
+    "agentName": "Joe",
+    "avatar": "/joe-avatar.png"
+  },
+  "theme": {
+    "primary": "#2563eb",
+    "primaryHover": "#1d4ed8",
+    "secondary": "#f3f4f6",
+    "background": "#ffffff",
+    "text": "#1f2937",
+    "muted": "#6b7280",
+    "border": "#e5e7eb"
+  },
+  "flow": [
+    {
+      "id": "location",
+      "type": "text",
+      "question": "What's your address?",
+      "placeholder": "Enter your full address",
+      "validation": {
+        "required": true,
+        "minLength": 5
+      }
+    },
+    {
+      "id": "issue",
+      "type": "select",
+      "question": "What plumbing issue are you experiencing?",
+      "options": [
+        "Blocked drain",
+        "Leaking tap",
+        "Burst pipe",
+        "Hot water system",
+        "Toilet issues",
+        "Other"
+      ],
+      "validation": {
+        "required": true
+      }
+    },
+    {
+      "id": "urgency",
+      "type": "select",
+      "question": "How urgent is this?",
+      "options": [
+        "Emergency - Need help now!",
+        "Today if possible",
+        "Within this week",
+        "Not urgent"
+      ],
+      "validation": {
+        "required": true
+      }
+    },
+    {
+      "id": "contact",
+      "type": "contact",
+      "question": "Great! Let's get your contact details"
+    }
+  ],
+  "messages": {
+    "welcome": "Hi, I'm Joe! I understand plumbing issues can be stressful. Let me help you get this sorted quickly.",
+    "complete": "Thanks! I'll review your request and call you back within 30 minutes.",
+    "phoneButton": "Need immediate help? Call me directly!"
+  }
+}

@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LeadStick Multi-Client Test</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 40px 20px;
+            background: #f3f4f6;
+        }
+        .demo-section {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            margin-bottom: 30px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #1f2937;
+            margin-bottom: 10px;
+        }
+        h2 {
+            color: #374151;
+            margin-top: 0;
+        }
+        .client-selector {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        button {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 6px;
+            background: #3b82f6;
+            color: white;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background 0.2s;
+        }
+        button:hover {
+            background: #2563eb;
+        }
+        button.active {
+            background: #1e40af;
+        }
+        .status {
+            padding: 10px;
+            border-radius: 6px;
+            margin-top: 20px;
+            font-size: 14px;
+        }
+        .status.success {
+            background: #d1fae5;
+            color: #065f46;
+            border: 1px solid #6ee7b7;
+        }
+        .status.error {
+            background: #fee2e2;
+            color: #991b1b;
+            border: 1px solid #fca5a5;
+        }
+        .config-preview {
+            background: #f8fafc;
+            padding: 15px;
+            border-radius: 6px;
+            margin-top: 15px;
+            font-family: monospace;
+            font-size: 12px;
+            overflow-x: auto;
+        }
+        .integration-code {
+            background: #1f2937;
+            color: #e5e7eb;
+            padding: 15px;
+            border-radius: 6px;
+            margin-top: 15px;
+            font-family: monospace;
+            font-size: 13px;
+            overflow-x: auto;
+        }
+    </style>
+</head>
+<body>
+    <h1>🚀 LeadStick Multi-Client Configuration Demo</h1>
+    <p>This demo shows how each client can have their own custom widget configuration.</p>
+
+    <div class="demo-section">
+        <h2>1. Select a Client Configuration</h2>
+        <div class="client-selector">
+            <button onclick="loadClient('plumber-joe')" class="active">Joe's Plumbing</button>
+            <button onclick="loadClient('green-thumb-landscaping')">Green Thumb Landscaping</button>
+            <button onclick="loadClient('smile-dental-clinic')">Smile Dental Clinic</button>
+        </div>
+        <div id="status"></div>
+        <div id="config-preview" class="config-preview" style="display: none;"></div>
+    </div>
+
+    <div class="demo-section">
+        <h2>2. Integration Code</h2>
+        <p>This is the code each client would add to their website:</p>
+        <div id="integration-code" class="integration-code"></div>
+    </div>
+
+    <div class="demo-section">
+        <h2>3. Live Widget Demo</h2>
+        <p>The widget would appear on the client's website. Click "Load Widget" to see it in action.</p>
+        <button onclick="loadWidget()">Load Widget</button>
+        <p style="font-size: 14px; color: #6b7280; margin-top: 10px;">
+            Note: For this demo to work, you need to update the widget to fetch configurations from the API.
+        </p>
+    </div>
+
+    <script>
+        let currentSiteId = 'plumber-joe';
+
+        async function loadClient(siteId) {
+            currentSiteId = siteId;
+            
+            // Update active button
+            document.querySelectorAll('.client-selector button').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            event.target.classList.add('active');
+
+            // Show loading
+            const statusEl = document.getElementById('status');
+            statusEl.className = 'status';
+            statusEl.textContent = 'Loading configuration...';
+
+            try {
+                const response = await fetch(`https://leadstick-api.attribution.workers.dev/api/config/${siteId}`);
+                const config = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(config.error || 'Failed to load configuration');
+                }
+
+                // Show success
+                statusEl.className = 'status success';
+                statusEl.textContent = `✅ Configuration loaded for ${config.business.name}`;
+
+                // Show config preview
+                const previewEl = document.getElementById('config-preview');
+                previewEl.style.display = 'block';
+                previewEl.textContent = JSON.stringify(config, null, 2);
+
+                // Update integration code
+                updateIntegrationCode(siteId);
+
+            } catch (error) {
+                statusEl.className = 'status error';
+                statusEl.textContent = `❌ Error: ${error.message}`;
+                
+                // Note: The configs need to be uploaded first
+                if (error.message.includes('not found')) {
+                    statusEl.innerHTML += '<br><br>💡 Tip: Upload the configuration first using:<br><code>npx wrangler kv key put --binding="LEADSTICK_CONFIGS" --remote "client_config_' + siteId + '" "$(cat configs/' + siteId.replace('-', '') + '.json)"</code>';
+                }
+            }
+        }
+
+        function updateIntegrationCode(siteId) {
+            const codeEl = document.getElementById('integration-code');
+            codeEl.innerHTML = `&lt;!-- LeadStick Widget --&gt;
+&lt;script src="https://cdn.leadstick.com/widget.js"&gt;&lt;/script&gt;
+&lt;script&gt;
+  LeadStick.init({ 
+    siteId: '${siteId}'
+  });
+&lt;/script&gt;`;
+        }
+
+        function loadWidget() {
+            // Remove existing widget if any
+            const existingRoot = document.getElementById('leadstick-root');
+            if (existingRoot) {
+                existingRoot.remove();
+            }
+
+            // Load widget with current siteId
+            const script = document.createElement('script');
+            script.src = 'https://pub-2cf19529958742fea36d2ac68c558716.r2.dev/leadstick.umd.js';
+            script.onload = () => {
+                if (window.LeadStick && window.LeadStick.init) {
+                    window.LeadStick.init({ siteId: currentSiteId });
+                    alert('Widget loaded! Look for the chat bubble in the bottom right corner.');
+                }
+            };
+            document.body.appendChild(script);
+        }
+
+        // Load initial client
+        loadClient('plumber-joe');
+    </script>
+</body>
+</html>

@@ -164,6 +164,7 @@ function validateAndSanitizeLead(leadData) {
     finalMessage: sanitizeInput(leadData.finalMessage, 1000),
     business: sanitizeInput(leadData.business, 100),
     source: sanitizeInput(leadData.source, 50),
+    siteId: sanitizeInput(leadData.siteId, 50),
     // Include honeypot and submission time for logging (but not for email)
     website: sanitizeInput(leadData.website || '', 100),
     submissionTime: leadData.submissionTime
@@ -209,10 +210,12 @@ function validateAndSanitizeLead(leadData) {
 
 export default {
   async fetch(request, env, ctx) {
+    const url = new URL(request.url);
+    
     // CORS headers
     const corsHeaders = {
       'Access-Control-Allow-Origin': '*',
-      'Access-Control-Allow-Methods': 'POST, OPTIONS',
+      'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
       'Access-Control-Allow-Headers': 'Content-Type',
       'Content-Type': 'application/json'
     };
@@ -222,17 +225,231 @@ export default {
       return new Response(null, { headers: corsHeaders });
     }
 
-    // Only accept POST requests
-    if (request.method !== 'POST') {
-      return new Response(JSON.stringify({ 
-        error: 'Method not allowed' 
-      }), { 
-        status: 405, 
-        headers: corsHeaders 
-      });
+    // Route: GET /api/config/:siteId
+    if (request.method === 'GET' && url.pathname.startsWith('/api/config/')) {
+      const siteId = url.pathname.split('/')[3];
+      
+      if (!siteId) {
+        return new Response(JSON.stringify({ 
+          error: 'Site ID required' 
+        }), { 
+          status: 400, 
+          headers: corsHeaders 
+        });
+      }
+
+      try {
+        // Fetch config from KV
+        const configKey = `client_config_${siteId}`;
+        const config = await env.LEADSTICK_CONFIGS.get(configKey, 'json');
+        
+        if (!config) {
+          return new Response(JSON.stringify({ 
+            error: 'Configuration not found' 
+          }), { 
+            status: 404, 
+            headers: corsHeaders 
+          });
+        }
+
+        return new Response(JSON.stringify(config), { 
+          headers: corsHeaders 
+        });
+      } catch (error) {
+        console.error('Error fetching config:', error);
+        return new Response(JSON.stringify({ 
+          error: 'Internal server error' 
+        }), { 
+          status: 500, 
+          headers: corsHeaders 
+        });
+      }
     }
 
-    try {
+    // Route: GET /admin/clients - List all clients
+    if (request.method === 'GET' && url.pathname === '/admin/clients') {
+      try {
+        // List all client configs from KV
+        const list = await env.LEADSTICK_CONFIGS.list({ prefix: 'client_config_' });
+        const clients = [];
+        
+        // Fetch each client config
+        for (const key of list.keys) {
+          const config = await env.LEADSTICK_CONFIGS.get(key.name, 'json');
+          if (config) {
+            clients.push({
+              siteId: config.siteId,
+              businessName: config.business?.name || 'Unknown',
+              email: config.business?.email || 'No email',
+              agentName: config.business?.agentName || 'Unknown',
+              theme: config.theme?.primary || '#3b82f6',
+              lastModified: key.metadata?.lastModified || 'Unknown'
+            });
+          }
+        }
+        
+        return new Response(JSON.stringify({ clients }), { 
+          headers: corsHeaders 
+        });
+      } catch (error) {
+        console.error('Error listing clients:', error);
+        return new Response(JSON.stringify({ 
+          error: 'Failed to list clients' 
+        }), { 
+          status: 500, 
+          headers: corsHeaders 
+        });
+      }
+    }
+
+    // Route: POST /admin/clients - Create new client
+    if (request.method === 'POST' && url.pathname === '/admin/clients') {
+      try {
+        const clientData = await request.json();
+        
+        // Validate required fields
+        if (!clientData.siteId || !clientData.business?.name || !clientData.business?.email) {
+          return new Response(JSON.stringify({ 
+            error: 'Missing required fields: siteId, business.name, business.email' 
+          }), { 
+            status: 400, 
+            headers: corsHeaders 
+          });
+        }
+        
+        // Check if client already exists
+        const configKey = `client_config_${clientData.siteId}`;
+        const existing = await env.LEADSTICK_CONFIGS.get(configKey);
+        if (existing) {
+          return new Response(JSON.stringify({ 
+            error: 'Client with this Site ID already exists' 
+          }), { 
+            status: 409, 
+            headers: corsHeaders 
+          });
+        }
+        
+        // Save to KV
+        await env.LEADSTICK_CONFIGS.put(configKey, JSON.stringify(clientData));
+        
+        return new Response(JSON.stringify({ 
+          success: true, 
+          message: 'Client created successfully' 
+        }), { 
+          headers: corsHeaders 
+        });
+      } catch (error) {
+        console.error('Error creating client:', error);
+        return new Response(JSON.stringify({ 
+          error: 'Failed to create client' 
+        }), { 
+          status: 500, 
+          headers: corsHeaders 
+        });
+      }
+    }
+
+    // Route: PUT /admin/clients/:siteId - Update client
+    if (request.method === 'PUT' && url.pathname.startsWith('/admin/clients/')) {
+      const siteId = url.pathname.split('/')[3];
+      
+      if (!siteId) {
+        return new Response(JSON.stringify({ 
+          error: 'Site ID required' 
+        }), { 
+          status: 400, 
+          headers: corsHeaders 
+        });
+      }
+
+      try {
+        const clientData = await request.json();
+        const configKey = `client_config_${siteId}`;
+        
+        // Check if client exists
+        const existing = await env.LEADSTICK_CONFIGS.get(configKey);
+        if (!existing) {
+          return new Response(JSON.stringify({ 
+            error: 'Client not found' 
+          }), { 
+            status: 404, 
+            headers: corsHeaders 
+          });
+        }
+        
+        // Ensure siteId matches
+        clientData.siteId = siteId;
+        
+        // Save updated config
+        await env.LEADSTICK_CONFIGS.put(configKey, JSON.stringify(clientData));
+        
+        return new Response(JSON.stringify({ 
+          success: true, 
+          message: 'Client updated successfully' 
+        }), { 
+          headers: corsHeaders 
+        });
+      } catch (error) {
+        console.error('Error updating client:', error);
+        return new Response(JSON.stringify({ 
+          error: 'Failed to update client' 
+        }), { 
+          status: 500, 
+          headers: corsHeaders 
+        });
+      }
+    }
+
+    // Route: DELETE /admin/clients/:siteId - Delete client
+    if (request.method === 'DELETE' && url.pathname.startsWith('/admin/clients/')) {
+      const siteId = url.pathname.split('/')[3];
+      
+      if (!siteId) {
+        return new Response(JSON.stringify({ 
+          error: 'Site ID required' 
+        }), { 
+          status: 400, 
+          headers: corsHeaders 
+        });
+      }
+
+      try {
+        const configKey = `client_config_${siteId}`;
+        
+        // Check if client exists
+        const existing = await env.LEADSTICK_CONFIGS.get(configKey);
+        if (!existing) {
+          return new Response(JSON.stringify({ 
+            error: 'Client not found' 
+          }), { 
+            status: 404, 
+            headers: corsHeaders 
+          });
+        }
+        
+        // Delete from KV
+        await env.LEADSTICK_CONFIGS.delete(configKey);
+        
+        return new Response(JSON.stringify({ 
+          success: true, 
+          message: 'Client deleted successfully' 
+        }), { 
+          headers: corsHeaders 
+        });
+      } catch (error) {
+        console.error('Error deleting client:', error);
+        return new Response(JSON.stringify({ 
+          error: 'Failed to delete client' 
+        }), { 
+          status: 500, 
+          headers: corsHeaders 
+        });
+      }
+    }
+
+    // Route: POST / (lead submission)
+    if (request.method === 'POST' && url.pathname === '/') {
+      try {
       // Get client IP for rate limiting
       const clientIP = request.headers.get('CF-Connecting-IP') || 
                       request.headers.get('X-Forwarded-For') || 
@@ -308,8 +525,22 @@ export default {
       // Generate lead ID
       const leadId = `lead_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
 
+      // Get configuration for email recipient (if siteId provided)
+      let recipientEmail = env.LEAD_EMAIL_RECIPIENT || 'leads@example.com';
+      if (sanitized.siteId) {
+        try {
+          const configKey = `client_config_${sanitized.siteId}`;
+          const config = await env.LEADSTICK_CONFIGS.get(configKey, 'json');
+          if (config && config.business && config.business.email) {
+            recipientEmail = config.business.email;
+          }
+        } catch (error) {
+          console.warn('Failed to fetch client config:', error);
+        }
+      }
+
       // Send email via Resend
-      const emailSent = await sendEmail(sanitized, leadId, env);
+      const emailSent = await sendEmail(sanitized, leadId, recipientEmail, env);
       
       // Track in GA4 (optional)
       await trackGA4Event(sanitized, leadId, env);
@@ -329,21 +560,30 @@ export default {
         headers: successHeaders 
       });
 
-    } catch (error) {
-      console.error('Error processing lead:', error);
-      
-      return new Response(JSON.stringify({
-        error: 'Internal server error'
-      }), { 
-        status: 500, 
-        headers: corsHeaders 
-      });
+      } catch (error) {
+        console.error('Error processing lead:', error);
+        
+        return new Response(JSON.stringify({
+          error: 'Internal server error'
+        }), { 
+          status: 500, 
+          headers: corsHeaders 
+        });
+      }
     }
+
+    // Default 404 for unknown routes
+    return new Response(JSON.stringify({ 
+      error: 'Not found' 
+    }), { 
+      status: 404, 
+      headers: corsHeaders 
+    });
   }
 };
 
 // Send email notification
-async function sendEmail(lead, leadId, env) {
+async function sendEmail(lead, leadId, recipientEmail, env) {
   if (!env.RESEND_API_KEY) {
     console.warn('RESEND_API_KEY not configured');
     return false;
@@ -450,7 +690,7 @@ async function sendEmail(lead, leadId, env) {
       },
       body: JSON.stringify({
         from: env.LEAD_EMAIL_FROM || 'LeadStick <noreply@leadstick.com>',
-        to: [env.LEAD_EMAIL_RECIPIENT || 'leads@example.com'],
+        to: [recipientEmail],
         subject: `New Lead: ${escapeHtml(lead.service)} in ${escapeHtml(lead.location)}`,
         html: `
           <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 0 auto; background: white;">

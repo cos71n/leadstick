@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LeadStick Dynamic Configuration Test</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 40px 20px;
+            background: #f3f4f6;
+            line-height: 1.6;
+        }
+        .test-section {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            margin-bottom: 30px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #1f2937;
+            margin-bottom: 10px;
+        }
+        h2 {
+            color: #374151;
+            margin-top: 0;
+        }
+        .test-buttons {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+        button {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 6px;
+            background: #3b82f6;
+            color: white;
+            cursor: pointer;
+            font-size: 16px;
+            transition: all 0.2s;
+            font-weight: 500;
+        }
+        button:hover {
+            background: #2563eb;
+            transform: translateY(-1px);
+        }
+        button.plumber {
+            background: #2563eb;
+        }
+        button.landscaper {
+            background: #16a34a;
+        }
+        button.dentist {
+            background: #06b6d4;
+        }
+        .status {
+            padding: 15px;
+            border-radius: 6px;
+            margin-top: 20px;
+            font-size: 14px;
+            font-weight: 500;
+        }
+        .status.success {
+            background: #d1fae5;
+            color: #065f46;
+            border: 1px solid #6ee7b7;
+        }
+        .status.error {
+            background: #fee2e2;
+            color: #991b1b;
+            border: 1px solid #fca5a5;
+        }
+        .status.info {
+            background: #dbeafe;
+            color: #1e40af;
+            border: 1px solid #93c5fd;
+        }
+        .instructions {
+            background: #fef3c7;
+            padding: 20px;
+            border-radius: 6px;
+            border-left: 4px solid #f59e0b;
+            margin-bottom: 20px;
+        }
+        code {
+            background: #f3f4f6;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: monospace;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <h1>🧪 LeadStick Dynamic Configuration Test</h1>
+    <p>This page tests the multi-client configuration system. Each button loads the widget with a different client configuration.</p>
+
+    <div class="test-section">
+        <h2>Test Different Client Configurations</h2>
+        <div class="instructions">
+            <strong>Test Instructions:</strong>
+            <ol>
+                <li>Click one of the buttons below to load a specific client configuration</li>
+                <li>Look for the chat bubble that appears in the bottom right corner</li>
+                <li>Open the widget and notice the different:
+                    <ul>
+                        <li>Colors/theme</li>
+                        <li>Business name and agent name</li>
+                        <li>Welcome message</li>
+                        <li>Questions and flow</li>
+                    </ul>
+                </li>
+                <li>Try different clients to see the variations</li>
+            </ol>
+        </div>
+        
+        <div class="test-buttons">
+            <button class="plumber" onclick="loadWidget('plumber-joe')">
+                🔧 Load Plumber Widget (Blue Theme)
+            </button>
+            <button class="landscaper" onclick="loadWidget('green-thumb-landscaping')">
+                🌱 Load Landscaper Widget (Green Theme)
+            </button>
+            <button class="dentist" onclick="loadWidget('smile-dental-clinic')">
+                🦷 Load Dentist Widget (Cyan Theme)
+            </button>
+        </div>
+        
+        <button onclick="loadDefaultWidget()" style="background: #6b7280;">
+            📋 Load Default Widget (No Config)
+        </button>
+        
+        <div id="status" class="status info">
+            Ready to test! Click a button above to load a widget configuration.
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h2>What to Look For</h2>
+        <ul>
+            <li><strong>Plumber (Blue):</strong> Questions about location, plumbing issues, urgency</li>
+            <li><strong>Landscaper (Green):</strong> Questions about property type, services needed, budget, timeline</li>
+            <li><strong>Dentist (Cyan):</strong> Questions about treatment, insurance, availability</li>
+        </ul>
+        <p>Each should have different colors, agent names, and welcome messages as configured in the KV store.</p>
+    </div>
+
+    <script>
+        let currentWidget = null;
+
+        function removeExistingWidget() {
+            // Remove any existing widget
+            const existingRoot = document.getElementById('leadstick-root');
+            if (existingRoot) {
+                existingRoot.remove();
+            }
+            // Clear any global LeadStick reference
+            if (window.LeadStick) {
+                delete window.LeadStick;
+            }
+        }
+
+        function loadWidget(siteId) {
+            removeExistingWidget();
+            
+            const statusEl = document.getElementById('status');
+            statusEl.className = 'status info';
+            statusEl.textContent = `Loading ${siteId} configuration...`;
+
+            // Load the widget script
+            const script = document.createElement('script');
+            script.src = 'https://pub-2cf19529958742fea36d2ac68c558716.r2.dev/leadstick.umd.js';
+            script.onload = async () => {
+                try {
+                    if (window.LeadStick && window.LeadStick.init) {
+                        await window.LeadStick.init({ siteId: siteId });
+                        statusEl.className = 'status success';
+                        statusEl.innerHTML = `✅ Widget loaded successfully with <code>${siteId}</code> configuration!<br>Look for the chat bubble in the bottom right corner.`;
+                        currentWidget = siteId;
+                    } else {
+                        throw new Error('LeadStick not available');
+                    }
+                } catch (error) {
+                    statusEl.className = 'status error';
+                    statusEl.textContent = `❌ Error loading widget: ${error.message}`;
+                    console.error('Widget loading error:', error);
+                }
+            };
+            script.onerror = () => {
+                statusEl.className = 'status error';
+                statusEl.textContent = '❌ Failed to load widget script';
+            };
+            
+            document.head.appendChild(script);
+        }
+
+        function loadDefaultWidget() {
+            removeExistingWidget();
+            
+            const statusEl = document.getElementById('status');
+            statusEl.className = 'status info';
+            statusEl.textContent = 'Loading default configuration...';
+
+            // Load the widget script without siteId
+            const script = document.createElement('script');
+            script.src = 'https://pub-2cf19529958742fea36d2ac68c558716.r2.dev/leadstick.umd.js';
+            script.onload = async () => {
+                try {
+                    if (window.LeadStick && window.LeadStick.init) {
+                        await window.LeadStick.init(); // No siteId = default config
+                        statusEl.className = 'status success';
+                        statusEl.innerHTML = `✅ Widget loaded with default configuration!<br>Look for the chat bubble in the bottom right corner.`;
+                        currentWidget = 'default';
+                    } else {
+                        throw new Error('LeadStick not available');
+                    }
+                } catch (error) {
+                    statusEl.className = 'status error';
+                    statusEl.textContent = `❌ Error loading widget: ${error.message}`;
+                    console.error('Widget loading error:', error);
+                }
+            };
+            script.onerror = () => {
+                statusEl.className = 'status error';
+                statusEl.textContent = '❌ Failed to load widget script';
+            };
+            
+            document.head.appendChild(script);
+        }
+
+        // Show initial instructions
+        document.addEventListener('DOMContentLoaded', () => {
+            console.log('LeadStick Dynamic Configuration Test Page Ready');
+        });
+    </script>
+</body>
+</html>

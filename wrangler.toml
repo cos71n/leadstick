@@ -24,6 +24,11 @@ ENVIRONMENT = "production"
 LEAD_EMAIL_RECIPIENT = "michael.costin@localdigital.com.au"
 LEAD_EMAIL_FROM = "LeadStick <hello@coscorp.com.au>"
 
+# KV Namespaces
+[[kv_namespaces]]
+binding = "LEADSTICK_CONFIGS"
+id = "9ed0226c090542429677c61665c4ebc2"
+
 # Secrets are managed via CLI:
 # wrangler secret put RESEND_API_KEY
 # wrangler secret put GA4_MEASUREMENT_ID
