@@ -863,7 +863,7 @@ function LeadStickWidget({ CONFIG }: { CONFIG: any }) {
         </div>
       )}
 
-      {/* Desktop: Floating chat bubble */}
+      {/* Desktop: Floating chat bubble or bar */}
       <div style={{
         position: 'fixed',
         bottom: '20px',
@@ -1000,7 +1000,7 @@ function LeadStickWidget({ CONFIG }: { CONFIG: any }) {
             pointerEvents: 'auto'
           }}>
             <a 
-              href="https://leadstick.com" 
+              href={`https://postclick.io?utm_source=leadstick_widget&utm_medium=powered_by&utm_campaign=widget_footer&utm_content=${encodeURIComponent(window.location.hostname)}`}
               target="_blank" 
               rel="noopener noreferrer"
               style={{
@@ -1014,7 +1014,7 @@ function LeadStickWidget({ CONFIG }: { CONFIG: any }) {
               onMouseOver={(e) => e.currentTarget.style.color = CONFIG.theme.primary}
               onMouseOut={(e) => e.currentTarget.style.color = '#9ca3af'}
             >
-              Powered by <span style={{ fontWeight: '500' }}>LeadStick</span>
+              Powered by <span style={{ fontWeight: '500' }}>Postclick</span>
             </a>
           </div>
 
@@ -1036,35 +1036,75 @@ function LeadStickWidget({ CONFIG }: { CONFIG: any }) {
           </button>
         </div>
 
-        {/* Toggle Button */}
-        <button
-          onClick={toggleChat}
-          style={{
-            width: '56px',
-            height: '56px',
-            borderRadius: '50%',
-            boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            transition: 'all 0.3s',
-            backgroundColor: CONFIG.theme.primary,
-            color: 'white',
-            border: 'none',
-            cursor: 'pointer',
-            pointerEvents: 'auto'
-          }}
-          onMouseOver={(e) => {
-            e.currentTarget.style.boxShadow = '0 20px 25px -5px rgba(0, 0, 0, 0.3)'
-            e.currentTarget.style.backgroundColor = CONFIG.theme.primaryHover
-          }}
-          onMouseOut={(e) => {
-            e.currentTarget.style.boxShadow = '0 10px 15px -3px rgba(0, 0, 0, 0.1)'
-            e.currentTarget.style.backgroundColor = CONFIG.theme.primary
-          }}
-        >
-          {isOpen ? <XIcon /> : <MessageCircleIcon />}
-        </button>
+        {/* Toggle Button or Floating Bar */}
+        {!isOpen && CONFIG.desktopStyle === 'bar' ? (
+          // Floating Bar
+          <button
+            onClick={toggleChat}
+            style={{
+              position: 'fixed',
+              bottom: '20px',
+              right: '20px',
+              backgroundColor: CONFIG.theme.primary,
+              color: 'white',
+              padding: '12px 24px',
+              borderRadius: '24px',
+              boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
+              cursor: 'pointer',
+              transition: 'all 0.3s ease',
+              fontSize: '16px',
+              fontWeight: '500',
+              maxWidth: '300px',
+              whiteSpace: 'nowrap',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              border: 'none',
+              pointerEvents: 'auto'
+            }}
+            onMouseOver={(e) => {
+              e.currentTarget.style.boxShadow = '0 6px 20px rgba(0, 0, 0, 0.2)'
+              e.currentTarget.style.transform = 'translateY(-2px)'
+              e.currentTarget.style.backgroundColor = CONFIG.theme.primaryHover
+            }}
+            onMouseOut={(e) => {
+              e.currentTarget.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.15)'
+              e.currentTarget.style.transform = 'translateY(0)'
+              e.currentTarget.style.backgroundColor = CONFIG.theme.primary
+            }}
+          >
+            {CONFIG.barText.substring(0, CONFIG.barTextMaxLength)}
+          </button>
+        ) : (
+          // Floating Bubble
+          <button
+            onClick={toggleChat}
+            style={{
+              width: '56px',
+              height: '56px',
+              borderRadius: '50%',
+              boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              transition: 'all 0.3s',
+              backgroundColor: CONFIG.theme.primary,
+              color: 'white',
+              border: 'none',
+              cursor: 'pointer',
+              pointerEvents: 'auto'
+            }}
+            onMouseOver={(e) => {
+              e.currentTarget.style.boxShadow = '0 20px 25px -5px rgba(0, 0, 0, 0.3)'
+              e.currentTarget.style.backgroundColor = CONFIG.theme.primaryHover
+            }}
+            onMouseOut={(e) => {
+              e.currentTarget.style.boxShadow = '0 10px 15px -3px rgba(0, 0, 0, 0.1)'
+              e.currentTarget.style.backgroundColor = CONFIG.theme.primary
+            }}
+          >
+            {isOpen ? <XIcon /> : <MessageCircleIcon />}
+          </button>
+        )}
       </div>
 
       {/* Mobile Chat Overlay */}
@@ -1257,7 +1297,7 @@ function LeadStickWidget({ CONFIG }: { CONFIG: any }) {
               borderRadius: '3px'
             }}>
               <a 
-                href="https://leadstick.com" 
+                href={`https://postclick.io?utm_source=leadstick_widget&utm_medium=powered_by&utm_campaign=widget_footer&utm_content=${encodeURIComponent(window.location.hostname)}`}
                 target="_blank" 
                 rel="noopener noreferrer"
                 style={{
@@ -1271,7 +1311,7 @@ function LeadStickWidget({ CONFIG }: { CONFIG: any }) {
                 onMouseOver={(e) => e.currentTarget.style.color = CONFIG.theme.primary}
                 onMouseOut={(e) => e.currentTarget.style.color = '#9ca3af'}
               >
-                Powered by <span style={{ fontWeight: '500' }}>LeadStick</span>
+                Powered by <span style={{ fontWeight: '500' }}>Postclick</span>
               </a>
             </div>
           </div>

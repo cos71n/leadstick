@@ -29,5 +29,9 @@ export const CONFIG = {
   ga4: {
     measurementId: "G-XXXXXXXXXX" // Will be configured during deployment
   },
-  apiEndpoint: "https://leadstick-api.attribution.workers.dev"
+  apiEndpoint: "https://leadstick-api.attribution.workers.dev",
+  // New desktop widget style configuration
+  desktopStyle: 'bar' as 'bubble' | 'bar', // Temporarily set to bar for testing
+  barText: 'Get A Quick Quote', // Default text for floating bar
+  barTextMaxLength: 30 // Character limit for bar text
 } 

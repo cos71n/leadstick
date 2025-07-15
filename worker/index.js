@@ -85,6 +85,10 @@ function validateAdminInput(input, type, required = true) {
       if (value && !/^https?:\/\/.+/.test(value)) errors.push('Avatar must be a valid HTTPS URL');
       break;
       
+    case 'barText':
+      if (value.length > 30) errors.push('Bar text must be less than 30 characters');
+      break;
+      
     default:
       if (value.length > 500) errors.push(`${type} is too long (max 500 characters)`);
   }
@@ -842,10 +846,12 @@ export default {
           });
         }
         
-        // Validate and sanitize theme and message data
+        // Validate and sanitize theme, message, and desktop style data
         let sanitizedTheme = {};
         let sanitizedMessages = {};
         let sanitizedFlow = [];
+        let sanitizedDesktopStyle = 'bubble'; // Default
+        let sanitizedBarText = 'Get A Quick Quote'; // Default
         
         if (clientData.theme && typeof clientData.theme === 'object') {
           // Validate theme colors
@@ -871,6 +877,27 @@ export default {
         if (clientData.flow && Array.isArray(clientData.flow)) {
           sanitizedFlow = clientData.flow.slice(0, 20); // Limit to 20 flow items
         }
+
+        // Validate desktop style configuration
+        if (clientData.desktopStyle) {
+          if (['bubble', 'bar'].includes(clientData.desktopStyle)) {
+            sanitizedDesktopStyle = clientData.desktopStyle;
+          } else {
+            validationErrors.push('Invalid desktop style. Must be "bubble" or "bar"');
+          }
+        }
+
+        // Validate bar text configuration
+        if (clientData.barText !== undefined) {
+          const barTextValidation = validateAdminInput(clientData.barText, 'barText', false);
+          if (!barTextValidation.isValid) {
+            validationErrors.push('Invalid bar text format');
+          } else if (barTextValidation.sanitized.length > 30) {
+            validationErrors.push('Bar text must be 30 characters or less');
+          } else {
+            sanitizedBarText = barTextValidation.sanitized || 'Get A Quick Quote';
+          }
+        }
         
         if (validationErrors.length > 0) {
           return new Response(JSON.stringify({ 
@@ -894,7 +921,10 @@ export default {
           },
           theme: sanitizedTheme,
           messages: sanitizedMessages,
-          flow: sanitizedFlow
+          flow: sanitizedFlow,
+          desktopStyle: sanitizedDesktopStyle,
+          barText: sanitizedBarText,
+          barTextMaxLength: 30
         };
 
         // Save to KV
@@ -995,10 +1025,12 @@ export default {
             }
           });
         
-        // Validate theme and message data
+        // Validate theme, message, and desktop style data
         let sanitizedTheme = {};
         let sanitizedMessages = {};
         let sanitizedFlow = [];
+        let sanitizedDesktopStyle = 'bubble'; // Default
+        let sanitizedBarText = 'Get A Quick Quote'; // Default
         
         if (clientData.theme && typeof clientData.theme === 'object') {
           if (clientData.theme.primary && !/^#[0-9A-Fa-f]{6}$/.test(clientData.theme.primary)) {
@@ -1021,6 +1053,27 @@ export default {
         
         if (clientData.flow && Array.isArray(clientData.flow)) {
           sanitizedFlow = clientData.flow.slice(0, 20);
+        }
+
+        // Validate desktop style configuration
+        if (clientData.desktopStyle) {
+          if (['bubble', 'bar'].includes(clientData.desktopStyle)) {
+            sanitizedDesktopStyle = clientData.desktopStyle;
+          } else {
+            validationErrors.push('Invalid desktop style. Must be "bubble" or "bar"');
+          }
+        }
+
+        // Validate bar text configuration
+        if (clientData.barText !== undefined) {
+          const barTextValidation = validateAdminInput(clientData.barText, 'barText', false);
+          if (!barTextValidation.isValid) {
+            validationErrors.push('Invalid bar text format');
+          } else if (barTextValidation.sanitized.length > 30) {
+            validationErrors.push('Bar text must be 30 characters or less');
+          } else {
+            sanitizedBarText = barTextValidation.sanitized || 'Get A Quick Quote';
+          }
         }
         
         if (validationErrors.length > 0) {
@@ -1045,7 +1098,10 @@ export default {
           },
           theme: sanitizedTheme,
           messages: sanitizedMessages,
-          flow: sanitizedFlow
+          flow: sanitizedFlow,
+          desktopStyle: sanitizedDesktopStyle,
+          barText: sanitizedBarText,
+          barTextMaxLength: 30
         };
         
         // Save updated config

@@ -1,0 +1,441 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LeadStick Dashboard - Enhanced</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f8fafc;
+            color: #1f2937;
+            line-height: 1.6;
+        }
+
+        .header {
+            background: white;
+            padding: 20px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            border-bottom: 1px solid #e5e7eb;
+        }
+
+        .header h1 {
+            color: #1f2937;
+            font-size: 24px;
+            font-weight: 600;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 30px 20px;
+        }
+
+        .demo-section {
+            background: white;
+            border-radius: 12px;
+            padding: 30px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            margin-bottom: 30px;
+        }
+
+        .demo-section h2 {
+            color: #1f2937;
+            font-size: 20px;
+            font-weight: 600;
+            margin-bottom: 20px;
+        }
+
+        /* Desktop Style Configuration */
+        .desktop-style-selector {
+            display: flex;
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .style-option {
+            flex: 1;
+            padding: 20px;
+            border: 2px solid #e5e7eb;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-align: center;
+        }
+
+        .style-option:hover {
+            border-color: #3b82f6;
+            background: #f0f9ff;
+        }
+
+        .style-option.active {
+            border-color: #3b82f6;
+            background: #eff6ff;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        }
+
+        .style-option .icon {
+            font-size: 48px;
+            margin-bottom: 12px;
+        }
+
+        .style-option h3 {
+            color: #1f2937;
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+
+        .style-option p {
+            color: #6b7280;
+            font-size: 14px;
+        }
+
+        /* Bar Text Configuration */
+        .bar-config {
+            background: #f8fafc;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            padding: 20px;
+            margin-top: 20px;
+            transition: all 0.3s;
+        }
+
+        .bar-config.hidden {
+            opacity: 0.5;
+            pointer-events: none;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 6px;
+            font-weight: 500;
+            color: #374151;
+        }
+
+        .form-group input {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #d1d5db;
+            border-radius: 8px;
+            font-size: 16px;
+            background: white;
+            transition: all 0.2s;
+        }
+
+        .form-group input:focus {
+            outline: none;
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        }
+
+        .char-counter {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 6px;
+            font-size: 12px;
+            color: #6b7280;
+        }
+
+        .char-counter.warning {
+            color: #ef4444;
+        }
+
+        /* Live Preview */
+        .preview-section {
+            background: #f3f4f6;
+            border-radius: 8px;
+            padding: 40px;
+            min-height: 200px;
+            position: relative;
+            margin-top: 30px;
+        }
+
+        .preview-label {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background: #e5e7eb;
+            color: #6b7280;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+
+        /* Floating Bar Preview */
+        .preview-bar {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            background: rgb(246, 165, 96);
+            color: white;
+            padding: 12px 24px;
+            border-radius: 24px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            font-size: 16px;
+            font-weight: 500;
+            max-width: 300px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .preview-bar:hover {
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.2);
+            transform: translateY(-2px);
+            background: rgb(236, 145, 76);
+        }
+
+        /* Floating Bubble Preview */
+        .preview-bubble {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            width: 56px;
+            height: 56px;
+            border-radius: 50%;
+            background: rgb(246, 165, 96);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .preview-bubble:hover {
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.2);
+            transform: translateY(-2px);
+            background: rgb(236, 145, 76);
+        }
+
+        .preview-bubble svg {
+            width: 24px;
+            height: 24px;
+            stroke: white;
+            fill: none;
+            stroke-width: 2;
+        }
+
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-primary {
+            background: #3b82f6;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #2563eb;
+        }
+
+        .info-box {
+            background: #eff6ff;
+            border: 1px solid #dbeafe;
+            border-radius: 8px;
+            padding: 16px;
+            margin-top: 20px;
+        }
+
+        .info-box p {
+            margin: 0;
+            color: #1e40af;
+            font-size: 14px;
+        }
+
+        code {
+            background: #f3f4f6;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 13px;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🚀 LeadStick Dashboard - Desktop Style Configuration</h1>
+        <p>Configure how your widget appears on desktop devices</p>
+    </div>
+
+    <div class="container">
+        <div class="demo-section">
+            <h2>Desktop Widget Style</h2>
+            
+            <div class="desktop-style-selector">
+                <div class="style-option" id="bubble-option" onclick="selectStyle('bubble')">
+                    <div class="icon">💬</div>
+                    <h3>Bubble Style</h3>
+                    <p>Classic circular floating button with message icon</p>
+                </div>
+                
+                <div class="style-option active" id="bar-option" onclick="selectStyle('bar')">
+                    <div class="icon">📊</div>
+                    <h3>Bar Style</h3>
+                    <p>Horizontal floating bar with custom text</p>
+                </div>
+            </div>
+
+            <div id="bar-config" class="bar-config">
+                <div class="form-group">
+                    <label for="barText">Bar Text</label>
+                    <input 
+                        type="text" 
+                        id="barText" 
+                        value="Get A Quick Quote" 
+                        maxlength="30"
+                        oninput="updateBarText()"
+                        placeholder="Enter text to display on the bar"
+                    >
+                    <div class="char-counter" id="charCounter">
+                        <span>Character limit: 30</span>
+                        <span id="charCount">17 / 30</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="preview-section">
+                <div class="preview-label">Live Preview</div>
+                
+                <div id="preview-bar" class="preview-bar">
+                    Get A Quick Quote
+                </div>
+                
+                <div id="preview-bubble" class="preview-bubble" style="display: none;">
+                    <svg viewBox="0 0 24 24">
+                        <path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/>
+                    </svg>
+                </div>
+            </div>
+
+            <div class="info-box">
+                <p>💡 <strong>How it works:</strong> The desktop style only affects how the widget appears on desktop devices. On mobile, the widget will always display as a sticky bottom bar for better user experience.</p>
+            </div>
+
+            <div style="margin-top: 30px;">
+                <button class="btn btn-primary" onclick="saveConfiguration()">
+                    Save Configuration
+                </button>
+            </div>
+        </div>
+
+        <div class="demo-section">
+            <h2>Configuration Preview</h2>
+            <p>This is how your configuration will be saved:</p>
+            <pre id="configPreview" style="background: #f3f4f6; padding: 16px; border-radius: 8px; overflow-x: auto; margin-top: 16px;">
+{
+  "desktopStyle": "bar",
+  "barText": "Get A Quick Quote",
+  ...other configuration
+}</pre>
+        </div>
+
+        <div class="demo-section">
+            <h2>Integration Example</h2>
+            <p>When using dynamic configuration with <code>siteId</code>, these settings will be loaded automatically:</p>
+            <pre style="background: #f3f4f6; padding: 16px; border-radius: 8px; overflow-x: auto; margin-top: 16px;">
+&lt;script src="https://cdn.leadstick.com/widget.js"&gt;&lt;/script&gt;
+&lt;script&gt;
+  LeadStick.init({ 
+    siteId: 'your-client-id'
+  });
+&lt;/script&gt;</pre>
+        </div>
+    </div>
+
+    <script>
+        let currentStyle = 'bar';
+        let barText = 'Get A Quick Quote';
+
+        function selectStyle(style) {
+            currentStyle = style;
+            
+            // Update UI
+            document.querySelectorAll('.style-option').forEach(el => el.classList.remove('active'));
+            document.getElementById(style + '-option').classList.add('active');
+            
+            // Show/hide bar configuration
+            const barConfig = document.getElementById('bar-config');
+            if (style === 'bar') {
+                barConfig.classList.remove('hidden');
+            } else {
+                barConfig.classList.add('hidden');
+            }
+            
+            // Update preview
+            updatePreview();
+        }
+
+        function updateBarText() {
+            const input = document.getElementById('barText');
+            barText = input.value;
+            
+            // Update character counter
+            const charCount = document.getElementById('charCount');
+            const charCounter = document.getElementById('charCounter');
+            charCount.textContent = `${barText.length} / 30`;
+            
+            if (barText.length >= 30) {
+                charCounter.classList.add('warning');
+            } else {
+                charCounter.classList.remove('warning');
+            }
+            
+            // Update preview
+            updatePreview();
+        }
+
+        function updatePreview() {
+            const previewBar = document.getElementById('preview-bar');
+            const previewBubble = document.getElementById('preview-bubble');
+            
+            if (currentStyle === 'bar') {
+                previewBar.style.display = 'block';
+                previewBar.textContent = barText || 'Get A Quick Quote';
+                previewBubble.style.display = 'none';
+            } else {
+                previewBar.style.display = 'none';
+                previewBubble.style.display = 'flex';
+            }
+            
+            // Update config preview
+            const configPreview = document.getElementById('configPreview');
+            const config = {
+                desktopStyle: currentStyle,
+                barText: barText,
+                "...other configuration": "..."
+            };
+            configPreview.textContent = JSON.stringify(config, null, 2);
+        }
+
+        function saveConfiguration() {
+            // In a real implementation, this would save to the API
+            alert(`Configuration saved!\n\nDesktop Style: ${currentStyle}\nBar Text: ${barText}`);
+        }
+
+        // Initialize
+        updateBarText();
+        updatePreview();
+    </script>
+</body>
+</html>

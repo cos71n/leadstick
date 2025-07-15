@@ -73,6 +73,7 @@ After comprehensive codebase audit, the previous Cloudflare integration attempt 
 3. **📦 R2 CDN DEPLOYMENT** - Widget hosting setup
 4. **🧪 PRODUCTION TESTING** - End-to-end validation
 5. **📋 DOCUMENTATION** - Clean deployment guides
+6. **🎨 NEW: FLOATING BAR WIDGET** - Alternative desktop display style
 
 ### **AUDIT SUMMARY**
 - **Widget Status**: ✅ **EXCELLENT** (13.076 KB gzipped, production-ready)
@@ -204,6 +205,173 @@ export const CONFIG = {
 - [ ] **HIGH**: Analytics & monitoring setup (Task 3.3)
 
 ## Current Sprint / Active Tasks
+
+### Feature: Desktop Floating Bar Widget Style (New)
+
+#### Background and Requirements
+The user wants to add a new desktop widget display option alongside the existing floating bubble:
+- **Floating Bar Style**: A horizontal bar with rounded edges that displays customizable text
+- **Editable Text**: Messages like "Get A Quick Quote" or "Contact Matt Now" 
+- **Character Limit**: Prevent text from becoming too long
+- **Subtle Shadow**: Similar to Instagram's desktop floating elements
+- **Admin Control**: Choose between bubble or bar style in admin panel
+- **Text Configuration**: Edit the bar text through admin panel
+
+#### High-level Task Breakdown: Floating Bar Widget Implementation
+
+**Task 1: Extend Configuration Schema**
+- **Objective**: Add configuration options for desktop widget style and bar text
+- **Actions**:
+  - [ ] Update configuration interface to include `desktopStyle: 'bubble' | 'bar'`
+  - [ ] Add `barText` field with default value (e.g., "Get A Quick Quote")
+  - [ ] Add `barTextMaxLength` constant (suggest 30 characters)
+  - [ ] Update TypeScript types for new configuration options
+  - [ ] Ensure backward compatibility (default to 'bubble' if not specified)
+- **Success Criteria**:
+  - Configuration schema includes new fields
+  - Existing configurations continue to work with bubble style
+  - TypeScript types are properly updated
+- **Priority**: Critical
+
+**Task 2: Implement Floating Bar Component**
+- **Objective**: Create the new floating bar UI component
+- **Actions**:
+  - [ ] Create conditional rendering logic based on `desktopStyle` config
+  - [ ] Design floating bar with rounded edges (`borderRadius: 24px`)
+  - [ ] Add subtle shadow (`boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)'`)
+  - [ ] Position bar in bottom-right corner with appropriate padding
+  - [ ] Include hover effects for better interactivity
+  - [ ] Add smooth transitions for hover states
+  - [ ] Ensure text truncation with ellipsis for overflow
+- **Success Criteria**:
+  - Floating bar renders when `desktopStyle: 'bar'` is configured
+  - Visual design matches Instagram-style floating elements
+  - Text displays properly with character limit enforcement
+  - Hover interactions feel smooth and responsive
+- **Priority**: Critical
+
+**Task 3: Update Widget Logic**
+- **Objective**: Modify widget.tsx to support both desktop styles
+- **Actions**:
+  - [ ] Refactor desktop button rendering to check configuration
+  - [ ] Maintain existing bubble functionality as-is
+  - [ ] Add click handler for floating bar (opens widget)
+  - [ ] Ensure mobile behavior remains unchanged
+  - [ ] Test transitions between open/closed states
+  - [ ] Verify no regression in existing functionality
+- **Success Criteria**:
+  - Widget correctly displays bubble or bar based on configuration
+  - Both styles open the chat widget on click
+  - Mobile experience remains unchanged
+  - No visual or functional regressions
+- **Priority**: Critical
+
+**Task 4: Extend Admin Dashboard**
+- **Objective**: Add UI controls for configuring desktop widget style
+- **Actions**:
+  - [ ] Add desktop style selector (radio buttons or dropdown)
+  - [ ] Add text input field for bar text (shown only when bar style selected)
+  - [ ] Implement character counter for bar text input
+  - [ ] Add live preview showing bubble vs bar style
+  - [ ] Update save functionality to include new fields
+  - [ ] Add validation for bar text length
+- **Success Criteria**:
+  - Admin can select between bubble and bar styles
+  - Bar text input appears conditionally
+  - Character limit is enforced with visual feedback
+  - Live preview accurately shows selected style
+  - Configuration saves and loads correctly
+- **Priority**: High
+
+**Task 5: Update Worker API**
+- **Objective**: Ensure configuration API handles new fields
+- **Actions**:
+  - [ ] Update configuration schema in worker
+  - [ ] Add default values for new fields
+  - [ ] Ensure backward compatibility for existing configs
+  - [ ] Test configuration loading with new fields
+- **Success Criteria**:
+  - API returns new configuration fields
+  - Existing configurations work without modification
+  - New configurations save and load properly
+- **Priority**: High
+
+**Task 6: Testing and Documentation**
+- **Objective**: Ensure feature works correctly across different scenarios
+- **Actions**:
+  - [ ] Test both styles on different screen sizes
+  - [ ] Verify character limit enforcement
+  - [ ] Test configuration switching in admin panel
+  - [ ] Update integration documentation
+  - [ ] Create example configurations for both styles
+  - [ ] Test on actual client websites
+- **Success Criteria**:
+  - Both styles work correctly on all desktop browsers
+  - Character limits prevent layout issues
+  - Admin panel updates work smoothly
+  - Documentation includes new configuration options
+- **Priority**: Medium
+
+#### Implementation Details
+
+**Floating Bar Design Specifications:**
+```css
+.leadstick-floating-bar {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  background: [CONFIG.theme.primary];
+  color: white;
+  padding: 12px 24px;
+  border-radius: 24px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  cursor: pointer;
+  transition: all 0.3s ease;
+  font-size: 16px;
+  font-weight: 500;
+  max-width: 300px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.leadstick-floating-bar:hover {
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.2);
+  transform: translateY(-2px);
+  background: [CONFIG.theme.primaryHover];
+}
+```
+
+**Configuration Schema Update:**
+```typescript
+interface WidgetConfig {
+  // ... existing fields
+  desktopStyle?: 'bubble' | 'bar'; // Default: 'bubble'
+  barText?: string; // Default: 'Get A Quick Quote'
+  // Character limit enforced at 30 characters
+}
+```
+
+**Conditional Rendering Logic:**
+```typescript
+// In widget.tsx
+{!isMobile && CONFIG.desktopStyle === 'bar' ? (
+  <FloatingBar text={CONFIG.barText} onClick={toggleChat} />
+) : (
+  <FloatingBubble onClick={toggleChat} />
+)}
+```
+
+#### Timeline Estimate
+- **Day 1**: Configuration schema updates and floating bar component implementation
+- **Day 1-2**: Widget logic updates and testing
+- **Day 2**: Admin dashboard updates
+- **Day 2-3**: Testing, refinement, and documentation
+
+#### Risk Mitigation
+- **Backward Compatibility**: Default to bubble style if not specified
+- **Performance**: Minimal impact as it's just a different render style
+- **Browser Support**: Use standard CSS properties for maximum compatibility
 
 ### MVP Sprint (3-Day Target)
 - [x] **Day 1**: Single-file widget with React + inline styles ✅ **20.46KB gzipped!**
