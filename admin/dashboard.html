@@ -834,12 +834,135 @@
                         </div>
                     </div>
 
+                    <div class="form-group">
+                        <label for="welcomeMessage">Welcome Message</label>
+                        <textarea 
+                            id="welcomeMessage" 
+                            name="welcomeMessage" 
+                            maxlength="500"
+                            rows="3"
+                            placeholder="Hi, [Agent Name] here. Let me know a little about your project. Your message comes straight to my phone and I'll send your quote ASAP"
+                        ></textarea>
+                        <div class="help-text">The first message users see when they open the chat widget. Use [Agent Name] to automatically insert the agent's name.</div>
+                        <div class="validation-error"></div>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Questions & Flow</label>
+                        <div class="questions-builder">
+                            <div class="questions-header">
+                                <h3>Question Flow</h3>
+                                <div class="add-question-dropdown">
+                                    <button type="button" class="btn btn-primary btn-small" onclick="toggleQuestionDropdown()">
+                                        ➕ Add Question
+                                    </button>
+                                    <div class="dropdown-content" id="questionDropdown">
+                                        <button type="button" class="dropdown-item" onclick="addQuestion('text')">📝 Text Input</button>
+                                        <button type="button" class="dropdown-item" onclick="addQuestion('select')">📋 Single Choice</button>
+                                        <button type="button" class="dropdown-item" onclick="addQuestion('multiselect')">☑️ Multiple Choice</button>
+                                        <button type="button" class="dropdown-item" onclick="addQuestion('contact')">👤 Contact Form</button>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="question-list" id="questionList">
+                                <!-- Questions will be rendered here -->
+                            </div>
+                        </div>
+                    </div>
+
                     <div class="modal-actions">
                         <button type="button" class="btn btn-secondary" onclick="closeEditModal()">
                             Cancel
                         </button>
                         <button type="submit" class="btn btn-primary">
                             Save Changes
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Question Editor Modal -->
+        <div id="questionEditorModal" class="modal question-editor-modal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2 id="questionEditorTitle">Add Question</h2>
+                    <button class="close-btn" onclick="closeQuestionEditor()">&times;</button>
+                </div>
+
+                <form id="questionEditorForm" onsubmit="saveQuestion(event)">
+                    <div class="form-group">
+                        <label for="questionText">Question Text *</label>
+                        <input 
+                            type="text" 
+                            id="questionText" 
+                            name="questionText" 
+                            required
+                            maxlength="200"
+                            placeholder="What question do you want to ask?"
+                        >
+                        <div class="validation-error"></div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="questionType">Question Type *</label>
+                        <select id="questionType" name="questionType" onchange="updateQuestionTypeOptions()" required>
+                            <option value="text">📝 Text Input</option>
+                            <option value="select">📋 Single Choice</option>
+                            <option value="multiselect">☑️ Multiple Choice</option>
+                            <option value="contact">👤 Contact Form</option>
+                        </select>
+                        <div class="validation-error"></div>
+                    </div>
+
+                    <div class="form-group" id="placeholderGroup">
+                        <label for="questionPlaceholder">Placeholder Text</label>
+                        <input 
+                            type="text" 
+                            id="questionPlaceholder" 
+                            name="questionPlaceholder" 
+                            maxlength="100"
+                            placeholder="Helper text for the user"
+                        >
+                        <div class="help-text">Optional helper text shown to users</div>
+                    </div>
+
+                    <div class="form-group" id="optionsGroup" style="display: none;">
+                        <label>Answer Options</label>
+                        <div class="option-builder">
+                            <div id="optionsList">
+                                <!-- Options will be added here -->
+                            </div>
+                            <button type="button" class="btn btn-secondary btn-small" onclick="addOption()">
+                                ➕ Add Option
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="form-group" id="validationGroup">
+                        <label>Validation Rules</label>
+                        <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 8px;">
+                            <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                                <input type="checkbox" id="questionRequired" name="questionRequired" checked>
+                                <span>Required field</span>
+                            </label>
+                        </div>
+                        <div id="minLengthGroup" style="display: none;">
+                            <label for="minLength" style="margin-bottom: 4px; font-size: 14px;">Minimum characters:</label>
+                            <input type="number" id="minLength" name="minLength" min="1" max="500" value="1" style="width: 100px;">
+                        </div>
+                        <div id="minSelectionGroup" style="display: none;">
+                            <label for="minSelection" style="margin-bottom: 4px; font-size: 14px;">Minimum selections:</label>
+                            <input type="number" id="minSelection" name="minSelection" min="1" max="10" value="1" style="width: 100px;">
+                        </div>
+                    </div>
+
+                    <div class="modal-actions">
+                        <button type="button" class="btn btn-secondary" onclick="closeQuestionEditor()">
+                            Cancel
+                        </button>
+                        <button type="submit" class="btn btn-primary">
+                            Save Question
                         </button>
                     </div>
                 </form>
@@ -909,6 +1032,10 @@
             
             let currentQuestions = [];
             let editingQuestionIndex = -1;
+            
+            // Question management global state
+            window.currentQuestions = currentQuestions;
+            window.editingQuestionIndex = editingQuestionIndex;
 
             // Authentication check function
             async function checkAuthentication() {
@@ -1269,6 +1396,10 @@
                     if (value && !/^[\d\s\-\+\(\)\.]+$/.test(value)) errors.push('Please enter a valid phone number');
                     else if (value && value.length > 20) errors.push('Phone number must be less than 20 characters');
                     break;
+                    
+                case 'message':
+                    if (value && value.length > 500) errors.push('Message must be less than 500 characters');
+                    break;
             }
             
             // Common security validation for all inputs
@@ -1348,6 +1479,12 @@
             // Reset widget type
             document.getElementById('editBubble').checked = true;
             
+            // Clear welcome message
+            document.getElementById('welcomeMessage').value = '';
+            
+            // Clear questions
+            loadQuestions([]);
+            
             // Clear any previous validation errors
             document.querySelectorAll('#editModal .form-group').forEach(group => {
                 group.classList.remove('error');
@@ -1407,6 +1544,13 @@
             } else {
                 document.getElementById('editBubble').checked = true;
             }
+            
+            // Set welcome message
+            const welcomeMessage = client.messages?.welcome || '';
+            document.getElementById('welcomeMessage').value = welcomeMessage;
+            
+            // Load questions
+            loadQuestions(client.questions || []);
             
             // Clear any previous validation errors
             document.querySelectorAll('#editModal .form-group').forEach(group => {
@@ -1566,7 +1710,8 @@
                 { id: 'editBusinessName', value: formData.get('businessName'), type: 'businessName' },
                 { id: 'editEmail', value: formData.get('email'), type: 'email' },
                 { id: 'editAgentName', value: formData.get('agentName'), type: 'agentName' },
-                { id: 'editPhone', value: formData.get('phone'), type: 'phone' }
+                { id: 'editPhone', value: formData.get('phone'), type: 'phone' },
+                { id: 'welcomeMessage', value: formData.get('welcomeMessage'), type: 'message' }
             ];
             
             // For create mode, also validate siteId
@@ -1593,6 +1738,7 @@
                 showLoading(true);
                 
                 const siteId = formData.get('siteId');
+                const welcomeMessage = formData.get('welcomeMessage')?.trim();
                 const payload = {
                     business: {
                         name: sanitizeInput(formData.get('businessName')),
@@ -1603,8 +1749,11 @@
                     theme: {
                         primary: document.getElementById('editThemeText').value
                     },
+                    messages: {
+                        welcome: welcomeMessage || ''
+                    },
                     widgetType: formData.get('widgetType'),
-                    questions: (window.editingClient && window.editingClient.questions) || []
+                    flow: window.currentQuestions || []
                 };
                 
                 // For create mode, add siteId to payload
@@ -1662,6 +1811,342 @@
             } finally {
                 showLoading(false);
             }
+        }
+
+        // Question Management Functions
+        function loadQuestions(questions = []) {
+            window.currentQuestions = questions;
+            currentQuestions = questions;
+            renderQuestions();
+        }
+
+        function renderQuestions() {
+            const questionList = document.getElementById('questionList');
+            if (!questionList) return;
+            
+            questionList.innerHTML = '';
+            
+            if (currentQuestions.length === 0) {
+                questionList.innerHTML = '<p style="color: #6b7280; text-align: center; padding: 20px;">No questions configured. Click "Add Question" to get started.</p>';
+                return;
+            }
+            
+            currentQuestions.forEach((question, index) => {
+                const questionItem = createQuestionItem(question, index);
+                questionList.appendChild(questionItem);
+            });
+        }
+
+        function createQuestionItem(question, index) {
+            const item = document.createElement('div');
+            item.className = 'question-item';
+            item.draggable = true;
+            item.setAttribute('data-index', index);
+            
+            const questionTypeLabels = {
+                text: '📝 Text Input',
+                select: '📋 Single Choice',
+                multiselect: '☑️ Multiple Choice',
+                contact: '👤 Contact Form'
+            };
+            
+            item.innerHTML = `
+                <div class="question-header">
+                    <div class="question-info">
+                        <h4>${escapeHtml(question.question || 'Untitled Question')}</h4>
+                        <span class="question-type">${questionTypeLabels[question.type] || question.type}</span>
+                    </div>
+                    <div class="question-actions">
+                        <button type="button" onclick="editQuestion(${index})">✏️ Edit</button>
+                        <button type="button" onclick="deleteQuestion(${index})">🗑️ Delete</button>
+                        <span class="drag-handle">⋮⋮</span>
+                    </div>
+                </div>
+                <div class="question-preview">
+                    ${getQuestionPreview(question)}
+                </div>
+            `;
+            
+            // Add drag and drop event listeners
+            item.addEventListener('dragstart', handleDragStart);
+            item.addEventListener('dragover', handleDragOver);
+            item.addEventListener('drop', handleDrop);
+            item.addEventListener('dragend', handleDragEnd);
+            
+            return item;
+        }
+
+        function getQuestionPreview(question) {
+            let preview = escapeHtml(question.question || 'Untitled Question');
+            
+            if (question.placeholder) {
+                preview += `<br><small style="color: #9ca3af;">Placeholder: ${escapeHtml(question.placeholder)}</small>`;
+            }
+            
+            if (question.options && question.options.length > 0) {
+                preview += '<ul class="options-list">';
+                question.options.slice(0, 3).forEach(option => {
+                    preview += `<li>${escapeHtml(option)}</li>`;
+                });
+                if (question.options.length > 3) {
+                    preview += `<li>... and ${question.options.length - 3} more</li>`;
+                }
+                preview += '</ul>';
+            }
+            
+            return preview;
+        }
+
+        function toggleQuestionDropdown() {
+            const dropdown = document.getElementById('questionDropdown');
+            dropdown.classList.toggle('show');
+            
+            // Close dropdown when clicking outside
+            document.addEventListener('click', function closeDropdown(e) {
+                if (!e.target.closest('.add-question-dropdown')) {
+                    dropdown.classList.remove('show');
+                    document.removeEventListener('click', closeDropdown);
+                }
+            });
+        }
+
+        function addQuestion(type) {
+            // Close dropdown
+            document.getElementById('questionDropdown').classList.remove('show');
+            
+            // Open question editor
+            openQuestionEditor(type);
+        }
+
+        function editQuestion(index) {
+            const question = currentQuestions[index];
+            if (!question) return;
+            
+            window.editingQuestionIndex = index;
+            editingQuestionIndex = index;
+            openQuestionEditor(question.type, question);
+        }
+
+        function deleteQuestion(index) {
+            const question = currentQuestions[index];
+            if (!question) return;
+            
+            if (confirm(`Are you sure you want to delete the question "${question.question}"?`)) {
+                currentQuestions.splice(index, 1);
+                window.currentQuestions = currentQuestions;
+                renderQuestions();
+            }
+        }
+
+        function openQuestionEditor(type, existingQuestion = null) {
+            const modal = document.getElementById('questionEditorModal');
+            const title = document.getElementById('questionEditorTitle');
+            const form = document.getElementById('questionEditorForm');
+            
+            // Reset form
+            form.reset();
+            
+            // Set title
+            title.textContent = existingQuestion ? 'Edit Question' : 'Add Question';
+            
+            // Set default type
+            document.getElementById('questionType').value = type;
+            
+            // Populate existing question data
+            if (existingQuestion) {
+                document.getElementById('questionText').value = existingQuestion.question || '';
+                document.getElementById('questionPlaceholder').value = existingQuestion.placeholder || '';
+                document.getElementById('questionRequired').checked = existingQuestion.validation?.required !== false;
+                
+                if (existingQuestion.validation?.minLength) {
+                    document.getElementById('minLength').value = existingQuestion.validation.minLength;
+                }
+                
+                if (existingQuestion.validation?.minSelection) {
+                    document.getElementById('minSelection').value = existingQuestion.validation.minSelection;
+                }
+                
+                // Load options for select/multiselect
+                if (existingQuestion.options) {
+                    const optionsList = document.getElementById('optionsList');
+                    optionsList.innerHTML = '';
+                    existingQuestion.options.forEach(option => {
+                        addOptionToList(option);
+                    });
+                }
+            }
+            
+            // Update UI based on question type
+            updateQuestionTypeOptions();
+            
+            // Show modal
+            modal.classList.add('active');
+        }
+
+        function closeQuestionEditor() {
+            document.getElementById('questionEditorModal').classList.remove('active');
+            window.editingQuestionIndex = -1;
+            editingQuestionIndex = -1;
+        }
+
+        function updateQuestionTypeOptions() {
+            const type = document.getElementById('questionType').value;
+            const placeholderGroup = document.getElementById('placeholderGroup');
+            const optionsGroup = document.getElementById('optionsGroup');
+            const minLengthGroup = document.getElementById('minLengthGroup');
+            const minSelectionGroup = document.getElementById('minSelectionGroup');
+            
+            // Show/hide options based on question type
+            if (type === 'select' || type === 'multiselect') {
+                optionsGroup.style.display = 'block';
+                placeholderGroup.style.display = 'block';
+                
+                // Ensure at least one option exists
+                const optionsList = document.getElementById('optionsList');
+                if (optionsList.children.length === 0) {
+                    addOption();
+                    addOption();
+                }
+            } else {
+                optionsGroup.style.display = 'none';
+            }
+            
+            if (type === 'contact') {
+                placeholderGroup.style.display = 'none';
+            } else {
+                placeholderGroup.style.display = 'block';
+            }
+            
+            // Show validation options
+            minLengthGroup.style.display = type === 'text' ? 'block' : 'none';
+            minSelectionGroup.style.display = type === 'multiselect' ? 'block' : 'none';
+        }
+
+        function addOption() {
+            const optionsList = document.getElementById('optionsList');
+            addOptionToList('');
+        }
+
+        function addOptionToList(value = '') {
+            const optionsList = document.getElementById('optionsList');
+            const optionDiv = document.createElement('div');
+            optionDiv.className = 'option-item';
+            
+            optionDiv.innerHTML = `
+                <input type="text" value="${escapeHtml(value)}" placeholder="Option text" maxlength="100" required>
+                <button type="button" onclick="removeOption(this)">✕</button>
+            `;
+            
+            optionsList.appendChild(optionDiv);
+        }
+
+        function removeOption(button) {
+            const optionItem = button.closest('.option-item');
+            const optionsList = document.getElementById('optionsList');
+            
+            // Don't allow removing all options
+            if (optionsList.children.length > 1) {
+                optionItem.remove();
+            } else {
+                alert('At least one option is required for choice questions.');
+            }
+        }
+
+        function saveQuestion(event) {
+            event.preventDefault();
+            
+            const form = event.target;
+            const formData = new FormData(form);
+            
+            const question = {
+                id: editingQuestionIndex >= 0 ? currentQuestions[editingQuestionIndex].id : generateQuestionId(),
+                type: formData.get('questionType'),
+                question: formData.get('questionText').trim(),
+                validation: {
+                    required: formData.get('questionRequired') === 'on'
+                }
+            };
+            
+            // Add placeholder if provided
+            const placeholder = formData.get('questionPlaceholder')?.trim();
+            if (placeholder) {
+                question.placeholder = placeholder;
+            }
+            
+            // Add type-specific fields
+            if (question.type === 'text' && formData.get('minLength')) {
+                question.validation.minLength = parseInt(formData.get('minLength'));
+            }
+            
+            if (question.type === 'multiselect' && formData.get('minSelection')) {
+                question.validation.minSelection = parseInt(formData.get('minSelection'));
+            }
+            
+            // Add options for select/multiselect
+            if (question.type === 'select' || question.type === 'multiselect') {
+                const optionInputs = document.querySelectorAll('#optionsList input');
+                question.options = Array.from(optionInputs)
+                    .map(input => input.value.trim())
+                    .filter(value => value.length > 0);
+                
+                if (question.options.length === 0) {
+                    alert('Please add at least one option for choice questions.');
+                    return;
+                }
+            }
+            
+            // Add or update question
+            if (editingQuestionIndex >= 0) {
+                currentQuestions[editingQuestionIndex] = question;
+            } else {
+                currentQuestions.push(question);
+            }
+            
+            window.currentQuestions = currentQuestions;
+            renderQuestions();
+            closeQuestionEditor();
+        }
+
+        function generateQuestionId() {
+            return 'q_' + Math.random().toString(36).substr(2, 9);
+        }
+
+        // Drag and drop functions
+        let draggedElement = null;
+
+        function handleDragStart(e) {
+            draggedElement = e.target;
+            e.target.classList.add('dragging');
+            e.dataTransfer.effectAllowed = 'move';
+        }
+
+        function handleDragOver(e) {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'move';
+        }
+
+        function handleDrop(e) {
+            e.preventDefault();
+            
+            if (draggedElement && draggedElement !== e.target) {
+                const draggedIndex = parseInt(draggedElement.getAttribute('data-index'));
+                const targetIndex = parseInt(e.target.closest('.question-item')?.getAttribute('data-index'));
+                
+                if (draggedIndex !== undefined && targetIndex !== undefined && draggedIndex !== targetIndex) {
+                    // Reorder questions array
+                    const draggedQuestion = currentQuestions[draggedIndex];
+                    currentQuestions.splice(draggedIndex, 1);
+                    currentQuestions.splice(targetIndex, 0, draggedQuestion);
+                    
+                    window.currentQuestions = currentQuestions;
+                    renderQuestions();
+                }
+            }
+        }
+
+        function handleDragEnd(e) {
+            e.target.classList.remove('dragging');
+            draggedElement = null;
         }
 
         // Copy installation code function
@@ -1739,6 +2224,16 @@ window.leadstickConfig = {
         window.validateClientInput = validateClientInput;
         window.showInputError = showInputError;
         window.clearInputError = clearInputError;
+        window.loadQuestions = loadQuestions;
+        window.toggleQuestionDropdown = toggleQuestionDropdown;
+        window.addQuestion = addQuestion;
+        window.editQuestion = editQuestion;
+        window.deleteQuestion = deleteQuestion;
+        window.closeQuestionEditor = closeQuestionEditor;
+        window.updateQuestionTypeOptions = updateQuestionTypeOptions;
+        window.addOption = addOption;
+        window.removeOption = removeOption;
+        window.saveQuestion = saveQuestion;
         
         } // End of initializeAppComponents function
     </script>

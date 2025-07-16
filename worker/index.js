@@ -766,7 +766,8 @@ export default {
               phone: config.business?.phone || '',
               theme: config.theme?.primary || '#3b82f6',
               widgetType: config.widgetType || 'bubble',
-              questions: config.questions || [],
+              questions: config.flow || [],
+              messages: config.messages || {},
               lastModified: key.metadata?.lastModified || new Date().toISOString()
             });
           }
