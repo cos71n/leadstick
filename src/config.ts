@@ -31,7 +31,7 @@ export const CONFIG = {
   },
   apiEndpoint: "https://leadstick-api.attribution.workers.dev",
   // New desktop widget style configuration
-  desktopStyle: 'bar' as 'bubble' | 'bar', // Temporarily set to bar for testing
+  desktopStyle: 'bubble' as 'bubble' | 'bar', // Default to bubble for backward compatibility
   barText: 'Get A Quick Quote', // Default text for floating bar
   barTextMaxLength: 30 // Character limit for bar text
 } 

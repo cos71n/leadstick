@@ -317,13 +317,28 @@
                 });
                 
                 const data = await response.json();
+                console.log('[Login] Response received:', {
+                    status: response.status,
+                    ok: response.ok,
+                    hasToken: !!data.token,
+                    hasCsrfToken: !!data.csrfToken,
+                    data: data
+                });
                 
                 if (response.ok && data.token) {
                     // Store authentication data
+                    console.log('[Login] Storing tokens in sessionStorage...');
                     sessionStorage.setItem('leadstick_admin_token', data.token);
                     sessionStorage.setItem('leadstick_csrf_token', data.csrfToken);
                     
+                    // Verify storage
+                    console.log('[Login] Tokens stored:', {
+                        sessionToken: sessionStorage.getItem('leadstick_admin_token') ? 'exists' : 'missing',
+                        csrfToken: sessionStorage.getItem('leadstick_csrf_token') ? 'exists' : 'missing'
+                    });
+                    
                     // Redirect to admin dashboard
+                    console.log('[Login] Redirecting to dashboard...');
                     window.location.href = './dashboard.html';
                 } else {
                     showError(data.error || 'Invalid credentials. Please try again.');
@@ -355,10 +370,6 @@
                 window.location.href = './dashboard.html';
             }
         });
-        
-        // Security: Clear any existing admin data on page load
-        sessionStorage.removeItem('leadstick_admin_token');
-        sessionStorage.removeItem('leadstick_csrf_token');
     </script>
 </body>
 </html>

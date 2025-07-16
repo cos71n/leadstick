@@ -1042,9 +1042,6 @@ function LeadStickWidget({ CONFIG }: { CONFIG: any }) {
           <button
             onClick={toggleChat}
             style={{
-              position: 'fixed',
-              bottom: '20px',
-              right: '20px',
               backgroundColor: CONFIG.theme.primary,
               color: 'white',
               padding: '12px 24px',

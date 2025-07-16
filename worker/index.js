@@ -760,11 +760,14 @@ export default {
           if (config) {
             clients.push({
               siteId: config.siteId,
-              businessName: config.business?.name || 'Unknown',
-              email: config.business?.email || 'No email',
-              agentName: config.business?.agentName || 'Unknown',
+              businessName: config.business?.name || '',
+              email: config.business?.email || '',
+              agentName: config.business?.agentName || '',
+              phone: config.business?.phone || '',
               theme: config.theme?.primary || '#3b82f6',
-              lastModified: key.metadata?.lastModified || 'Unknown'
+              widgetType: config.widgetType || 'bubble',
+              questions: config.questions || [],
+              lastModified: key.metadata?.lastModified || new Date().toISOString()
             });
           }
         }

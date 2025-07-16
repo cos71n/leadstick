@@ -717,17 +717,148 @@
             </div>
         </div>
 
-        <!-- Client Modal and other modals go here -->
-        <!-- (I'll add these if needed - keeping this shorter for now) -->
+        <!-- Edit Client Modal -->
+        <div id="editModal" class="modal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2>Edit Client Configuration</h2>
+                    <button class="close-btn" onclick="closeEditModal()">&times;</button>
+                </div>
+
+                <form id="editClientForm" onsubmit="saveClientChanges(event)">
+                    <div class="form-group">
+                        <label for="editSiteId">Site ID</label>
+                        <input 
+                            type="text" 
+                            id="editSiteId" 
+                            name="siteId" 
+                            readonly
+                            style="background: #f3f4f6; cursor: not-allowed;"
+                        >
+                        <div class="help-text">Site ID cannot be changed</div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="editBusinessName">Business Name *</label>
+                        <input 
+                            type="text" 
+                            id="editBusinessName" 
+                            name="businessName" 
+                            required
+                            maxlength="100"
+                            oninput="validateEditInput('editBusinessName', this.value, 'businessName')"
+                        >
+                        <div class="validation-error"></div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="editEmail">Email Address *</label>
+                        <input 
+                            type="email" 
+                            id="editEmail" 
+                            name="email" 
+                            required
+                            maxlength="100"
+                            oninput="validateEditInput('editEmail', this.value, 'email')"
+                        >
+                        <div class="validation-error"></div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="editAgentName">Agent Name</label>
+                        <input 
+                            type="text" 
+                            id="editAgentName" 
+                            name="agentName" 
+                            maxlength="50"
+                            oninput="validateEditInput('editAgentName', this.value, 'agentName')"
+                        >
+                        <div class="validation-error"></div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="editPhone">Phone Number</label>
+                        <input 
+                            type="tel" 
+                            id="editPhone" 
+                            name="phone" 
+                            maxlength="20"
+                            oninput="validateEditInput('editPhone', this.value, 'phone')"
+                        >
+                        <div class="validation-error"></div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="editTheme">Theme Color</label>
+                        <div class="color-input">
+                            <input 
+                                type="color" 
+                                id="editThemeColor" 
+                                value="#3b82f6"
+                                onchange="syncEditColorInputs()"
+                            >
+                            <input 
+                                type="text" 
+                                id="editThemeText" 
+                                value="#3b82f6"
+                                maxlength="7"
+                                pattern="^#[0-9A-Fa-f]{6}$"
+                                oninput="syncEditColorInputs()"
+                            >
+                        </div>
+                        <div class="validation-error"></div>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Widget Type</label>
+                        <div style="display: flex; gap: 12px;">
+                            <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                                <input 
+                                    type="radio" 
+                                    name="widgetType" 
+                                    value="bubble" 
+                                    id="editBubble"
+                                    checked
+                                >
+                                <span>Bubble Widget</span>
+                            </label>
+                            <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                                <input 
+                                    type="radio" 
+                                    name="widgetType" 
+                                    value="floating-bar" 
+                                    id="editFloatingBar"
+                                >
+                                <span>Floating Bar</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="modal-actions">
+                        <button type="button" class="btn btn-secondary" onclick="closeEditModal()">
+                            Cancel
+                        </button>
+                        <button type="submit" class="btn btn-primary">
+                            Save Changes
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
     </div>
 
     <script id="main-script">
+        console.log('[Dashboard] Script loaded, starting initialization...');
+        
         // CSP-safe script initialization
         (async function initializeApp() {
+            console.log('[Dashboard] initializeApp IIFE started');
             try {
                 // Fetch nonce from API for CSP compliance
+                console.log('[Dashboard] Fetching nonce...');
                 const nonceResponse = await fetch('https://leadstick-api.attribution.workers.dev/admin/nonce');
                 const nonceData = await nonceResponse.json();
+                console.log('[Dashboard] Nonce received:', !!nonceData.nonce);
                 
                 // Set nonce for any dynamically created scripts
                 window.CSP_NONCE = nonceData.nonce;
@@ -739,11 +870,13 @@
                 window.clients = [];
                 window.editingClient = null;
                 
+                console.log('[Dashboard] App constants initialized, calling initializeAppComponents...');
                 // Continue with app initialization
                 initializeAppComponents();
             } catch (error) {
                 console.error('Failed to initialize app:', error);
                 // Fallback initialization without nonce
+                console.log('[Dashboard] Using fallback initialization...');
                 window.API_BASE = 'https://leadstick-api.attribution.workers.dev';
                 window.sessionToken = null;
                 window.csrfToken = null;
@@ -754,6 +887,8 @@
         })();
 
         function initializeAppComponents() {
+            console.log('[Init] initializeAppComponents called');
+            
             // Use global variables for consistency
             const API_BASE = window.API_BASE;
             let sessionToken = window.sessionToken;
@@ -761,62 +896,121 @@
             let clients = window.clients;
             let editingClient = window.editingClient;
             
+            // Make these accessible to all functions
+            window.getSessionToken = () => sessionToken || sessionStorage.getItem('leadstick_admin_token');
+            window.getCsrfToken = () => csrfToken || sessionStorage.getItem('leadstick_csrf_token');
+            window.getClients = () => window.clients || [];
+            
+            console.log('[Init] Initial values:', {
+                API_BASE: API_BASE,
+                hasSessionToken: !!sessionToken,
+                hasCsrfToken: !!csrfToken
+            });
+            
             let currentQuestions = [];
             let editingQuestionIndex = -1;
 
-            // Authentication check on page load
-        document.addEventListener('DOMContentLoaded', async function() {
-            const authCheckDiv = document.getElementById('authCheck');
-            const mainContentDiv = document.getElementById('mainContent');
-            
-            try {
-                // Get stored tokens
-                sessionToken = sessionStorage.getItem('leadstick_admin_token');
-                csrfToken = sessionStorage.getItem('leadstick_csrf_token');
+            // Authentication check function
+            async function checkAuthentication() {
+                console.log('[Dashboard] Starting authentication check...');
+                const authCheckDiv = document.getElementById('authCheck');
+                const mainContentDiv = document.getElementById('mainContent');
                 
-                if (!sessionToken || !csrfToken) {
-                    throw new Error('No authentication tokens found');
+                try {
+                    // Get stored tokens
+                    sessionToken = sessionStorage.getItem('leadstick_admin_token');
+                    csrfToken = sessionStorage.getItem('leadstick_csrf_token');
+                    
+                    console.log('[Dashboard] Token check:', {
+                        hasSessionToken: !!sessionToken,
+                        sessionTokenLength: sessionToken ? sessionToken.length : 0,
+                        hasCsrfToken: !!csrfToken,
+                        csrfTokenLength: csrfToken ? csrfToken.length : 0
+                    });
+                    
+                    if (!sessionToken || !csrfToken) {
+                        console.log('[Dashboard] Missing tokens, redirecting to login');
+                        throw new Error('No authentication tokens found');
+                    }
+                    
+                    console.log('[Dashboard] Making authentication request to API...');
+                    console.log('[Dashboard] API URL:', `${API_BASE}/admin/clients`);
+                    
+                    // Verify tokens with server by trying to load clients
+                    const response = await authenticatedFetch(`${API_BASE}/admin/clients`);
+                    
+                    console.log('[Dashboard] API Response:', {
+                        status: response.status,
+                        statusText: response.statusText,
+                        ok: response.ok,
+                        headers: Object.fromEntries(response.headers.entries())
+                    });
+                    
+                    if (!response.ok) {
+                        console.log('[Dashboard] Response not OK, checking status...');
+                        const errorBody = await response.text();
+                        console.log('[Dashboard] Error response body:', errorBody);
+                        throw new Error('Invalid or expired session');
+                    }
+                    
+                    console.log('[Dashboard] Authentication successful, parsing response...');
+                    const data = await response.json();
+                    console.log('[Dashboard] Response data:', data);
+                    
+                    // Authentication successful
+                    console.log('[Dashboard] Hiding auth check, showing main content');
+                    authCheckDiv.style.display = 'none';
+                    mainContentDiv.style.display = 'block';
+                    
+                    // Load dashboard data
+                    console.log('[Dashboard] Loading dashboard components...');
+                    loadClients();
+                    setupColorInputSync();
+                    setupDragAndDrop();
+                    
+                } catch (error) {
+                    console.error('[Dashboard] Authentication error:', error);
+                    console.error('[Dashboard] Error stack:', error.stack);
+                    console.warn('Authentication failed:', error.message);
+                    // Redirect to login page
+                    console.log('[Dashboard] Redirecting to login page...');
+                    window.location.href = './index.html';
                 }
-                
-                // Verify tokens with server by trying to load clients
-                const response = await authenticatedFetch(`${API_BASE}/admin/clients`);
-                
-                if (!response.ok) {
-                    throw new Error('Invalid or expired session');
-                }
-                
-                // Authentication successful
-                authCheckDiv.style.display = 'none';
-                mainContentDiv.style.display = 'block';
-                
-                // Load dashboard data
-                loadClients();
-                setupColorInputSync();
-                setupDragAndDrop();
-                
-            } catch (error) {
-                console.warn('Authentication failed:', error.message);
-                // Redirect to login page
-                window.location.href = './login.html';
             }
-        });
+            
+            // Check if DOM is already loaded, otherwise wait for it
+            if (document.readyState === 'loading') {
+                console.log('[Dashboard] DOM still loading, adding event listener...');
+                document.addEventListener('DOMContentLoaded', checkAuthentication);
+            } else {
+                console.log('[Dashboard] DOM already loaded, running authentication check immediately...');
+                checkAuthentication();
+            }
 
         // Create authenticated fetch function
         function authenticatedFetch(url, options = {}) {
-            if (!sessionToken) {
+            console.log('[authenticatedFetch] Called with:', { url, method: options.method || 'GET' });
+            
+            const currentToken = window.getSessionToken();
+            if (!currentToken) {
+                console.error('[authenticatedFetch] No session token available!');
                 throw new Error('Not authenticated');
             }
             
             const authHeaders = {
-                'Authorization': `Bearer ${sessionToken}`,
+                'Authorization': `Bearer ${currentToken}`,
                 'Content-Type': 'application/json',
                 ...options.headers
             };
             
             // Add CSRF token for state-changing operations
-            if (options.method && ['POST', 'PUT', 'DELETE'].includes(options.method.toUpperCase()) && csrfToken) {
-                authHeaders['X-CSRF-Token'] = csrfToken;
+            const currentCsrfToken = window.getCsrfToken();
+            if (options.method && ['POST', 'PUT', 'DELETE'].includes(options.method.toUpperCase()) && currentCsrfToken) {
+                console.log('[authenticatedFetch] Adding CSRF token for state-changing operation');
+                authHeaders['X-CSRF-Token'] = currentCsrfToken;
             }
+            
+            console.log('[authenticatedFetch] Request headers:', authHeaders);
             
             return fetch(url, {
                 ...options,
@@ -826,23 +1020,39 @@
 
         // Load all clients
         async function loadClients() {
+            console.log('[loadClients] Starting to load clients...');
             try {
                 showLoading(true);
+                console.log('[loadClients] Making request to:', `${API_BASE}/admin/clients`);
                 const response = await authenticatedFetch(`${API_BASE}/admin/clients`);
+                
+                console.log('[loadClients] Response received:', {
+                    status: response.status,
+                    ok: response.ok
+                });
+                
                 const data = await response.json();
+                console.log('[loadClients] Response data:', data);
+                console.log('[loadClients] First client raw data:', data.clients[0]);
 
                 if (!response.ok) {
+                    console.log('[loadClients] Response not OK, status:', response.status);
                     if (response.status === 401) {
+                        console.log('[loadClients] 401 - Session expired, redirecting to login');
                         // Session expired, redirect to login
-                        window.location.href = './login.html';
+                        window.location.href = './index.html';
                         return;
                     }
                     throw new Error(data.error || 'Failed to load clients');
                 }
 
                 clients = data.clients || [];
+                window.clients = clients; // Store globally
+                console.log('[loadClients] Loaded clients count:', clients.length);
+                console.log('[loadClients] Client site IDs:', clients.map(c => c.siteId));
                 renderClients();
             } catch (error) {
+                console.error('[loadClients] Error:', error);
                 showError('Failed to load clients: ' + error.message);
             } finally {
                 showLoading(false);
@@ -880,7 +1090,7 @@
                 clientInfo.className = 'client-info';
                 
                 const title = document.createElement('h3');
-                title.textContent = client.businessName;
+                title.textContent = client.businessName || 'Unnamed Business';
                 clientInfo.appendChild(title);
                 
                 const siteIdDiv = document.createElement('div');
@@ -906,7 +1116,7 @@
                 agentIcon.className = 'icon';
                 agentIcon.textContent = '👤';
                 const agentName = document.createElement('span');
-                agentName.textContent = client.agentName;
+                agentName.textContent = client.agentName || 'No agent set';
                 agentDetail.appendChild(agentIcon);
                 agentDetail.appendChild(agentName);
                 
@@ -917,7 +1127,7 @@
                 emailIcon.className = 'icon';
                 emailIcon.textContent = '✉️';
                 const emailSpan = document.createElement('span');
-                emailSpan.textContent = client.email;
+                emailSpan.textContent = client.email || 'No email set';
                 emailDetail.appendChild(emailIcon);
                 emailDetail.appendChild(emailSpan);
                 
@@ -944,12 +1154,20 @@
                 const editBtn = document.createElement('button');
                 editBtn.className = 'btn btn-secondary btn-small';
                 editBtn.textContent = '✏️ Edit';
-                editBtn.onclick = () => editClient(client.siteId);
+                editBtn.onclick = () => {
+                    console.log('[Edit Button] Clicked for client:', client.siteId);
+                    try {
+                        editClient(client.siteId);
+                    } catch (error) {
+                        console.error('[Edit Button] Error:', error);
+                        alert('Error opening edit modal: ' + error.message);
+                    }
+                };
                 
-                const previewBtn = document.createElement('button');
-                previewBtn.className = 'btn btn-primary btn-small';
-                previewBtn.textContent = '👁️ Preview';
-                previewBtn.onclick = () => previewClient(client.siteId);
+                const copyCodeBtn = document.createElement('button');
+                copyCodeBtn.className = 'btn btn-primary btn-small';
+                copyCodeBtn.textContent = '📋 Copy Code';
+                copyCodeBtn.onclick = () => copyInstallationCode(client.siteId);
                 
                 const deleteBtn = document.createElement('button');
                 deleteBtn.className = 'btn btn-danger btn-small';
@@ -957,7 +1175,7 @@
                 deleteBtn.onclick = () => deleteClient(client.siteId);
                 
                 actions.appendChild(editBtn);
-                actions.appendChild(previewBtn);
+                actions.appendChild(copyCodeBtn);
                 actions.appendChild(deleteBtn);
                 
                 // Assemble the card
@@ -1113,28 +1331,141 @@
         }
 
         function openNewClientModal() {
-            alert('Client modal functionality will be implemented here');
+            // Clear the form
+            document.getElementById('editSiteId').value = '';
+            document.getElementById('editSiteId').readOnly = false;
+            document.getElementById('editSiteId').style.background = '';
+            document.getElementById('editSiteId').style.cursor = '';
+            document.getElementById('editBusinessName').value = '';
+            document.getElementById('editEmail').value = '';
+            document.getElementById('editAgentName').value = '';
+            document.getElementById('editPhone').value = '';
+            
+            // Reset theme color
+            document.getElementById('editThemeColor').value = '#3b82f6';
+            document.getElementById('editThemeText').value = '#3b82f6';
+            
+            // Reset widget type
+            document.getElementById('editBubble').checked = true;
+            
+            // Clear any previous validation errors
+            document.querySelectorAll('#editModal .form-group').forEach(group => {
+                group.classList.remove('error');
+                const errorDiv = group.querySelector('.validation-error');
+                if (errorDiv) errorDiv.style.display = 'none';
+            });
+            
+            // Update modal title and form for create mode
+            document.querySelector('#editModal .modal-header h2').textContent = 'Add New Client';
+            document.querySelector('#editModal form').setAttribute('data-mode', 'create');
+            document.querySelector('#editModal button[type="submit"]').textContent = 'Create Client';
+            
+            // Update help text for site ID
+            const helpText = document.querySelector('#editSiteId').parentNode.querySelector('.help-text');
+            if (helpText) {
+                helpText.textContent = 'Unique identifier for this client (letters, numbers, hyphens, underscores only)';
+            }
+            
+            // Clear editing client reference
+            window.editingClient = null;
+            
+            // Show the modal
+            document.getElementById('editModal').classList.add('active');
         }
 
-        function editClient(siteId) {
-            alert(`Edit client: ${siteId}`);
+        async function editClient(siteId) {
+            const currentClients = window.getClients();
+            const client = currentClients.find(c => c.siteId === siteId);
+            if (!client) {
+                showError('Client not found');
+                return;
+            }
+            
+            // Store the client being edited
+            window.editingClient = client;
+            
+            // Debug: Log the client data
+            console.log('[editClient] Client data:', client);
+            console.log('[editClient] Available properties:', Object.keys(client));
+            
+            // Populate the form with client data
+            document.getElementById('editSiteId').value = client.siteId || '';
+            document.getElementById('editBusinessName').value = client.businessName || '';
+            document.getElementById('editEmail').value = client.email || '';
+            document.getElementById('editAgentName').value = client.agentName || '';
+            document.getElementById('editPhone').value = client.phone || '';
+            
+            // Set theme color
+            const themeColor = client.theme || '#3b82f6';
+            document.getElementById('editThemeColor').value = themeColor;
+            document.getElementById('editThemeText').value = themeColor;
+            
+            // Set widget type
+            const widgetType = client.widgetType || 'bubble';
+            if (widgetType === 'floating-bar') {
+                document.getElementById('editFloatingBar').checked = true;
+            } else {
+                document.getElementById('editBubble').checked = true;
+            }
+            
+            // Clear any previous validation errors
+            document.querySelectorAll('#editModal .form-group').forEach(group => {
+                group.classList.remove('error');
+                const errorDiv = group.querySelector('.validation-error');
+                if (errorDiv) errorDiv.style.display = 'none';
+            });
+            
+            // Update modal title and form for edit mode
+            document.querySelector('#editModal .modal-header h2').textContent = 'Edit Client Configuration';
+            document.querySelector('#editModal form').setAttribute('data-mode', 'edit');
+            document.querySelector('#editModal button[type="submit"]').textContent = 'Save Changes';
+            
+            // Update help text for site ID
+            const helpText = document.querySelector('#editSiteId').parentNode.querySelector('.help-text');
+            if (helpText) {
+                helpText.textContent = 'Site ID cannot be changed';
+            }
+            
+            // Show the modal
+            document.getElementById('editModal').classList.add('active');
         }
 
-        function previewClient(siteId) {
-            const previewUrl = `https://pub-2cf19529958742fea36d2ac68c558716.r2.dev/test-dynamic-config.html`;
-            window.open(previewUrl, '_blank');
-        }
 
-        function deleteClient(siteId) {
-            if (confirm(`Are you sure you want to delete "${siteId}"? This cannot be undone.`)) {
-                alert(`Delete functionality for ${siteId} will be implemented here`);
+        async function deleteClient(siteId) {
+            const currentClients = window.getClients();
+            const client = currentClients.find(c => c.siteId === siteId);
+            const clientName = client ? client.businessName : siteId;
+            
+            if (confirm(`Are you sure you want to delete "${clientName}"? This cannot be undone.`)) {
+                try {
+                    showLoading(true);
+                    
+                    const response = await authenticatedFetch(`${API_BASE}/admin/clients/${siteId}`, {
+                        method: 'DELETE'
+                    });
+                    
+                    const data = await response.json();
+                    
+                    if (!response.ok) {
+                        throw new Error(data.error || 'Failed to delete client');
+                    }
+                    
+                    showSuccess('Client deleted successfully');
+                    // Reload clients list
+                    await loadClients();
+                } catch (error) {
+                    console.error('Delete error:', error);
+                    showError('Failed to delete client: ' + error.message);
+                } finally {
+                    showLoading(false);
+                }
             }
         }
 
         function logout() {
             sessionStorage.removeItem('leadstick_admin_token');
             sessionStorage.removeItem('leadstick_csrf_token');
-            window.location.href = './login.html';
+            window.location.href = './index.html';
         }
 
         // Utility functions
@@ -1178,14 +1509,236 @@
             return div.innerHTML;
         }
 
-        // Placeholder functions
+        // Modal management functions
+        function closeEditModal() {
+            console.log('[closeEditModal] Closing modal');
+            try {
+                const modal = document.getElementById('editModal');
+                if (modal) {
+                    modal.classList.remove('active');
+                } else {
+                    console.error('[closeEditModal] Modal element not found');
+                }
+                window.editingClient = null;
+            } catch (error) {
+                console.error('[closeEditModal] Error:', error);
+            }
+        }
+
+        // Color input synchronization for edit modal
+        function syncEditColorInputs() {
+            const colorInput = document.getElementById('editThemeColor');
+            const textInput = document.getElementById('editThemeText');
+            
+            if (document.activeElement === colorInput) {
+                textInput.value = colorInput.value;
+            } else if (document.activeElement === textInput) {
+                if (/^#[0-9A-Fa-f]{6}$/.test(textInput.value)) {
+                    colorInput.value = textInput.value;
+                }
+            }
+        }
+
+        // Validation for edit form inputs
+        function validateEditInput(inputId, value, type) {
+            const errors = validateClientInput(inputId, value, type);
+            
+            if (errors.length > 0) {
+                showInputError(inputId, errors[0]);
+                return false;
+            } else {
+                clearInputError(inputId);
+                return true;
+            }
+        }
+
+        // Save client changes
+        async function saveClientChanges(event) {
+            event.preventDefault();
+            
+            const form = event.target;
+            const formData = new FormData(form);
+            const mode = form.getAttribute('data-mode') || 'edit';
+            
+            // Validate all fields
+            let isValid = true;
+            const fieldsToValidate = [
+                { id: 'editBusinessName', value: formData.get('businessName'), type: 'businessName' },
+                { id: 'editEmail', value: formData.get('email'), type: 'email' },
+                { id: 'editAgentName', value: formData.get('agentName'), type: 'agentName' },
+                { id: 'editPhone', value: formData.get('phone'), type: 'phone' }
+            ];
+            
+            // For create mode, also validate siteId
+            if (mode === 'create') {
+                fieldsToValidate.unshift({ 
+                    id: 'editSiteId', 
+                    value: formData.get('siteId'), 
+                    type: 'siteId' 
+                });
+            }
+            
+            fieldsToValidate.forEach(field => {
+                if (!validateEditInput(field.id, field.value, field.type)) {
+                    isValid = false;
+                }
+            });
+            
+            if (!isValid) {
+                showError('Please fix the validation errors before saving');
+                return;
+            }
+            
+            try {
+                showLoading(true);
+                
+                const siteId = formData.get('siteId');
+                const payload = {
+                    business: {
+                        name: sanitizeInput(formData.get('businessName')),
+                        email: sanitizeInput(formData.get('email')),
+                        agentName: sanitizeInput(formData.get('agentName') || ''),
+                        phone: sanitizeInput(formData.get('phone') || '')
+                    },
+                    theme: {
+                        primary: document.getElementById('editThemeText').value
+                    },
+                    widgetType: formData.get('widgetType'),
+                    questions: (window.editingClient && window.editingClient.questions) || []
+                };
+                
+                // For create mode, add siteId to payload
+                if (mode === 'create') {
+                    payload.siteId = sanitizeInput(siteId);
+                }
+                
+                console.log(`[saveClientChanges] ${mode === 'create' ? 'Creating' : 'Updating'} client:`, siteId);
+                console.log('[saveClientChanges] Form data:', Object.fromEntries(formData));
+                console.log('[saveClientChanges] Payload:', payload);
+                
+                // Use POST for create, PUT for edit
+                const url = mode === 'create' 
+                    ? `${API_BASE}/admin/clients`
+                    : `${API_BASE}/admin/clients/${siteId}`;
+                const method = mode === 'create' ? 'POST' : 'PUT';
+                
+                const response = await authenticatedFetch(url, {
+                    method: method,
+                    body: JSON.stringify(payload)
+                });
+                
+                console.log('[saveClientChanges] PUT response:', {
+                    status: response.status,
+                    statusText: response.statusText,
+                    ok: response.ok,
+                    headers: Object.fromEntries(response.headers.entries())
+                });
+                
+                const responseText = await response.text();
+                console.log('[saveClientChanges] Response body:', responseText);
+                
+                let data;
+                try {
+                    data = JSON.parse(responseText);
+                } catch (e) {
+                    console.error('[saveClientChanges] Failed to parse response as JSON:', e);
+                    data = { error: 'Invalid response format' };
+                }
+                
+                if (!response.ok) {
+                    console.error('[saveClientChanges] Request failed:', data);
+                    throw new Error(data.error || `HTTP ${response.status}: Failed to update client`);
+                }
+                
+                console.log(`[saveClientChanges] ${mode === 'create' ? 'Create' : 'Update'} successful:`, data);
+                const defaultMessage = mode === 'create' ? 'Client created successfully' : 'Client updated successfully';
+                showSuccess(data.message || defaultMessage);
+                closeEditModal();
+                // Reload clients list
+                await loadClients();
+            } catch (error) {
+                console.error('Update error:', error);
+                showError('Failed to update client: ' + error.message);
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        // Copy installation code function
+        async function copyInstallationCode(siteId) {
+            try {
+                const installationCode = `<!-- LeadStick Widget -->
+<script>
+window.leadstickConfig = {
+    siteId: '${siteId}',
+    apiUrl: '${API_BASE}'
+};
+<\/script>
+<script src="https://pub-2cf19529958742fea36d2ac68c558716.r2.dev/widget.js" async><\/script>
+<!-- End LeadStick Widget -->`;
+
+                // Copy to clipboard
+                await navigator.clipboard.writeText(installationCode);
+                
+                // Show success message
+                showSuccess(`Installation code copied to clipboard for ${siteId}`);
+                
+                console.log('[copyInstallationCode] Code copied for client:', siteId);
+            } catch (error) {
+                console.error('[copyInstallationCode] Error:', error);
+                
+                // Fallback for browsers that don't support clipboard API
+                const installationCode = `<!-- LeadStick Widget -->
+<script>
+window.leadstickConfig = {
+    siteId: '${siteId}',
+    apiUrl: '${API_BASE}'
+};
+<\/script>
+<script src="https://pub-2cf19529958742fea36d2ac68c558716.r2.dev/widget.js" async><\/script>
+<!-- End LeadStick Widget -->`;
+                
+                const textArea = document.createElement('textarea');
+                textArea.value = installationCode;
+                document.body.appendChild(textArea);
+                textArea.select();
+                document.execCommand('copy');
+                document.body.removeChild(textArea);
+                
+                showSuccess(`Installation code copied to clipboard for ${siteId}`);
+            }
+        }
+
+        // Placeholder functions for other features
         function setupColorInputSync() {
-            // Will implement when adding full modal functionality
+            // Implemented in syncEditColorInputs function
         }
 
         function setupDragAndDrop() {
-            // Will implement when adding full modal functionality
+            // Will implement when adding full question builder functionality
         }
+        
+        // Export functions to global scope for onclick handlers
+        window.authenticatedFetch = authenticatedFetch;
+        window.editClient = editClient;
+        window.deleteClient = deleteClient;
+        window.closeEditModal = closeEditModal;
+        window.syncEditColorInputs = syncEditColorInputs;
+        window.validateEditInput = validateEditInput;
+        window.saveClientChanges = saveClientChanges;
+        window.openNewClientModal = openNewClientModal;
+        window.copyInstallationCode = copyInstallationCode;
+        window.logout = logout;
+        window.filterClients = filterClients;
+        window.validateSearchInput = validateSearchInput;
+        window.showError = showError;
+        window.showSuccess = showSuccess;
+        window.showLoading = showLoading;
+        window.loadClients = loadClients;
+        window.sanitizeInput = sanitizeInput;
+        window.validateClientInput = validateClientInput;
+        window.showInputError = showInputError;
+        window.clearInputError = clearInputError;
         
         } // End of initializeAppComponents function
     </script>

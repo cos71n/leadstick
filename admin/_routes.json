@@ -2,5 +2,5 @@
   "version": 1,
   "include": ["/*"],
   "exclude": [],
-  "index": "login.html"
+  "index": "index.html"
 }

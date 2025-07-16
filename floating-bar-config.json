@@ -1,0 +1,40 @@
+{
+  "siteId": "floating-bar-test",
+  "business": {
+    "name": "Demo Business - Bar Style",
+    "email": "demo@example.com",
+    "phone": "555-0123",
+    "agentName": "Sarah",
+    "avatar": "https://images.unsplash.com/photo-1494790108755-2616b612b786?w=150&h=150&fit=crop&crop=face"
+  },
+  "theme": {
+    "primary": "#f97316",
+    "primaryHover": "#ea580c",
+    "secondary": "#f3f4f6",
+    "background": "#ffffff",
+    "text": "#1f2937",
+    "muted": "#6b7280",
+    "border": "#e5e7eb"
+  },
+  "messages": {
+    "welcome": "Hi! I'm Sarah. I'd love to help you with your project. Let me get some quick details to provide you with an accurate quote.",
+    "complete": "Perfect! I've got all your details and will get back to you with a quote within 24 hours."
+  },
+  "flow": [
+    {
+      "id": "step1",
+      "type": "text",
+      "question": "What's your location or suburb?",
+      "placeholder": "e.g. Sydney, Melbourne, Brisbane..."
+    },
+    {
+      "id": "step2", 
+      "type": "text",
+      "question": "Tell me about your project",
+      "placeholder": "Describe what you need help with..."
+    }
+  ],
+  "desktopStyle": "bar",
+  "barText": "Contact Sarah Now",
+  "barTextMaxLength": 30
+}
