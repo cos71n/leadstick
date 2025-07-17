@@ -1906,14 +1906,24 @@
                     });
                 }
                 
-                // Add questions
+                // Add questions and detect signposts that were converted to questions
                 if (client.questions && Array.isArray(client.questions)) {
                     client.questions.forEach(question => {
-                        legacyFlow.push({
-                            ...question,
-                            type: 'question',
-                            questionType: question.type || 'text'
-                        });
+                        // Check if this is actually a signpost that was converted to a question
+                        if (question.questionType === 'signpost' || (question.heading && question.subheading && !question.question)) {
+                            // This is a signpost
+                            legacyFlow.push({
+                                ...question,
+                                type: 'signpost'
+                            });
+                        } else {
+                            // This is a real question
+                            legacyFlow.push({
+                                ...question,
+                                type: 'question',
+                                questionType: question.questionType || question.type || 'text'
+                            });
+                        }
                     });
                 }
                 
