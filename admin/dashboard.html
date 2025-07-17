@@ -638,6 +638,45 @@
             background: rgba(255, 255, 255, 0.3);
         }
 
+        .question-item.nested {
+            margin-left: 30px;
+            border-left: 3px solid #2563eb;
+            padding-left: 15px;
+            margin-top: 8px;
+            position: relative;
+        }
+
+        .question-item.nested::before {
+            content: '';
+            position: absolute;
+            left: -3px;
+            top: -8px;
+            height: 8px;
+            width: 20px;
+            border-left: 3px solid #2563eb;
+            border-bottom: 3px solid #2563eb;
+            border-bottom-left-radius: 8px;
+        }
+
+        .question-type-tag {
+            background: #eff6ff;
+            color: #2563eb;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 500;
+        }
+
+        .required-badge {
+            background: #fef2f2;
+            color: #dc2626;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 500;
+            margin-left: 4px;
+        }
+
         .signpost-builder {
             border: 1px solid #e5e7eb;
             border-radius: 8px;
@@ -2191,9 +2230,13 @@
                 return;
             }
             
-            questionList.innerHTML = currentFlow.map((item, index) => {
+            let html = '';
+            let isUnderSignpost = false;
+            
+            currentFlow.forEach((item, index) => {
                 if (item.type === 'signpost') {
-                    return `
+                    isUnderSignpost = true;
+                    html += `
                         <div class="flow-signpost" data-index="${index}">
                             <div class="flow-signpost-header">
                                 <div>
@@ -2207,15 +2250,17 @@
                             </div>
                         </div>
                     `;
-                } else {
-                    // Regular question
-                    return `
-                        <div class="question-item" data-index="${index}">
+                } else if (item.type === 'question') {
+                    // Check if this question should be nested under the previous signpost
+                    const nestedClass = isUnderSignpost ? ' nested' : '';
+                    
+                    html += `
+                        <div class="question-item${nestedClass}" data-index="${index}">
                             <div class="question-header">
                                 <div class="question-info">
-                                    <h4>${item.question}</h4>
+                                    <h4>${item.question || 'Question'}</h4>
                                     <div class="question-details">
-                                        <span class="question-type-tag">${getQuestionTypeLabel(item.type)}</span>
+                                        <span class="question-type-tag">${getQuestionTypeLabel(item.questionType)}</span>
                                         ${item.validation?.required ? '<span class="required-badge">Required</span>' : ''}
                                     </div>
                                 </div>
@@ -2225,7 +2270,7 @@
                                     <button onclick="deleteFlowItem(${index})" title="Delete">🗑️</button>
                                 </div>
                             </div>
-                            ${item.type === 'select' || item.type === 'multiselect' ? `
+                            ${item.questionType === 'select' || item.questionType === 'multiselect' ? `
                                 <div class="options-preview">
                                     <ul class="options-list">
                                         ${(item.options || []).map(opt => `<li>• ${opt}</li>`).join('')}
@@ -2235,7 +2280,9 @@
                         </div>
                     `;
                 }
-            }).join('');
+            });
+            
+            questionList.innerHTML = html;
         }
 
         // Question Management Functions (legacy compatibility)
@@ -2376,7 +2423,24 @@
             if (!item || item.type !== 'question') return;
             
             window.editingItemIndex = index;
-            openQuestionEditor(item.type, item);
+            openQuestionEditor(item.questionType, item);
+        }
+
+        function duplicateQuestion(index) {
+            const item = currentFlow[index];
+            if (!item || item.type !== 'question') return;
+            
+            // Create a duplicate with a new ID
+            const duplicate = {
+                ...item,
+                id: `question_${Date.now()}`,
+                question: item.question + ' (Copy)'
+            };
+            
+            // Insert after the original question
+            currentFlow.splice(index + 1, 0, duplicate);
+            window.currentFlow = currentFlow;
+            renderFlow();
         }
 
         function deleteQuestion(index) {
@@ -2704,6 +2768,7 @@ window.leadstickConfig = {
         window.toggleQuestionDropdown = toggleQuestionDropdown;
         window.addQuestion = addQuestion;
         window.editQuestion = editQuestion;
+        window.duplicateQuestion = duplicateQuestion;
         window.deleteQuestion = deleteQuestion;
         window.deleteFlowItem = deleteFlowItem;
         window.closeQuestionEditor = closeQuestionEditor;
