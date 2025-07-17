@@ -1807,9 +1807,8 @@
             
             // Keep default welcome message text (don't clear it)
             
-            // Clear questions and signposts
+            // Clear flow
             loadFlow([]);
-            loadSignposts([]);
             
             // Clear any previous validation errors
             document.querySelectorAll('#editModal .form-group').forEach(group => {
@@ -1890,16 +1889,36 @@
             
             // Load flow (unified structure of signposts and questions)
             if (client.flow && Array.isArray(client.flow)) {
+                console.log('[editClient] Loading flow:', client.flow);
                 loadFlow(client.flow);
             } else {
-                // Fallback to old format
+                console.log('[editClient] Converting legacy format');
                 // Legacy support: convert old format to flow
-                const legacyFlow = (client.questions || []).map(q => ({...q, type: 'question', questionType: q.type}));
-                loadFlow(legacyFlow);
-                // Load signposts separately if using old format
-                if (client.signposts) {
-                    loadSignposts(client.signposts || []);
+                const legacyFlow = [];
+                
+                // Add signposts first if they exist
+                if (client.signposts && Array.isArray(client.signposts)) {
+                    client.signposts.forEach(signpost => {
+                        legacyFlow.push({
+                            ...signpost,
+                            type: 'signpost'
+                        });
+                    });
                 }
+                
+                // Add questions
+                if (client.questions && Array.isArray(client.questions)) {
+                    client.questions.forEach(question => {
+                        legacyFlow.push({
+                            ...question,
+                            type: 'question',
+                            questionType: question.type || 'text'
+                        });
+                    });
+                }
+                
+                console.log('[editClient] Legacy flow:', legacyFlow);
+                loadFlow(legacyFlow);
             }
             
             // Clear any previous validation errors
@@ -2110,6 +2129,8 @@
                 // Site ID is auto-generated for create mode, only used for edit mode
                 
                 console.log(`[saveClientChanges] ${mode === 'create' ? 'Creating' : 'Updating'} client:`, siteId);
+                console.log('[saveClientChanges] Current flow being saved:', window.currentFlow);
+                console.log('[saveClientChanges] Flow types:', (window.currentFlow || []).map(item => ({ type: item.type, heading: item.heading, question: item.question })));
                 console.log('[saveClientChanges] Form data:', Object.fromEntries(formData));
                 console.log('[saveClientChanges] Payload:', JSON.stringify(payload, null, 2));
                 
@@ -2211,6 +2232,8 @@
 
         // Flow Management Functions
         function loadFlow(flow = []) {
+            console.log('[loadFlow] Loading flow:', flow);
+            console.log('[loadFlow] Flow items:', flow.map(item => ({ type: item.type, heading: item.heading, question: item.question })));
             window.currentFlow = flow || [];
             currentFlow = window.currentFlow;
             renderFlow();
