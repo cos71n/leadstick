@@ -161,6 +161,32 @@
             background: #b91c1c;
         }
 
+        .avatar-upload-container {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-top: 8px;
+        }
+
+        .avatar-preview {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            border: 2px solid #e5e7eb;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            background: #f9fafb;
+        }
+
+        .avatar-placeholder {
+            color: #6b7280;
+            font-size: 12px;
+            text-align: center;
+            padding: 4px;
+        }
+
         .btn-small {
             padding: 8px 16px;
             font-size: 13px;
@@ -981,6 +1007,34 @@
                     </div>
 
                     <div class="form-group">
+                        <label for="editAvatar">Agent Avatar</label>
+                        <div class="avatar-upload-container">
+                            <div class="avatar-preview" id="avatarPreview">
+                                <div class="avatar-placeholder" id="avatarPlaceholder">
+                                    Upload Image
+                                </div>
+                                <img id="avatarImage" style="display: none; width: 60px; height: 60px; border-radius: 50%; object-fit: cover;">
+                            </div>
+                            <input 
+                                type="file" 
+                                id="editAvatar" 
+                                name="avatar" 
+                                accept="image/png,image/jpeg,image/jpg"
+                                onchange="handleAvatarUpload(this)"
+                                style="display: none;"
+                            >
+                            <button type="button" onclick="document.getElementById('editAvatar').click()" class="btn-secondary">
+                                Choose Image
+                            </button>
+                            <button type="button" onclick="removeAvatar()" class="btn-danger" id="removeAvatarBtn" style="display: none;">
+                                Remove
+                            </button>
+                        </div>
+                        <div class="help-text">Upload a PNG or JPG image (max 2MB). If no avatar is set, the first initial will be used.</div>
+                        <div class="validation-error"></div>
+                    </div>
+
+                    <div class="form-group">
                         <label for="editPhone">Phone Number</label>
                         <input 
                             type="tel" 
@@ -1795,6 +1849,9 @@
             document.getElementById('editAgentName').value = '';
             document.getElementById('editPhone').value = '';
             
+            // Reset avatar
+            removeAvatar();
+            
             // Reset theme color
             document.getElementById('editThemeColor').value = '#3b82f6';
             document.getElementById('editThemeText').value = '#3b82f6';
@@ -1853,6 +1910,23 @@
             document.getElementById('editEmail').value = client.email || '';
             document.getElementById('editAgentName').value = client.agentName || '';
             document.getElementById('editPhone').value = client.phone || '';
+            
+            // Handle avatar
+            const avatarImage = document.getElementById('avatarImage');
+            const avatarPlaceholder = document.getElementById('avatarPlaceholder');
+            const removeBtn = document.getElementById('removeAvatarBtn');
+            
+            if (client.avatar) {
+                avatarImage.src = client.avatar;
+                avatarImage.style.display = 'block';
+                avatarPlaceholder.style.display = 'none';
+                removeBtn.style.display = 'inline-block';
+            } else {
+                avatarImage.style.display = 'none';
+                avatarImage.src = '';
+                avatarPlaceholder.style.display = 'block';
+                removeBtn.style.display = 'none';
+            }
             
             // Set theme color
             const themeColor = client.theme || '#3b82f6';
@@ -2117,12 +2191,25 @@
                 const phoneCtaText = formData.get('phoneCtaText')?.trim();
                 const showPhoneCta = formData.get('showPhoneCta') === 'on';
                 
+                // Handle avatar upload if there's a new file
+                let avatarUrl = null;
+                if (currentAvatarFile) {
+                    const tempSiteId = siteId || 'temp_' + Date.now();
+                    avatarUrl = await uploadAvatarToR2(currentAvatarFile, tempSiteId);
+                    currentAvatarFile = null; // Clear after upload
+                } else if (mode === 'edit') {
+                    // Keep existing avatar if no new file selected
+                    const existingClient = clients.find(c => c.siteId === siteId);
+                    avatarUrl = existingClient?.avatar || null;
+                }
+
                 const payload = {
                     business: {
                         name: sanitizeInput(formData.get('businessName')),
                         email: sanitizeInput(formData.get('email')),
                         agentName: sanitizeInput(formData.get('agentName') || ''),
-                        phone: sanitizeInput(formData.get('phone') || '')
+                        phone: sanitizeInput(formData.get('phone') || ''),
+                        avatar: avatarUrl
                     },
                     theme: {
                         primary: document.getElementById('editThemeText').value
@@ -3042,6 +3129,84 @@ window.leadstickConfig = {
             }
         }
 
+        // AVATAR UPLOAD FUNCTIONS
+        let currentAvatarFile = null;
+        
+        function handleAvatarUpload(input) {
+            const file = input.files[0];
+            if (!file) return;
+            
+            // Validate file type
+            if (!file.type.match(/^image\/(png|jpeg|jpg)$/)) {
+                alert('Please select a PNG or JPG image file.');
+                input.value = '';
+                return;
+            }
+            
+            // Validate file size (2MB max)
+            if (file.size > 2 * 1024 * 1024) {
+                alert('Image must be smaller than 2MB.');
+                input.value = '';
+                return;
+            }
+            
+            currentAvatarFile = file;
+            
+            // Show preview
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const avatarImage = document.getElementById('avatarImage');
+                const avatarPlaceholder = document.getElementById('avatarPlaceholder');
+                const removeBtn = document.getElementById('removeAvatarBtn');
+                
+                avatarImage.src = e.target.result;
+                avatarImage.style.display = 'block';
+                avatarPlaceholder.style.display = 'none';
+                removeBtn.style.display = 'inline-block';
+            };
+            reader.readAsDataURL(file);
+        }
+        
+        function removeAvatar() {
+            currentAvatarFile = null;
+            const avatarImage = document.getElementById('avatarImage');
+            const avatarPlaceholder = document.getElementById('avatarPlaceholder');
+            const removeBtn = document.getElementById('removeAvatarBtn');
+            const fileInput = document.getElementById('editAvatar');
+            
+            avatarImage.style.display = 'none';
+            avatarImage.src = '';
+            avatarPlaceholder.style.display = 'block';
+            removeBtn.style.display = 'none';
+            fileInput.value = '';
+        }
+        
+        async function uploadAvatarToR2(file, siteId) {
+            if (!file) return null;
+            
+            const formData = new FormData();
+            formData.append('avatar', file);
+            formData.append('siteId', siteId);
+            
+            try {
+                const response = await authenticatedFetch(`${API_BASE}/admin/upload-avatar`, {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                if (!response.ok) {
+                    throw new Error('Avatar upload failed');
+                }
+                
+                const result = await response.json();
+                return result.avatarUrl;
+            } catch (error) {
+                console.error('Avatar upload error:', error);
+                alert('Failed to upload avatar. Please try again.');
+                return null;
+            }
+        }
+
         // Export signpost functions to global scope
         window.loadSignposts = loadSignposts;
         window.renderSignposts = renderSignposts;
@@ -3051,6 +3216,11 @@ window.leadstickConfig = {
         window.deleteSignpost = deleteSignpost;
         window.getQuestionsForSignpost = getQuestionsForSignpost;
         window.populateSignpostDropdown = populateSignpostDropdown;
+        
+        // Export avatar functions to global scope
+        window.handleAvatarUpload = handleAvatarUpload;
+        window.removeAvatar = removeAvatar;
+        window.uploadAvatarToR2 = uploadAvatarToR2;
         
         // Add event listeners for widget type changes
         document.getElementById('editBubble').addEventListener('change', function() {

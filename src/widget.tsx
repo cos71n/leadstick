@@ -30,6 +30,8 @@ interface LeadData {
   location: string
   service: string
   name: string
+  firstName: string
+  lastName: string
   phone: string
   email: string
   finalMessage: string
@@ -212,19 +214,26 @@ const ChatMessage = ({ message, CONFIG }: { message: any; CONFIG: any }) => (
       overflow: 'hidden'
     }}>
       {message.sender === 'ai' ? (
-        <img 
-          src={CONFIG.business.avatar} 
-          alt={CONFIG.business.agentName}
-          style={{
-            width: '100%',
-            height: '100%',
-            objectFit: 'cover'
-          }}
-          onError={(e) => {
-            e.currentTarget.style.display = 'none';
-            e.currentTarget.parentElement.textContent = 'M';
-          }}
-        />
+        CONFIG.business.avatar ? (
+          <img 
+            src={CONFIG.business.avatar} 
+            alt={CONFIG.business.agentName}
+            style={{
+              width: '100%',
+              height: '100%',
+              objectFit: 'cover'
+            }}
+            onError={(e) => {
+              e.currentTarget.style.display = 'none';
+              const firstInitial = CONFIG.business.agentName?.charAt(0)?.toUpperCase() || 'A';
+              e.currentTarget.parentElement.innerHTML = `<span style="color: ${CONFIG.theme.primary}; font-weight: bold; font-size: 14px;">${firstInitial}</span>`;
+            }}
+          />
+        ) : (
+          <span style={{ color: CONFIG.theme.primary, fontWeight: 'bold', fontSize: '14px' }}>
+            {CONFIG.business.agentName?.charAt(0)?.toUpperCase() || 'A'}
+          </span>
+        )
       ) : 'You'}
     </div>
     
@@ -236,9 +245,14 @@ const ChatMessage = ({ message, CONFIG }: { message: any; CONFIG: any }) => (
       color: message.sender === 'user' ? 'white' : CONFIG.theme.text,
       maxWidth: '80%'
     }}>
-      {message.content === "PHONE_BUTTON" ? (
+      {message.content.startsWith("PHONE_BUTTON") ? (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-          <p style={{ margin: 0 }}>Or call me directly for immediate assistance!</p>
+          <p style={{ margin: 0 }}>
+            {message.content.includes(':') 
+              ? message.content.split(':')[1] 
+              : "Or call me directly for immediate assistance!"
+            }
+          </p>
           <button
             onClick={() => window.open(`tel:${CONFIG.business.phone}`, '_self')}
             style={{
@@ -469,89 +483,16 @@ function getQuestionsFromFlow(CONFIG: any) {
   return CONFIG.flow.filter((item: any) => item.type === 'question');
 }
 
-// Get specific question by step or type
-function getQuestionForStep(CONFIG: any, step: ChatStep, subStep?: string) {
-  const questions = getQuestionsFromFlow(CONFIG);
-  
-  // Define default questions as fallback
-  const defaultQuestions = {
-    location: "📍 First, what's your location/suburb?",
-    service: "Perfect! Tell me about your project, the more details the better.",
-    contact: {
-      intro: "Great! Now I need your contact details.",
-      name: "👤 What's your name?",
-      phone: "📱 What's your phone number?",
-      email: "✉️ What's your email address?"
-    }
-  };
-  
-  // Try to find question by matching criteria
-  if (step === 'location') {
-    const locationQ = questions.find(q => 
-      q.question && (
-        q.question.includes('location') || 
-        q.question.includes('suburb') ||
-        q.question.includes('📍')
-      )
-    );
-    return locationQ?.question || defaultQuestions.location;
-  }
-  
-  if (step === 'service') {
-    const serviceQ = questions.find(q => 
-      q.question && (
-        q.question.includes('project') || 
-        q.question.includes('service') ||
-        q.question.includes('work')
-      )
-    );
-    return serviceQ?.question || defaultQuestions.service;
-  }
-  
-  if (step === 'contact') {
-    if (subStep === 'intro') {
-      const contactIntroQ = questions.find(q => 
-        q.question && (
-          q.question.includes('contact') || 
-          q.question.includes('details')
-        )
-      );
-      return contactIntroQ?.question || defaultQuestions.contact.intro;
-    }
-    
-    if (subStep === 'name') {
-      const nameQ = questions.find(q => 
-        q.question && (
-          q.question.includes('name') || 
-          q.question.includes('👤')
-        )
-      );
-      return nameQ?.question || defaultQuestions.contact.name;
-    }
-    
-    if (subStep === 'phone') {
-      const phoneQ = questions.find(q => 
-        q.question && (
-          q.question.includes('phone') || 
-          q.question.includes('number') ||
-          q.question.includes('📱')
-        )
-      );
-      return phoneQ?.question || defaultQuestions.contact.phone;
-    }
-    
-    if (subStep === 'email') {
-      const emailQ = questions.find(q => 
-        q.question && (
-          q.question.includes('email') || 
-          q.question.includes('✉️')
-        )
-      );
-      return emailQ?.question || defaultQuestions.contact.email;
-    }
-  }
-  
-  return '';
+// Get questions in order from flow configuration
+function getOrderedQuestions(CONFIG: any) {
+  if (!CONFIG.flow) return [];
+  return CONFIG.flow.filter((item: any) => item.type === 'question').map((item: any) => item.question);
+}
+
+// Get specific question by index in the flow
+function getQuestionByIndex(CONFIG: any, index: number) {
+  const questions = getOrderedQuestions(CONFIG);
+  return questions[index] || null;
 }
 
 // Consolidated Widget Component
@@ -565,6 +506,8 @@ function LeadStickWidget({ CONFIG }: { CONFIG: any }) {
     location: '',
     service: '',
     name: '',
+    firstName: '',
+    lastName: '',
     phone: '',
     email: '',
     finalMessage: '',
@@ -630,6 +573,8 @@ function LeadStickWidget({ CONFIG }: { CONFIG: any }) {
         location: '',
         service: '',
         name: '',
+        firstName: '',
+        lastName: '',
         phone: '',
         email: '',
         finalMessage: '',
@@ -694,6 +639,24 @@ function LeadStickWidget({ CONFIG }: { CONFIG: any }) {
       }
     }
     
+    if (type === 'name') {
+      if (trimmed.length < 2) {
+        return { valid: false, error: 'Please enter your full name' }
+      }
+    }
+    
+    if (type === 'firstName') {
+      if (trimmed.length < 1) {
+        return { valid: false, error: 'Please enter your first name' }
+      }
+    }
+    
+    if (type === 'lastName') {
+      if (trimmed.length < 1) {
+        return { valid: false, error: 'Please enter your last name' }
+      }
+    }
+    
     return { valid: true }
   }
 
@@ -703,15 +666,50 @@ function LeadStickWidget({ CONFIG }: { CONFIG: any }) {
 
     const userInput = input.trim()
     
-    // Validate input based on current step
+    // Validate input based on current step and determine what field we're currently asking for
     let validationType = 'general'
     if (currentStep === 'contact') {
-      if (!leadData.name) {
-        validationType = 'name'
-      } else if (!leadData.phone) {
-        validationType = 'phone'
-      } else if (!leadData.email) {
-        validationType = 'email'
+      // Get all contact questions from the flow to determine the current field type
+      const questions = getQuestionsFromFlow(CONFIG);
+      const contactQuestions = questions.filter(q => 
+        q.questionType && ['firstName', 'lastName', 'name', 'phone', 'email'].includes(q.questionType)
+      );
+      
+      // Count how many contact fields we've already filled
+      let filledCount = 0;
+      if (leadData.name) filledCount++;
+      if (leadData.firstName) filledCount++;
+      if (leadData.lastName) filledCount++;
+      if (leadData.phone) filledCount++;
+      if (leadData.email) filledCount++;
+      
+      // Determine validation type based on current contact question
+      if (filledCount < contactQuestions.length) {
+        const currentContactQuestion = contactQuestions[filledCount];
+        if (currentContactQuestion && currentContactQuestion.questionType) {
+          validationType = currentContactQuestion.questionType;
+        } else {
+          // Fallback to question content analysis
+          const allQuestions = questions.slice(2); // Skip location and service questions
+          const currentQuestion = allQuestions[filledCount];
+          
+          if (currentQuestion && currentQuestion.question) {
+            const questionText = currentQuestion.question.toLowerCase();
+            if (questionText.includes('first name') || questionText.includes('firstname')) {
+              validationType = 'firstName';
+            } else if (questionText.includes('last name') || questionText.includes('lastname')) {
+              validationType = 'lastName';
+            } else if (questionText.includes('name')) {
+              validationType = 'name';
+            } else if (questionText.includes('phone') || questionText.includes('number') || currentQuestion.question.includes('📱')) {
+              validationType = 'phone';
+            } else if (questionText.includes('email') || currentQuestion.question.includes('✉️')) {
+              validationType = 'email';
+            } else {
+              validationType = 'name'; // Default first contact field
+            }
+          }
+        }
       }
     }
     
@@ -727,29 +725,146 @@ function LeadStickWidget({ CONFIG }: { CONFIG: any }) {
     switch (currentStep) {
       case 'location':
         setLeadData(prev => ({ ...prev, location: userInput }))
-        addMessage(getQuestionForStep(CONFIG, 'service'), 'ai')
+        // Use second question from flow (index 1)
+        const secondQuestion = getQuestionByIndex(CONFIG, 1);
+        if (secondQuestion) {
+          addMessage(secondQuestion, 'ai')
+        }
         setCurrentStep('service')
         break
 
       case 'service':
         setLeadData(prev => ({ ...prev, service: userInput }))
-        addMessage(getQuestionForStep(CONFIG, 'contact', 'intro'), 'ai')
-        addMessage(getQuestionForStep(CONFIG, 'contact', 'name'), 'ai')
+        // Use third question from flow (index 2)
+        const thirdQuestion = getQuestionByIndex(CONFIG, 2);
+        if (thirdQuestion) {
+          addMessage(thirdQuestion, 'ai')
+        }
         setCurrentStep('contact')
         break
 
       case 'contact':
-        if (!leadData.name) {
+        // Determine which contact field to fill based on validation type
+        if (validationType === 'firstName') {
+          setLeadData(prev => ({ ...prev, firstName: userInput }))
+        } else if (validationType === 'lastName') {
+          setLeadData(prev => ({ ...prev, lastName: userInput }))
+        } else if (validationType === 'name') {
           setLeadData(prev => ({ ...prev, name: userInput }))
-          addMessage(getQuestionForStep(CONFIG, 'contact', 'phone'), 'ai')
-        } else if (!leadData.phone) {
+        } else if (validationType === 'phone') {
           setLeadData(prev => ({ ...prev, phone: userInput }))
-          addMessage(getQuestionForStep(CONFIG, 'contact', 'email'), 'ai')
-        } else if (!leadData.email) {
+        } else if (validationType === 'email') {
           setLeadData(prev => ({ ...prev, email: userInput }))
-          addMessage("Perfect! I've got all your details. I'll get back to you ASAP.", 'ai')
-          addMessage(`📋 Summary:\n📍 Location: ${leadData.location}\n🔧 Project: ${leadData.service}\n👤 Name: ${leadData.name}\n📱 Phone: ${leadData.phone}\n✉️ Email: ${userInput}`, 'ai')
-          addMessage("PHONE_BUTTON", 'ai')
+        }
+        
+        // Check if we have all required contact fields
+        const questions = getQuestionsFromFlow(CONFIG);
+        const contactQuestions = questions.filter(q => 
+          q.questionType && ['firstName', 'lastName', 'name', 'phone', 'email'].includes(q.questionType)
+        );
+        
+        // Count filled fields after this input
+        let filledCount = 0;
+        const updatedLeadData = { ...leadData };
+        if (validationType === 'firstName') updatedLeadData.firstName = userInput;
+        if (validationType === 'lastName') updatedLeadData.lastName = userInput;
+        if (validationType === 'name') updatedLeadData.name = userInput;
+        if (validationType === 'phone') updatedLeadData.phone = userInput;
+        if (validationType === 'email') updatedLeadData.email = userInput;
+        
+        if (updatedLeadData.name) filledCount++;
+        if (updatedLeadData.firstName) filledCount++;
+        if (updatedLeadData.lastName) filledCount++;
+        if (updatedLeadData.phone) filledCount++;
+        if (updatedLeadData.email) filledCount++;
+        
+        if (filledCount < contactQuestions.length) {
+          // Ask next contact question
+          const nextContactQuestion = contactQuestions[filledCount];
+          if (nextContactQuestion && nextContactQuestion.question) {
+            addMessage(nextContactQuestion.question, 'ai')
+          }
+        } else {
+          // All contact fields filled, complete the conversation
+          const displayName = updatedLeadData.name || 
+                             (updatedLeadData.firstName + (updatedLeadData.lastName ? ' ' + updatedLeadData.lastName : ''));
+          
+          const completionMessage = CONFIG.messages?.completion 
+            ? substituteAgentName(CONFIG.messages.completion)
+            : "Perfect! I've got all your details. I'll get back to you ASAP.";
+          addMessage(completionMessage, 'ai')
+          
+          // Build dynamic summary based on what was actually submitted
+          const questions = getQuestionsFromFlow(CONFIG);
+          let summaryParts = [];
+          
+          // Add location if submitted
+          if (leadData.location) {
+            const locationQuestion = questions.find(q => 
+              q.question && (
+                q.question.toLowerCase().includes('location') || 
+                q.question.toLowerCase().includes('suburb') ||
+                q.question.includes('📍')
+              )
+            );
+            const locationLabel = locationQuestion ? locationQuestion.question.replace(/[?!.]/g, '') : 'Location';
+            summaryParts.push(`${locationLabel}: ${leadData.location}`);
+          }
+          
+          // Add service if submitted  
+          if (leadData.service) {
+            const serviceQuestion = questions.find(q => 
+              q.question && (
+                q.question.toLowerCase().includes('project') || 
+                q.question.toLowerCase().includes('service') ||
+                q.question.toLowerCase().includes('work')
+              )
+            );
+            const serviceLabel = serviceQuestion ? serviceQuestion.question.replace(/[?!.]/g, '') : 'Project';
+            summaryParts.push(`${serviceLabel}: ${leadData.service}`);
+          }
+          
+          // Add contact fields that were submitted
+          if (updatedLeadData.name) {
+            summaryParts.push(`Name: ${updatedLeadData.name}`);
+          } else if (updatedLeadData.firstName || updatedLeadData.lastName) {
+            const fullName = (updatedLeadData.firstName + ' ' + updatedLeadData.lastName).trim();
+            summaryParts.push(`Name: ${fullName}`);
+          }
+          
+          if (updatedLeadData.phone) {
+            const phoneQuestion = questions.find(q => 
+              q.question && (
+                q.question.toLowerCase().includes('phone') || 
+                q.question.toLowerCase().includes('number') ||
+                q.question.includes('📱')
+              )
+            );
+            const phoneLabel = phoneQuestion ? phoneQuestion.question.replace(/[?!.]/g, '') : 'Phone';
+            summaryParts.push(`${phoneLabel}: ${updatedLeadData.phone}`);
+          }
+          
+          if (updatedLeadData.email) {
+            const emailQuestion = questions.find(q => 
+              q.question && (
+                q.question.toLowerCase().includes('email') ||
+                q.question.includes('✉️')
+              )
+            );
+            const emailLabel = emailQuestion ? emailQuestion.question.replace(/[?!.]/g, '') : 'Email';
+            summaryParts.push(`${emailLabel}: ${updatedLeadData.email}`);
+          }
+          
+          // Create summary message
+          const summaryMessage = summaryParts.length > 0 
+            ? `📋 Summary:\n${summaryParts.join('\n')}`
+            : '📋 Summary: All details collected';
+            
+          addMessage(summaryMessage, 'ai')
+          const phoneButtonMessage = CONFIG.messages?.phoneButton 
+            ? substituteAgentName(CONFIG.messages.phoneButton)
+            : "Or call me directly for immediate assistance!";
+          addMessage(`PHONE_BUTTON:${phoneButtonMessage}`, 'ai')
           setCurrentStep('complete')
         }
         break
@@ -763,10 +878,54 @@ function LeadStickWidget({ CONFIG }: { CONFIG: any }) {
       case 'location': return "e.g. Burleigh, Mermaid Waters, Tweed Heads..."
       case 'service': return "Tell me about your stone project..."
       case 'contact': 
-        if (!leadData.name) return "Enter your full name"
-        if (!leadData.phone) return "Enter your phone number"
-        if (!leadData.email) return "Enter your email address"
-        return ""
+        // Use the same logic as validation to determine current field type
+        const questions = getQuestionsFromFlow(CONFIG);
+        const contactQuestions = questions.filter(q => 
+          q.questionType && ['firstName', 'lastName', 'name', 'phone', 'email'].includes(q.questionType)
+        );
+        
+        // Count how many contact fields we've already filled
+        let filledCount = 0;
+        if (leadData.name) filledCount++;
+        if (leadData.firstName) filledCount++;
+        if (leadData.lastName) filledCount++;
+        if (leadData.phone) filledCount++;
+        if (leadData.email) filledCount++;
+        
+        // Determine placeholder based on current contact question
+        if (filledCount < contactQuestions.length) {
+          const currentContactQuestion = contactQuestions[filledCount];
+          if (currentContactQuestion && currentContactQuestion.questionType) {
+            switch (currentContactQuestion.questionType) {
+              case 'firstName': return "Enter your first name"
+              case 'lastName': return "Enter your last name"
+              case 'name': return "Enter your full name"
+              case 'phone': return "Enter your phone number"
+              case 'email': return "Enter your email address"
+              default: return "Type your response..."
+            }
+          } else {
+            // Fallback to question content analysis
+            const allQuestions = questions.slice(2); // Skip location and service questions
+            const currentQuestion = allQuestions[filledCount];
+            
+            if (currentQuestion && currentQuestion.question) {
+              const questionText = currentQuestion.question.toLowerCase();
+              if (questionText.includes('first name') || questionText.includes('firstname')) {
+                return "Enter your first name";
+              } else if (questionText.includes('last name') || questionText.includes('lastname')) {
+                return "Enter your last name";
+              } else if (questionText.includes('name')) {
+                return "Enter your full name";
+              } else if (questionText.includes('phone') || questionText.includes('number') || currentQuestion.question.includes('📱')) {
+                return "Enter your phone number";
+              } else if (questionText.includes('email') || currentQuestion.question.includes('✉️')) {
+                return "Enter your email address";
+              }
+            }
+          }
+        }
+        return "Type your response..."
       default: return "Type your message..."
     }
   }

@@ -702,6 +702,102 @@ export default {
       });
     }
 
+    // Route: POST /admin/upload-avatar - Upload avatar to R2
+    if (request.method === 'POST' && url.pathname === '/admin/upload-avatar') {
+      if (!authToken || !csrfToken) {
+        return new Response(JSON.stringify({
+          error: 'Authentication required'
+        }), { 
+          status: 401, 
+          headers: corsHeaders 
+        });
+      }
+      
+      const authResult = await verifySessionToken(authToken, env);
+      if (!authResult.valid) {
+        return new Response(JSON.stringify({
+          error: 'Invalid session'
+        }), { 
+          status: 401, 
+          headers: corsHeaders 
+        });
+      }
+
+      try {
+        const formData = await request.formData();
+        const avatarFile = formData.get('avatar');
+        const siteId = formData.get('siteId');
+
+        if (!avatarFile || !siteId) {
+          return new Response(JSON.stringify({
+            error: 'Missing avatar file or siteId'
+          }), { 
+            status: 400, 
+            headers: corsHeaders 
+          });
+        }
+
+        // Validate file type and size
+        if (!avatarFile.type.match(/^image\/(png|jpeg|jpg)$/)) {
+          return new Response(JSON.stringify({
+            error: 'Invalid file type. Only PNG and JPG are allowed.'
+          }), { 
+            status: 400, 
+            headers: corsHeaders 
+          });
+        }
+
+        if (avatarFile.size > 2 * 1024 * 1024) { // 2MB limit
+          return new Response(JSON.stringify({
+            error: 'File too large. Maximum size is 2MB.'
+          }), { 
+            status: 400, 
+            headers: corsHeaders 
+          });
+        }
+
+        // Generate unique filename
+        const fileExtension = avatarFile.name.split('.').pop() || 'png';
+        const fileName = `avatars/${siteId}_${Date.now()}.${fileExtension}`;
+
+        // Upload to R2 (assuming R2 bucket is configured)
+        if (env.R2_BUCKET) {
+          const arrayBuffer = await avatarFile.arrayBuffer();
+          await env.R2_BUCKET.put(fileName, arrayBuffer, {
+            httpMetadata: {
+              contentType: avatarFile.type,
+            },
+          });
+
+          // Return the public URL
+          const avatarUrl = `https://your-r2-domain.com/${fileName}`;
+          
+          return new Response(JSON.stringify({
+            success: true,
+            avatarUrl: avatarUrl
+          }), { 
+            headers: corsHeaders 
+          });
+        } else {
+          return new Response(JSON.stringify({
+            error: 'File storage not configured'
+          }), { 
+            status: 500, 
+            headers: corsHeaders 
+          });
+        }
+
+      } catch (error) {
+        console.error('Avatar upload error:', error);
+        return new Response(JSON.stringify({
+          error: 'Upload failed'
+        }), { 
+          status: 500, 
+          headers: corsHeaders 
+        });
+      }
+    }
+
     // Route: GET /api/config/:siteId
     if (request.method === 'GET' && url.pathname.startsWith('/api/config/')) {
       const siteId = url.pathname.split('/')[3];

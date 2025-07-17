@@ -23,8 +23,8 @@ export default defineConfig({
     lib: {
       entry: path.resolve(__dirname, 'src/widget.tsx'),
       name: 'LeadStick',
-      formats: ['es', 'umd'],
-      fileName: (format) => `leadstick.${format}.js`
+      formats: ['umd'],
+      fileName: () => 'widget.js'
     },
     rollupOptions: {
       external: [], // Bundle everything for single-file distribution
