@@ -704,19 +704,15 @@ export default {
 
     // Route: POST /admin/upload-avatar - Upload avatar to R2
     if (request.method === 'POST' && url.pathname === '/admin/upload-avatar') {
-      if (!authToken || !csrfToken) {
-        return new Response(JSON.stringify({
-          error: 'Authentication required'
-        }), { 
-          status: 401, 
-          headers: corsHeaders 
-        });
-      }
-      
-      const authResult = await verifySessionToken(authToken, env);
+      // Check authentication with CSRF
+      const authResult = await authenticateAdmin(request, env, true);
       if (!authResult.valid) {
-        return new Response(JSON.stringify({
-          error: 'Invalid session'
+        logAdminOperation('UNAUTHORIZED_ACCESS_ATTEMPT', { 
+          endpoint: '/admin/upload-avatar',
+          method: 'POST'
+        });
+        return new Response(JSON.stringify({ 
+          error: authResult.error || 'Unauthorized. Valid session required.' 
         }), { 
           status: 401, 
           headers: corsHeaders 
@@ -724,11 +720,21 @@ export default {
       }
 
       try {
+        console.log('[Avatar Upload] Parsing form data...');
         const formData = await request.formData();
         const avatarFile = formData.get('avatar');
         const siteId = formData.get('siteId');
+        
+        console.log('[Avatar Upload] Form data parsed:', {
+          hasAvatarFile: !!avatarFile,
+          avatarFileName: avatarFile?.name,
+          avatarFileSize: avatarFile?.size,
+          avatarFileType: avatarFile?.type,
+          siteId: siteId
+        });
 
         if (!avatarFile || !siteId) {
+          console.log('[Avatar Upload] Missing required fields');
           return new Response(JSON.stringify({
             error: 'Missing avatar file or siteId'
           }), { 
@@ -760,17 +766,26 @@ export default {
         const fileExtension = avatarFile.name.split('.').pop() || 'png';
         const fileName = `avatars/${siteId}_${Date.now()}.${fileExtension}`;
 
-        // Upload to R2 (assuming R2 bucket is configured)
+        // Upload to R2
+        console.log('[Avatar Upload] R2 bucket available:', !!env.R2_BUCKET);
+        console.log('[Avatar Upload] Generated filename:', fileName);
+        
         if (env.R2_BUCKET) {
+          console.log('[Avatar Upload] Converting file to array buffer...');
           const arrayBuffer = await avatarFile.arrayBuffer();
+          console.log('[Avatar Upload] Array buffer size:', arrayBuffer.byteLength);
+          
+          console.log('[Avatar Upload] Uploading to R2...');
           await env.R2_BUCKET.put(fileName, arrayBuffer, {
             httpMetadata: {
               contentType: avatarFile.type,
             },
           });
+          console.log('[Avatar Upload] R2 upload successful');
 
           // Return the public URL
           const avatarUrl = `https://pub-2cf19529958742fea36d2ac68c558716.r2.dev/${fileName}`;
+          console.log('[Avatar Upload] Generated public URL:', avatarUrl);
           
           return new Response(JSON.stringify({
             success: true,
@@ -779,6 +794,7 @@ export default {
             headers: corsHeaders 
           });
         } else {
+          console.log('[Avatar Upload] R2 bucket not configured');
           return new Response(JSON.stringify({
             error: 'File storage not configured'
           }), { 

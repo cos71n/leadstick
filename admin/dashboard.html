@@ -1493,9 +1493,13 @@
             
             const authHeaders = {
                 'Authorization': `Bearer ${currentToken}`,
-                'Content-Type': 'application/json',
                 ...options.headers
             };
+            
+            // Only set Content-Type to application/json if body is not FormData
+            if (!options.body || !(options.body instanceof FormData)) {
+                authHeaders['Content-Type'] = 'application/json';
+            }
             
             // Add CSRF token for state-changing operations
             const currentCsrfToken = window.getCsrfToken();
@@ -3184,6 +3188,13 @@ window.leadstickConfig = {
         async function uploadAvatarToR2(file, siteId) {
             if (!file) return null;
             
+            console.log('[Avatar Upload] Starting upload:', {
+                fileName: file.name,
+                fileSize: file.size,
+                fileType: file.type,
+                siteId: siteId
+            });
+            
             const formData = new FormData();
             formData.append('avatar', file);
             formData.append('siteId', siteId);
@@ -3194,15 +3205,19 @@ window.leadstickConfig = {
                     body: formData
                 });
                 
-                if (!response.ok) {
-                    throw new Error('Avatar upload failed');
-                }
+                console.log('[Avatar Upload] Response status:', response.status);
                 
                 const result = await response.json();
+                console.log('[Avatar Upload] Response data:', result);
+                
+                if (!response.ok) {
+                    throw new Error(result.error || 'Avatar upload failed');
+                }
+                
                 return result.avatarUrl;
             } catch (error) {
                 console.error('Avatar upload error:', error);
-                alert('Failed to upload avatar. Please try again.');
+                alert(`Failed to upload avatar: ${error.message}`);
                 return null;
             }
         }
