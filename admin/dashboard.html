@@ -726,17 +726,8 @@
                 </div>
 
                 <form id="editClientForm" onsubmit="saveClientChanges(event)">
-                    <div class="form-group">
-                        <label for="editSiteId">Site ID</label>
-                        <input 
-                            type="text" 
-                            id="editSiteId" 
-                            name="siteId" 
-                            readonly
-                            style="background: #f3f4f6; cursor: not-allowed;"
-                        >
-                        <div class="help-text">Site ID cannot be changed</div>
-                    </div>
+                    <!-- Site ID is now auto-generated and hidden -->
+                    <input type="hidden" id="editSiteId" name="siteId">
 
                     <div class="form-group">
                         <label for="editBusinessName">Business Name *</label>
@@ -754,13 +745,15 @@
                     <div class="form-group">
                         <label for="editEmail">Email Address *</label>
                         <input 
-                            type="email" 
+                            type="text" 
                             id="editEmail" 
                             name="email" 
                             required
-                            maxlength="100"
+                            maxlength="300"
+                            placeholder="leads@example.com or multiple@example.com, backup@example.com"
                             oninput="validateEditInput('editEmail', this.value, 'email')"
                         >
+                        <div class="help-text">Enter one email address or multiple addresses separated by commas</div>
                         <div class="validation-error"></div>
                     </div>
 
@@ -802,7 +795,7 @@
                                 id="editThemeText" 
                                 value="#3b82f6"
                                 maxlength="7"
-                                pattern="^#[0-9A-Fa-f]{6}$"
+                                placeholder="#f6a560"
                                 oninput="syncEditColorInputs()"
                             >
                         </div>
@@ -826,12 +819,26 @@
                                 <input 
                                     type="radio" 
                                     name="widgetType" 
-                                    value="floating-bar" 
+                                    value="bar" 
                                     id="editFloatingBar"
                                 >
                                 <span>Floating Bar</span>
                             </label>
                         </div>
+                    </div>
+
+                    <div class="form-group" id="barTextGroup" style="display: none;">
+                        <label for="barText">Floating Bar Text</label>
+                        <input 
+                            type="text" 
+                            id="barText" 
+                            name="barText" 
+                            maxlength="30"
+                            placeholder="Get A Quick Quote"
+                            oninput="validateEditInput('barText', this.value, 'barText')"
+                        >
+                        <div class="help-text">Text displayed on the floating bar (max 30 characters)</div>
+                        <div class="validation-error"></div>
                     </div>
 
                     <div class="form-group">
@@ -841,10 +848,47 @@
                             name="welcomeMessage" 
                             maxlength="500"
                             rows="3"
-                            placeholder="Hi, [Agent Name] here. Let me know a little about your project. Your message comes straight to my phone and I'll send your quote ASAP"
-                        ></textarea>
+                        >Hi, [Agent Name] here. Let me know a little about your project. Your message comes straight to my phone and I'll send your quote ASAP</textarea>
                         <div class="help-text">The first message users see when they open the chat widget. Use [Agent Name] to automatically insert the agent's name.</div>
                         <div class="validation-error"></div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="completionMessage">Completion Message</label>
+                        <textarea 
+                            id="completionMessage" 
+                            name="completionMessage" 
+                            maxlength="500"
+                            rows="3"
+                        >Perfect! I've got your details. I'll get back to you ASAP.</textarea>
+                        <div class="help-text">Message shown after the user completes the form. Use [Agent Name] to automatically insert the agent's name.</div>
+                        <div class="validation-error"></div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="phoneCtaText">Phone Call Button Text</label>
+                        <input 
+                            type="text" 
+                            id="phoneCtaText" 
+                            name="phoneCtaText" 
+                            maxlength="100"
+                            value="Or call me directly for immediate assistance!"
+                            oninput="validateEditInput('phoneCtaText', this.value, 'message')"
+                        >
+                        <div class="help-text">Text shown above the phone call button</div>
+                        <div class="validation-error"></div>
+                    </div>
+
+                    <div class="form-group">
+                        <label>
+                            <input 
+                                type="checkbox" 
+                                id="showPhoneCta" 
+                                name="showPhoneCta" 
+                                checked
+                            >
+                            Show phone call button after form completion
+                        </label>
                     </div>
 
                     <div class="form-group">
@@ -860,7 +904,10 @@
                                         <button type="button" class="dropdown-item" onclick="addQuestion('text')">📝 Text Input</button>
                                         <button type="button" class="dropdown-item" onclick="addQuestion('select')">📋 Single Choice</button>
                                         <button type="button" class="dropdown-item" onclick="addQuestion('multiselect')">☑️ Multiple Choice</button>
-                                        <button type="button" class="dropdown-item" onclick="addQuestion('contact')">👤 Contact Form</button>
+                                        <button type="button" class="dropdown-item" onclick="addQuestion('firstName')">👤 First Name</button>
+                                        <button type="button" class="dropdown-item" onclick="addQuestion('lastName')">👤 Last Name</button>
+                                        <button type="button" class="dropdown-item" onclick="addQuestion('email')">📧 Email Address</button>
+                                        <button type="button" class="dropdown-item" onclick="addQuestion('phone')">📞 Phone Number</button>
                                     </div>
                                 </div>
                             </div>
@@ -910,7 +957,10 @@
                             <option value="text">📝 Text Input</option>
                             <option value="select">📋 Single Choice</option>
                             <option value="multiselect">☑️ Multiple Choice</option>
-                            <option value="contact">👤 Contact Form</option>
+                            <option value="firstName">👤 First Name</option>
+                            <option value="lastName">👤 Last Name</option>
+                            <option value="email">📧 Email Address</option>
+                            <option value="phone">📞 Phone Number</option>
                         </select>
                         <div class="validation-error"></div>
                     </div>
@@ -1370,10 +1420,7 @@
             
             switch (type) {
                 case 'siteId':
-                    if (!value) errors.push('Site ID is required');
-                    else if (value.length < 3) errors.push('Site ID must be at least 3 characters');
-                    else if (value.length > 50) errors.push('Site ID must be less than 50 characters');
-                    else if (!/^[a-zA-Z0-9-_]+$/.test(value)) errors.push('Site ID can only contain letters, numbers, hyphens, and underscores');
+                    // Site ID is auto-generated, no validation needed
                     break;
                     
                 case 'businessName':
@@ -1384,8 +1431,16 @@
                     
                 case 'email':
                     if (!value) errors.push('Email is required');
-                    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) errors.push('Please enter a valid email address');
-                    else if (value.length > 100) errors.push('Email must be less than 100 characters');
+                    else {
+                        // Support multiple email addresses separated by commas
+                        const emails = value.split(',').map(email => email.trim());
+                        for (const email of emails) {
+                            if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+                                errors.push(`Please enter a valid email address: ${email}`);
+                            }
+                        }
+                        if (value.length > 300) errors.push('Email field must be less than 300 characters');
+                    }
                     break;
                     
                 case 'agentName':
@@ -1399,6 +1454,14 @@
                     
                 case 'message':
                     if (value && value.length > 500) errors.push('Message must be less than 500 characters');
+                    break;
+                    
+                case 'barText':
+                    if (value && value.length > 30) errors.push('Bar text must be less than 30 characters');
+                    break;
+                    
+                case 'themeColor':
+                    if (value && !/^#[0-9A-Fa-f]{6}$/.test(value)) errors.push('Theme color must be a valid hex color (e.g., #f6a560)');
                     break;
             }
             
@@ -1463,10 +1526,7 @@
 
         function openNewClientModal() {
             // Clear the form
-            document.getElementById('editSiteId').value = '';
-            document.getElementById('editSiteId').readOnly = false;
-            document.getElementById('editSiteId').style.background = '';
-            document.getElementById('editSiteId').style.cursor = '';
+            document.getElementById('editSiteId').value = ''; // Will be auto-generated
             document.getElementById('editBusinessName').value = '';
             document.getElementById('editEmail').value = '';
             document.getElementById('editAgentName').value = '';
@@ -1479,8 +1539,11 @@
             // Reset widget type
             document.getElementById('editBubble').checked = true;
             
-            // Clear welcome message
-            document.getElementById('welcomeMessage').value = '';
+            // Clear bar text and hide field
+            document.getElementById('barText').value = '';
+            document.getElementById('barTextGroup').style.display = 'none';
+            
+            // Keep default welcome message text (don't clear it)
             
             // Clear questions
             loadQuestions([]);
@@ -1497,11 +1560,7 @@
             document.querySelector('#editModal form').setAttribute('data-mode', 'create');
             document.querySelector('#editModal button[type="submit"]').textContent = 'Create Client';
             
-            // Update help text for site ID
-            const helpText = document.querySelector('#editSiteId').parentNode.querySelector('.help-text');
-            if (helpText) {
-                helpText.textContent = 'Unique identifier for this client (letters, numbers, hyphens, underscores only)';
-            }
+            // Site ID is auto-generated, no help text needed
             
             // Clear editing client reference
             window.editingClient = null;
@@ -1538,16 +1597,33 @@
             document.getElementById('editThemeText').value = themeColor;
             
             // Set widget type
-            const widgetType = client.widgetType || 'bubble';
-            if (widgetType === 'floating-bar') {
+            const widgetType = client.desktopStyle || 'bubble';
+            if (widgetType === 'bar') {
                 document.getElementById('editFloatingBar').checked = true;
+                document.getElementById('barTextGroup').style.display = 'block';
             } else {
                 document.getElementById('editBubble').checked = true;
+                document.getElementById('barTextGroup').style.display = 'none';
             }
+            
+            // Set bar text
+            document.getElementById('barText').value = client.barText || 'Get A Quick Quote';
             
             // Set welcome message
             const welcomeMessage = client.messages?.welcome || '';
             document.getElementById('welcomeMessage').value = welcomeMessage;
+            
+            // Set completion message
+            const completionMessage = client.messages?.complete || '';
+            document.getElementById('completionMessage').value = completionMessage;
+            
+            // Set phone CTA text
+            const phoneCtaText = client.messages?.phoneButton || '';
+            document.getElementById('phoneCtaText').value = phoneCtaText;
+            
+            // Set phone CTA toggle
+            const showPhoneCta = client.showPhoneCta !== false; // Default to true
+            document.getElementById('showPhoneCta').checked = showPhoneCta;
             
             // Load questions
             loadQuestions(client.questions || []);
@@ -1564,11 +1640,7 @@
             document.querySelector('#editModal form').setAttribute('data-mode', 'edit');
             document.querySelector('#editModal button[type="submit"]').textContent = 'Save Changes';
             
-            // Update help text for site ID
-            const helpText = document.querySelector('#editSiteId').parentNode.querySelector('.help-text');
-            if (helpText) {
-                helpText.textContent = 'Site ID cannot be changed';
-            }
+            // Site ID field is hidden since it's auto-generated
             
             // Show the modal
             document.getElementById('editModal').classList.add('active');
@@ -1711,17 +1783,14 @@
                 { id: 'editEmail', value: formData.get('email'), type: 'email' },
                 { id: 'editAgentName', value: formData.get('agentName'), type: 'agentName' },
                 { id: 'editPhone', value: formData.get('phone'), type: 'phone' },
-                { id: 'welcomeMessage', value: formData.get('welcomeMessage'), type: 'message' }
+                { id: 'welcomeMessage', value: formData.get('welcomeMessage'), type: 'message' },
+                { id: 'completionMessage', value: formData.get('completionMessage'), type: 'message' },
+                { id: 'phoneCtaText', value: formData.get('phoneCtaText'), type: 'message' },
+                { id: 'barText', value: formData.get('barText'), type: 'barText' },
+                { id: 'editThemeText', value: document.getElementById('editThemeText').value, type: 'themeColor' }
             ];
             
-            // For create mode, also validate siteId
-            if (mode === 'create') {
-                fieldsToValidate.unshift({ 
-                    id: 'editSiteId', 
-                    value: formData.get('siteId'), 
-                    type: 'siteId' 
-                });
-            }
+            // Site ID is auto-generated, no validation needed
             
             fieldsToValidate.forEach(field => {
                 if (!validateEditInput(field.id, field.value, field.type)) {
@@ -1737,8 +1806,12 @@
             try {
                 showLoading(true);
                 
-                const siteId = formData.get('siteId');
+                const siteId = formData.get('siteId'); // For edit mode only
                 const welcomeMessage = formData.get('welcomeMessage')?.trim();
+                const completionMessage = formData.get('completionMessage')?.trim();
+                const phoneCtaText = formData.get('phoneCtaText')?.trim();
+                const showPhoneCta = formData.get('showPhoneCta') === 'on';
+                
                 const payload = {
                     business: {
                         name: sanitizeInput(formData.get('businessName')),
@@ -1750,20 +1823,21 @@
                         primary: document.getElementById('editThemeText').value
                     },
                     messages: {
-                        welcome: welcomeMessage || ''
+                        welcome: welcomeMessage || '',
+                        complete: completionMessage || '',
+                        phoneButton: phoneCtaText || ''
                     },
-                    widgetType: formData.get('widgetType'),
+                    showPhoneCta: showPhoneCta,
+                    desktopStyle: formData.get('widgetType'),
+                    barText: sanitizeInput(formData.get('barText') || 'Get A Quick Quote'),
                     flow: window.currentQuestions || []
                 };
                 
-                // For create mode, add siteId to payload
-                if (mode === 'create') {
-                    payload.siteId = sanitizeInput(siteId);
-                }
+                // Site ID is auto-generated for create mode, only used for edit mode
                 
                 console.log(`[saveClientChanges] ${mode === 'create' ? 'Creating' : 'Updating'} client:`, siteId);
                 console.log('[saveClientChanges] Form data:', Object.fromEntries(formData));
-                console.log('[saveClientChanges] Payload:', payload);
+                console.log('[saveClientChanges] Payload:', JSON.stringify(payload, null, 2));
                 
                 // Use POST for create, PUT for edit
                 const url = mode === 'create' 
@@ -1796,7 +1870,11 @@
                 
                 if (!response.ok) {
                     console.error('[saveClientChanges] Request failed:', data);
-                    throw new Error(data.error || `HTTP ${response.status}: Failed to update client`);
+                    let errorMessage = data.error || `HTTP ${response.status}: Failed to update client`;
+                    if (data.details && Array.isArray(data.details)) {
+                        errorMessage += '\n\nDetails:\n• ' + data.details.join('\n• ');
+                    }
+                    throw new Error(errorMessage);
                 }
                 
                 console.log(`[saveClientChanges] ${mode === 'create' ? 'Create' : 'Update'} successful:`, data);
@@ -1847,7 +1925,10 @@
                 text: '📝 Text Input',
                 select: '📋 Single Choice',
                 multiselect: '☑️ Multiple Choice',
-                contact: '👤 Contact Form'
+                firstName: '👤 First Name',
+                lastName: '👤 Last Name',
+                email: '📧 Email Address',
+                phone: '📞 Phone Number'
             };
             
             item.innerHTML = `
@@ -1952,6 +2033,20 @@
             // Set default type
             document.getElementById('questionType').value = type;
             
+            // Set default question text for contact fields
+            if (!existingQuestion) {
+                const defaultQuestions = {
+                    firstName: "What's your first name?",
+                    lastName: "What's your last name?", 
+                    email: "What's your email address?",
+                    phone: "What's your phone number?"
+                };
+                
+                if (defaultQuestions[type]) {
+                    document.getElementById('questionText').value = defaultQuestions[type];
+                }
+            }
+            
             // Populate existing question data
             if (existingQuestion) {
                 document.getElementById('questionText').value = existingQuestion.question || '';
@@ -2011,7 +2106,9 @@
                 optionsGroup.style.display = 'none';
             }
             
-            if (type === 'contact') {
+            // Contact field types don't need placeholders (they have preset labels)
+            const contactTypes = ['firstName', 'lastName', 'email', 'phone'];
+            if (contactTypes.includes(type)) {
                 placeholderGroup.style.display = 'none';
             } else {
                 placeholderGroup.style.display = 'block';
@@ -2234,6 +2331,19 @@ window.leadstickConfig = {
         window.addOption = addOption;
         window.removeOption = removeOption;
         window.saveQuestion = saveQuestion;
+        
+        // Add event listeners for widget type changes
+        document.getElementById('editBubble').addEventListener('change', function() {
+            if (this.checked) {
+                document.getElementById('barTextGroup').style.display = 'none';
+            }
+        });
+        
+        document.getElementById('editFloatingBar').addEventListener('change', function() {
+            if (this.checked) {
+                document.getElementById('barTextGroup').style.display = 'block';
+            }
+        });
         
         } // End of initializeAppComponents function
     </script>

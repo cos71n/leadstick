@@ -29,6 +29,16 @@ function sanitizeInput(input, maxLength = 500) {
   return input.trim().slice(0, maxLength);
 }
 
+// Generate random 6-character Site ID
+function generateSiteId() {
+  const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
+  let result = '';
+  for (let i = 0; i < 6; i++) {
+    result += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return result;
+}
+
 // Enhanced validation function for admin inputs
 function validateAdminInput(input, type, required = true) {
   const errors = [];
@@ -46,12 +56,6 @@ function validateAdminInput(input, type, required = true) {
   
   const value = input.trim();
   
-  // Common security validation for all inputs
-  const dangerousChars = /<|>|'|"|;|--|\/\*|\*\/|script|javascript:|data:|vbscript:|onload|onerror|eval|expression/i;
-  if (dangerousChars.test(value)) {
-    errors.push(`${type} contains invalid characters`);
-  }
-  
   // Type-specific validation
   switch (type) {
     case 'siteId':
@@ -66,8 +70,14 @@ function validateAdminInput(input, type, required = true) {
       break;
       
     case 'email':
-      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) errors.push('Please enter a valid email address');
-      if (value.length > 100) errors.push('Email must be less than 100 characters');
+      // Support multiple email addresses separated by commas
+      const emails = value.split(',').map(email => email.trim());
+      for (const email of emails) {
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+          errors.push(`Please enter a valid email address: ${email}`);
+        }
+      }
+      if (value.length > 300) errors.push('Email field must be less than 300 characters');
       break;
       
     case 'agentName':
@@ -89,7 +99,21 @@ function validateAdminInput(input, type, required = true) {
       if (value.length > 30) errors.push('Bar text must be less than 30 characters');
       break;
       
+    case 'message':
+      if (value.length > 500) errors.push('Message must be less than 500 characters');
+      // Skip the common security validation for messages - allow apostrophes and other content
+      return {
+        isValid: errors.length === 0,
+        errors,
+        sanitized: sanitizeInput(value, 500)
+      };
+      
     default:
+      // Apply security validation for non-message types
+      const dangerousChars = /<|>|;|--|\/\*|\*\/|script|javascript:|data:|vbscript:|onload|onerror|eval|expression/i;
+      if (dangerousChars.test(value)) {
+        errors.push(`${type} contains invalid characters`);
+      }
       if (value.length > 500) errors.push(`${type} is too long (max 500 characters)`);
   }
   
@@ -765,7 +789,9 @@ export default {
               agentName: config.business?.agentName || '',
               phone: config.business?.phone || '',
               theme: config.theme?.primary || '#3b82f6',
-              widgetType: config.widgetType || 'bubble',
+              desktopStyle: config.desktopStyle || 'bubble',
+              barText: config.barText || 'Get A Quick Quote',
+              showPhoneCta: config.showPhoneCta !== false,
               questions: config.flow || [],
               messages: config.messages || {},
               lastModified: key.metadata?.lastModified || new Date().toISOString()
@@ -810,8 +836,31 @@ export default {
         // Enhanced validation for client data
         const validationErrors = [];
         
-        // Validate required fields
-        const siteIdValidation = validateAdminInput(clientData.siteId, 'siteId', true);
+        // Generate random Site ID
+        let generatedSiteId;
+        let configKey;
+        let existing;
+        let attempts = 0;
+        const maxAttempts = 10;
+        
+        // Keep generating until we find a unique Site ID
+        do {
+          generatedSiteId = generateSiteId();
+          configKey = `client_config_${generatedSiteId}`;
+          existing = await env.LEADSTICK_CONFIGS.get(configKey);
+          attempts++;
+        } while (existing && attempts < maxAttempts);
+        
+        if (existing) {
+          return new Response(JSON.stringify({ 
+            error: 'Failed to generate unique Site ID after multiple attempts' 
+          }), { 
+            status: 500, 
+            headers: corsHeaders 
+          });
+        }
+        
+        // Validate required fields (no Site ID validation needed)
         const businessNameValidation = validateAdminInput(clientData.business?.name, 'businessName', true);
         const emailValidation = validateAdminInput(clientData.business?.email, 'email', true);
         
@@ -821,7 +870,7 @@ export default {
         const avatarValidation = validateAdminInput(clientData.business?.avatar, 'avatar', false);
         
         // Collect all validation errors
-        [siteIdValidation, businessNameValidation, emailValidation, phoneValidation, agentNameValidation, avatarValidation]
+        [businessNameValidation, emailValidation, phoneValidation, agentNameValidation, avatarValidation]
           .forEach(validation => {
             if (!validation.isValid) {
               validationErrors.push(...validation.errors);
@@ -834,18 +883,6 @@ export default {
             details: validationErrors
           }), { 
             status: 400, 
-            headers: corsHeaders 
-          });
-        }
-        
-        // Check if client already exists
-        const configKey = `client_config_${siteIdValidation.sanitized}`;
-        const existing = await env.LEADSTICK_CONFIGS.get(configKey);
-        if (existing) {
-          return new Response(JSON.stringify({ 
-            error: 'Client with this Site ID already exists' 
-          }), { 
-            status: 409, 
             headers: corsHeaders 
           });
         }
@@ -913,9 +950,15 @@ export default {
           });
         }
         
+        // Validate showPhoneCta boolean
+        let sanitizedShowPhoneCta = true; // Default to true
+        if (clientData.showPhoneCta !== undefined) {
+          sanitizedShowPhoneCta = Boolean(clientData.showPhoneCta);
+        }
+
         // Create sanitized client data
         const sanitizedClientData = {
-          siteId: siteIdValidation.sanitized,
+          siteId: generatedSiteId,
           business: {
             name: businessNameValidation.sanitized,
             email: emailValidation.sanitized,
@@ -928,7 +971,8 @@ export default {
           flow: sanitizedFlow,
           desktopStyle: sanitizedDesktopStyle,
           barText: sanitizedBarText,
-          barTextMaxLength: 30
+          barTextMaxLength: 30,
+          showPhoneCta: sanitizedShowPhoneCta
         };
 
         // Save to KV
@@ -1299,8 +1343,11 @@ export default {
         }
       }
 
+      // Parse multiple email addresses (comma-separated)
+      const emailList = recipientEmail.split(',').map(email => email.trim()).filter(email => email);
+
       // Send email via Resend
-      const emailSent = await sendEmail(sanitized, leadId, recipientEmail, env);
+      const emailSent = await sendEmail(sanitized, leadId, emailList, env);
       
       // Track in GA4 (optional)
       await trackGA4Event(sanitized, leadId, env);
@@ -1343,9 +1390,14 @@ export default {
 };
 
 // Send email notification
-async function sendEmail(lead, leadId, recipientEmail, env) {
+async function sendEmail(lead, leadId, emailList, env) {
   if (!env.RESEND_API_KEY) {
     console.warn('RESEND_API_KEY not configured');
+    return false;
+  }
+
+  if (!emailList || emailList.length === 0) {
+    console.warn('No email recipients provided');
     return false;
   }
 
@@ -1450,7 +1502,7 @@ async function sendEmail(lead, leadId, recipientEmail, env) {
       },
       body: JSON.stringify({
         from: env.LEAD_EMAIL_FROM || 'LeadStick <noreply@leadstick.com>',
-        to: [recipientEmail],
+        to: emailList,
         subject: `New Lead: ${escapeHtml(lead.service)} in ${escapeHtml(lead.location)}`,
         html: `
           <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 0 auto; background: white;">
