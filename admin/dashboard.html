@@ -584,6 +584,124 @@
             font-size: 12px;
         }
 
+        .signpost-builder {
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            background: #f8fafc;
+            padding: 20px;
+        }
+
+        .signpost-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .signpost-header h3 {
+            color: #1f2937;
+            font-size: 16px;
+            font-weight: 600;
+        }
+
+        .signpost-info {
+            margin-bottom: 12px;
+        }
+
+        .signpost-info small {
+            color: #6b7280;
+            font-size: 12px;
+        }
+
+        .signpost-list {
+            min-height: 100px;
+        }
+
+        .signpost-item {
+            background: white;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            padding: 16px;
+            margin-bottom: 12px;
+            cursor: move;
+            transition: all 0.2s;
+        }
+
+        .signpost-item:hover {
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        .signpost-item.dragging {
+            opacity: 0.5;
+            transform: rotate(5deg);
+        }
+
+        .signpost-header-content {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 12px;
+        }
+
+        .signpost-info-content h4 {
+            color: #1f2937;
+            font-size: 14px;
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+
+        .signpost-info-content p {
+            color: #6b7280;
+            font-size: 12px;
+            margin: 0;
+        }
+
+        .signpost-actions {
+            display: flex;
+            gap: 8px;
+        }
+
+        .signpost-actions button {
+            padding: 6px 12px;
+            font-size: 12px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            background: #f3f4f6;
+            color: #6b7280;
+        }
+
+        .signpost-actions button:hover {
+            background: #e5e7eb;
+        }
+
+        .signpost-questions {
+            margin-top: 12px;
+            padding-top: 12px;
+            border-top: 1px solid #e5e7eb;
+        }
+
+        .signpost-questions h5 {
+            font-size: 12px;
+            color: #6b7280;
+            margin-bottom: 8px;
+        }
+
+        .signpost-question-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+        }
+
+        .signpost-question-tag {
+            background: #eff6ff;
+            color: #2563eb;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            border: 1px solid #dbeafe;
+        }
+
         .question-editor-modal .modal-content {
             max-width: 600px;
         }
@@ -892,6 +1010,24 @@
                     </div>
 
                     <div class="form-group">
+                        <label>Signpost Configuration</label>
+                        <div class="signpost-builder">
+                            <div class="signpost-header">
+                                <h3>Progress Signposts</h3>
+                                <div class="signpost-info">
+                                    <small>Configure the progress indicators shown at the top of the chat. Questions will be grouped under these signposts.</small>
+                                </div>
+                                <button type="button" class="btn btn-primary btn-small" onclick="addSignpost()">
+                                    ➕ Add Signpost
+                                </button>
+                            </div>
+                            <div class="signpost-list" id="signpostList">
+                                <!-- Signposts will be rendered here -->
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
                         <label>Questions & Flow</label>
                         <div class="questions-builder">
                             <div class="questions-header">
@@ -962,6 +1098,16 @@
                             <option value="email">📧 Email Address</option>
                             <option value="phone">📞 Phone Number</option>
                         </select>
+                        <div class="validation-error"></div>
+                    </div>
+
+                    <div class="form-group" id="signpostGroup">
+                        <label for="questionSignpost">Assign to Signpost</label>
+                        <select id="questionSignpost" name="questionSignpost">
+                            <option value="">No signpost (ungrouped)</option>
+                            <!-- Signpost options will be populated dynamically -->
+                        </select>
+                        <div class="help-text">Optional: Group this question under a progress signpost</div>
                         <div class="validation-error"></div>
                     </div>
 
@@ -1082,10 +1228,16 @@
             
             let currentQuestions = [];
             let editingQuestionIndex = -1;
+            let currentSignposts = [];
+            let editingSignpostIndex = -1;
             
             // Question management global state
             window.currentQuestions = currentQuestions;
             window.editingQuestionIndex = editingQuestionIndex;
+            
+            // Signpost management global state
+            window.currentSignposts = currentSignposts;
+            window.editingSignpostIndex = editingSignpostIndex;
 
             // Authentication check function
             async function checkAuthentication() {
@@ -1628,6 +1780,9 @@
             // Load questions
             loadQuestions(client.questions || []);
             
+            // Load signposts
+            loadSignposts(client.signposts || []);
+            
             // Clear any previous validation errors
             document.querySelectorAll('#editModal .form-group').forEach(group => {
                 group.classList.remove('error');
@@ -1830,7 +1985,8 @@
                     showPhoneCta: showPhoneCta,
                     desktopStyle: formData.get('widgetType'),
                     barText: sanitizeInput(formData.get('barText') || 'Get A Quick Quote'),
-                    flow: window.currentQuestions || []
+                    flow: window.currentQuestions || [],
+                    signposts: window.currentSignposts || []
                 };
                 
                 // Site ID is auto-generated for create mode, only used for edit mode
@@ -2033,6 +2189,9 @@
             // Set default type
             document.getElementById('questionType').value = type;
             
+            // Populate signpost dropdown
+            populateSignpostDropdown();
+            
             // Set default question text for contact fields
             if (!existingQuestion) {
                 const defaultQuestions = {
@@ -2052,6 +2211,7 @@
                 document.getElementById('questionText').value = existingQuestion.question || '';
                 document.getElementById('questionPlaceholder').value = existingQuestion.placeholder || '';
                 document.getElementById('questionRequired').checked = existingQuestion.validation?.required !== false;
+                document.getElementById('questionSignpost').value = existingQuestion.signpostId || '';
                 
                 if (existingQuestion.validation?.minLength) {
                     document.getElementById('minLength').value = existingQuestion.validation.minLength;
@@ -2168,6 +2328,12 @@
             const placeholder = formData.get('questionPlaceholder')?.trim();
             if (placeholder) {
                 question.placeholder = placeholder;
+            }
+            
+            // Add signpost assignment if provided
+            const signpostId = formData.get('questionSignpost')?.trim();
+            if (signpostId) {
+                question.signpostId = signpostId;
             }
             
             // Add type-specific fields
@@ -2331,6 +2497,141 @@ window.leadstickConfig = {
         window.addOption = addOption;
         window.removeOption = removeOption;
         window.saveQuestion = saveQuestion;
+
+        // SIGNPOST MANAGEMENT FUNCTIONS
+        function loadSignposts(signposts = []) {
+            window.currentSignposts = signposts;
+            currentSignposts = signposts;
+            renderSignposts();
+        }
+
+        function renderSignposts() {
+            const signpostList = document.getElementById('signpostList');
+            if (!signpostList) return;
+            
+            if (currentSignposts.length === 0) {
+                signpostList.innerHTML = `
+                    <div style="text-align: center; color: #6b7280; padding: 40px;">
+                        <p>No signposts configured yet.</p>
+                        <p style="font-size: 12px;">Add signposts to organize your questions into groups.</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            signpostList.innerHTML = currentSignposts.map((signpost, index) => `
+                <div class="signpost-item" data-index="${index}">
+                    <div class="signpost-header-content">
+                        <div class="signpost-info-content">
+                            <h4>${signpost.title}</h4>
+                            <p>${signpost.description}</p>
+                        </div>
+                        <div class="signpost-actions">
+                            <button onclick="editSignpost(${index})" title="Edit">✏️</button>
+                            <button onclick="deleteSignpost(${index})" title="Delete">🗑️</button>
+                        </div>
+                    </div>
+                    <div class="signpost-questions">
+                        <h5>Questions in this signpost:</h5>
+                        <div class="signpost-question-list">
+                            ${getQuestionsForSignpost(signpost.id).map(q => `
+                                <span class="signpost-question-tag">${q.question}</span>
+                            `).join('')}
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function getQuestionsForSignpost(signpostId) {
+            return currentQuestions.filter(q => q.signpostId === signpostId);
+        }
+
+        function populateSignpostDropdown() {
+            const select = document.getElementById('questionSignpost');
+            if (!select) return;
+            
+            // Clear existing options except the first one
+            select.innerHTML = '<option value="">No signpost (ungrouped)</option>';
+            
+            // Add signpost options
+            currentSignposts.forEach(signpost => {
+                const option = document.createElement('option');
+                option.value = signpost.id;
+                option.textContent = signpost.title;
+                select.appendChild(option);
+            });
+        }
+
+        function addSignpost() {
+            const signpost = {
+                id: `signpost_${Date.now()}`,
+                title: `Step ${currentSignposts.length + 1}`,
+                description: 'Describe this step',
+                order: currentSignposts.length + 1
+            };
+            
+            currentSignposts.push(signpost);
+            window.currentSignposts = currentSignposts;
+            renderSignposts();
+            
+            // Auto-edit the new signpost
+            editSignpost(currentSignposts.length - 1);
+        }
+
+        function editSignpost(index) {
+            const signpost = currentSignposts[index];
+            if (!signpost) return;
+            
+            const newTitle = prompt('Signpost Title:', signpost.title);
+            if (newTitle === null) return;
+            
+            const newDescription = prompt('Signpost Description:', signpost.description);
+            if (newDescription === null) return;
+            
+            signpost.title = newTitle;
+            signpost.description = newDescription;
+            
+            currentSignposts[index] = signpost;
+            window.currentSignposts = currentSignposts;
+            renderSignposts();
+        }
+
+        function deleteSignpost(index) {
+            const signpost = currentSignposts[index];
+            if (!signpost) return;
+            
+            const questionsInSignpost = getQuestionsForSignpost(signpost.id);
+            let confirmMessage = `Are you sure you want to delete "${signpost.title}"?`;
+            
+            if (questionsInSignpost.length > 0) {
+                confirmMessage += `\n\nThis will also remove the signpost assignment from ${questionsInSignpost.length} question(s).`;
+            }
+            
+            if (confirm(confirmMessage)) {
+                // Remove signpost assignment from questions
+                currentQuestions.forEach(q => {
+                    if (q.signpostId === signpost.id) {
+                        delete q.signpostId;
+                    }
+                });
+                
+                currentSignposts.splice(index, 1);
+                window.currentSignposts = currentSignposts;
+                window.currentQuestions = currentQuestions;
+                renderSignposts();
+                renderQuestions();
+            }
+        }
+
+        // Export signpost functions to global scope
+        window.loadSignposts = loadSignposts;
+        window.renderSignposts = renderSignposts;
+        window.addSignpost = addSignpost;
+        window.editSignpost = editSignpost;
+        window.deleteSignpost = deleteSignpost;
+        window.getQuestionsForSignpost = getQuestionsForSignpost;
+        window.populateSignpostDropdown = populateSignpostDropdown;
         
         // Add event listeners for widget type changes
         document.getElementById('editBubble').addEventListener('change', function() {

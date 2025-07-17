@@ -419,8 +419,8 @@ class AttributionTracker {
   }
 }
 
-// Chat steps configuration
-const QUOTE_STEPS = [
+// Default fallback steps configuration
+const DEFAULT_QUOTE_STEPS = [
   {
     step: 1,
     title: "Location",
@@ -440,6 +440,27 @@ const QUOTE_STEPS = [
     chatStep: 'contact' as ChatStep,
   },
 ]
+
+// Generate quote steps from signposts configuration
+function getQuoteSteps(CONFIG: any) {
+  // If no signposts are configured, use default steps
+  if (!CONFIG.signposts || CONFIG.signposts.length === 0) {
+    return DEFAULT_QUOTE_STEPS;
+  }
+  
+  // Convert signposts to quote steps format
+  return CONFIG.signposts
+    .sort((a: any, b: any) => (a.order || 0) - (b.order || 0))
+    .map((signpost: any, index: number) => ({
+      step: index + 1,
+      title: signpost.title,
+      description: signpost.description,
+      chatStep: index === 0 ? 'location' as ChatStep : 
+                index === 1 ? 'service' as ChatStep : 
+                'contact' as ChatStep,
+      signpostId: signpost.id
+    }));
+}
 
 // Consolidated Widget Component
 function LeadStickWidget({ CONFIG }: { CONFIG: any }) {
@@ -462,8 +483,15 @@ function LeadStickWidget({ CONFIG }: { CONFIG: any }) {
   // Initialize attribution tracking
   const attributionTracker = AttributionTracker.getInstance()
   
+  // Helper function to substitute [Agent Name] placeholder with actual agent name
+  const substituteAgentName = (message: string): string => {
+    return message.replace(/\[Agent Name\]/g, CONFIG.business.agentName);
+  };
+
   const [messages, setMessages] = useState(() => {
-    const welcomeMessage = CONFIG.messages?.welcome || `Hi, ${CONFIG.business.agentName} here. Let me know a little about your project. Your message comes straight to my phone and I'll send your quote ASAP`;
+    const welcomeMessage = CONFIG.messages?.welcome 
+      ? substituteAgentName(CONFIG.messages.welcome)
+      : `Hi, ${CONFIG.business.agentName} here. Let me know a little about your project. Your message comes straight to my phone and I'll send your quote ASAP`;
     const firstQuestion = CONFIG.flow?.[0]?.question || "📍 First, what's your location/suburb?";
     
     return [
@@ -513,7 +541,9 @@ function LeadStickWidget({ CONFIG }: { CONFIG: any }) {
         website: '', // Reset honeypot
         formOpenTime: Date.now() // Track new session time
       })
-      const welcomeMessage = CONFIG.messages?.welcome || `Hi, ${CONFIG.business.agentName} here. Let me know a little about your project. Your message comes straight to my phone and I'll send your quote ASAP`;
+      const welcomeMessage = CONFIG.messages?.welcome 
+        ? substituteAgentName(CONFIG.messages.welcome)
+        : `Hi, ${CONFIG.business.agentName} here. Let me know a little about your project. Your message comes straight to my phone and I'll send your quote ASAP`;
       const firstQuestion = CONFIG.flow?.[0]?.question || "📍 First, what's your location/suburb?";
       
       setMessages([
@@ -644,23 +674,88 @@ function LeadStickWidget({ CONFIG }: { CONFIG: any }) {
     }
   }
 
+  // Get questions grouped by signpost
+  const getQuestionsBySignpost = () => {
+    if (!CONFIG.flow || !CONFIG.signposts) return {};
+    
+    const grouped: {[key: string]: any[]} = {};
+    
+    // Group questions by signpost
+    CONFIG.flow.forEach((question: any) => {
+      const signpostId = question.signpostId || 'ungrouped';
+      if (!grouped[signpostId]) {
+        grouped[signpostId] = [];
+      }
+      grouped[signpostId].push(question);
+    });
+    
+    return grouped;
+  }
+
+  // Get current signpost step based on which questions have been answered
   const getCurrentStepNumber = () => {
-    const stepMap = {
-      'location': 1,
-      'service': 2,
-      'contact': 3,
-      'complete': 3
+    const steps = getQuoteSteps(CONFIG);
+    
+    // If using default steps, use original logic
+    if (!CONFIG.signposts || CONFIG.signposts.length === 0) {
+      const stepMap = {
+        'location': 1,
+        'service': 2,
+        'contact': 3,
+        'complete': 3
+      }
+      return stepMap[currentStep]
     }
-    return stepMap[currentStep]
+    
+    if (currentStep === 'complete') return steps.length;
+    
+    // For dynamic signposts, determine step based on signpost completion
+    const questionsBySignpost = getQuestionsBySignpost();
+    const answeredQuestions = new Set();
+    
+    // Track which questions have been answered based on form data
+    if (leadData.location) answeredQuestions.add('location');
+    if (leadData.service) answeredQuestions.add('service');
+    if (leadData.name) answeredQuestions.add('name');
+    if (leadData.phone) answeredQuestions.add('phone');
+    if (leadData.email) answeredQuestions.add('email');
+    
+    // Find which signpost we're currently on
+    for (let i = 0; i < CONFIG.signposts.length; i++) {
+      const signpost = CONFIG.signposts[i];
+      const signpostQuestions = questionsBySignpost[signpost.id] || [];
+      
+      // Check if all questions in this signpost are answered
+      const allAnswered = signpostQuestions.every((q: any) => 
+        answeredQuestions.has(q.type) || answeredQuestions.has(q.id)
+      );
+      
+      if (!allAnswered) {
+        return i + 1; // Return 1-based step number
+      }
+    }
+    
+    return steps.length; // All signposts completed
   }
 
   const isStepCompleted = (stepNumber: number) => {
-    switch (stepNumber) {
-      case 1: return !!leadData.location
-      case 2: return !!leadData.service
-      case 3: return currentStep === 'complete'
-      default: return false
+    const steps = getQuoteSteps(CONFIG);
+    
+    // If using default steps, use original logic
+    if (!CONFIG.signposts || CONFIG.signposts.length === 0) {
+      switch (stepNumber) {
+        case 1: return !!leadData.location
+        case 2: return !!leadData.service
+        case 3: return currentStep === 'complete'
+        default: return false
+      }
     }
+    
+    // For dynamic signposts, check if step is completed
+    if (currentStep === 'complete') return true;
+    
+    const currentStepNumber = getCurrentStepNumber();
+    return stepNumber < currentStepNumber;
   }
 
   const submitLead = async () => {
@@ -929,10 +1024,10 @@ function LeadStickWidget({ CONFIG }: { CONFIG: any }) {
             {/* Progress Stepper */}
             <div style={{ width: '100%', marginBottom: '16px' }}>
               <div style={stepperStyles.container}>
-                {QUOTE_STEPS.map(({ step, title, description }, index) => {
+                {getQuoteSteps(CONFIG).map(({ step, title, description }, index) => {
                   const isActive = getCurrentStepNumber() === step
                   const isCompleted = isStepCompleted(step)
-                  const isLast = index === QUOTE_STEPS.length - 1
+                  const isLast = index === getQuoteSteps(CONFIG).length - 1
 
                   return (
                     <div key={step} style={stepperStyles.item}>
@@ -1223,10 +1318,10 @@ function LeadStickWidget({ CONFIG }: { CONFIG: any }) {
               {/* Progress Stepper - Mobile */}
               <div style={{ width: '100%', marginBottom: '16px' }}>
                 <div style={stepperStyles.container}>
-                  {QUOTE_STEPS.map(({ step, title, description }, index) => {
+                  {getQuoteSteps(CONFIG).map(({ step, title, description }, index) => {
                     const isActive = getCurrentStepNumber() === step
                     const isCompleted = isStepCompleted(step)
-                    const isLast = index === QUOTE_STEPS.length - 1
+                    const isLast = index === getQuoteSteps(CONFIG).length - 1
 
                     return (
                       <div key={step} style={stepperStyles.item}>
@@ -1322,10 +1417,14 @@ function LeadStickWidget({ CONFIG }: { CONFIG: any }) {
 export async function initLeadStick(options?: { siteId?: string }) {
   let finalConfig = CONFIG; // Default config as fallback
   
+  // Get API URL from window.leadstickConfig if available
+  const leadstickConfig = (window as any).leadstickConfig;
+  const apiUrl = leadstickConfig?.apiUrl || CONFIG.apiEndpoint;
+  
   // If siteId provided, fetch configuration from API
   if (options?.siteId) {
     try {
-      const response = await fetch(`${CONFIG.apiEndpoint}/api/config/${options.siteId}`);
+      const response = await fetch(`${apiUrl}/api/config/${options.siteId}`);
       if (response.ok) {
         const customConfig = await response.json();
         // Merge with default config, prioritizing custom config
@@ -1334,6 +1433,7 @@ export async function initLeadStick(options?: { siteId?: string }) {
           ...customConfig,
           business: { ...CONFIG.business, ...(customConfig.business || {}) },
           theme: { ...CONFIG.theme, ...(customConfig.theme || {}) },
+          apiEndpoint: apiUrl, // Use the API URL from leadstickConfig
           siteId: options.siteId
         };
       } else {
@@ -1472,8 +1572,16 @@ if (typeof window !== 'undefined') {
   // Make initLeadStick globally available
   (window as any).LeadStick = { init: initLeadStick };
   
-  // Auto-init only if no custom config is expected
-  if (!(window as any).__leadstickConfig) {
+  // Check for window.leadstickConfig and auto-initialize with siteId
+  const leadstickConfig = (window as any).leadstickConfig;
+  if (leadstickConfig && leadstickConfig.siteId) {
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', () => initLeadStick({ siteId: leadstickConfig.siteId }))
+    } else {
+      initLeadStick({ siteId: leadstickConfig.siteId })
+    }
+  } else {
+    // Fallback to default config if no leadstickConfig found
     if (document.readyState === 'loading') {
       document.addEventListener('DOMContentLoaded', () => initLeadStick())
     } else {
