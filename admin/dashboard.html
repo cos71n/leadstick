@@ -2268,6 +2268,7 @@
             let isUnderSignpost = false;
             
             currentFlow.forEach((item, index) => {
+                console.log(`[renderFlow] Processing item ${index}:`, { type: item.type, heading: item.heading, question: item.question });
                 if (item.type === 'signpost') {
                     isUnderSignpost = true;
                     html += `
@@ -2311,6 +2312,23 @@
                                     </ul>
                                 </div>
                             ` : ''}
+                        </div>
+                    `;
+                } else {
+                    console.warn(`[renderFlow] Unknown item type at index ${index}:`, item);
+                    html += `
+                        <div class="question-item error" data-index="${index}">
+                            <div class="question-header">
+                                <div class="question-info">
+                                    <h4>Unknown Item Type: ${item.type || 'undefined'}</h4>
+                                    <div class="question-details">
+                                        <span class="question-type-tag error">ERROR</span>
+                                    </div>
+                                </div>
+                                <div class="question-actions">
+                                    <button onclick="deleteFlowItem(${index})" title="Delete">🗑️</button>
+                                </div>
+                            </div>
                         </div>
                     `;
                 }
