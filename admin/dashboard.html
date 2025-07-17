@@ -2266,16 +2266,18 @@
             
             let html = '';
             let isUnderSignpost = false;
+            let signpostNumber = 0;
             
             currentFlow.forEach((item, index) => {
                 console.log(`[renderFlow] Processing item ${index}:`, { type: item.type, heading: item.heading, question: item.question });
                 if (item.type === 'signpost') {
                     isUnderSignpost = true;
+                    signpostNumber++;
                     html += `
                         <div class="flow-signpost" data-index="${index}">
                             <div class="flow-signpost-header">
                                 <div>
-                                    <h4 class="flow-signpost-title">${item.heading || 'Signpost'}</h4>
+                                    <h4 class="flow-signpost-title">${signpostNumber}. ${item.heading || 'Signpost'}</h4>
                                     <div class="flow-signpost-subtitle">${item.subheading || ''}</div>
                                 </div>
                                 <div class="flow-signpost-actions">
@@ -2833,6 +2835,7 @@ window.leadstickConfig = {
         window.closeSignpostEditor = closeSignpostEditor;
         window.saveSignpost = saveSignpost;
         window.editSignpost = editSignpost;
+        window.editSignpostInList = editSignpostInList;
         window.getQuestionTypeLabel = getQuestionTypeLabel;
 
         // SIGNPOST MANAGEMENT FUNCTIONS
@@ -2864,7 +2867,7 @@ window.leadstickConfig = {
                             <p>${signpost.description}</p>
                         </div>
                         <div class="signpost-actions">
-                            <button onclick="editSignpost(${index})" title="Edit">✏️</button>
+                            <button onclick="editSignpostInList(${index})" title="Edit">✏️</button>
                             <button onclick="deleteSignpost(${index})" title="Delete">🗑️</button>
                         </div>
                     </div>
@@ -2993,7 +2996,7 @@ window.leadstickConfig = {
             return types[type] || type;
         }
 
-        function editSignpost(index) {
+        function editSignpostInList(index) {
             const signpost = currentSignposts[index];
             if (!signpost) return;
             
@@ -3043,6 +3046,7 @@ window.leadstickConfig = {
         window.renderSignposts = renderSignposts;
         window.addSignpost = addSignpost;
         window.editSignpost = editSignpost;
+        window.editSignpostInList = editSignpostInList;
         window.deleteSignpost = deleteSignpost;
         window.getQuestionsForSignpost = getQuestionsForSignpost;
         window.populateSignpostDropdown = populateSignpostDropdown;
