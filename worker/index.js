@@ -241,9 +241,17 @@ function validateAndSanitizeLead(leadData) {
     return { sanitized: null, errors, isSpam: true };
   }
   
+  // Handle firstName/lastName or combined name
+  let fullName = '';
+  if (leadData.name) {
+    fullName = leadData.name;
+  } else if (leadData.firstName || leadData.lastName) {
+    fullName = (sanitizeInput(leadData.firstName || '', 50) + ' ' + sanitizeInput(leadData.lastName || '', 50)).trim();
+  }
+  
   // Sanitize all inputs
   const sanitized = {
-    name: sanitizeInput(leadData.name, 100),
+    name: sanitizeInput(fullName, 100),
     phone: sanitizeInput(leadData.phone, 20),
     email: sanitizeInput(leadData.email, 100),
     location: sanitizeInput(leadData.location, 200),
@@ -1369,6 +1377,8 @@ export default {
 
     // Route: POST / (lead submission)
     if (request.method === 'POST' && url.pathname === '/') {
+      console.log('[Lead Submission] Received POST request to /');
+      
       try {
       // Get client IP for rate limiting
       const clientIP = request.headers.get('CF-Connecting-IP') || 
@@ -1413,6 +1423,17 @@ export default {
       
       // Parse lead data
       const leadData = await request.json();
+      console.log('[Lead Submission] Received lead data:', {
+        hasName: !!leadData.name,
+        hasFirstName: !!leadData.firstName,
+        hasLastName: !!leadData.lastName,
+        hasPhone: !!leadData.phone,
+        hasEmail: !!leadData.email,
+        hasLocation: !!leadData.location,
+        hasService: !!leadData.service,
+        source: leadData.source,
+        siteId: leadData.siteId
+      });
       
       // Validate and sanitize lead data
       const { sanitized, errors, isSpam } = validateAndSanitizeLead(leadData);
@@ -1709,7 +1730,19 @@ async function sendEmail(lead, leadId, emailList, env) {
       })
     });
 
-    return response.ok;
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('Resend API error:', {
+        status: response.status,
+        statusText: response.statusText,
+        body: errorText
+      });
+      return false;
+    }
+    
+    const responseData = await response.json();
+    console.log('Email sent successfully:', responseData);
+    return true;
   } catch (error) {
     console.error('Email sending failed:', error);
     return false;

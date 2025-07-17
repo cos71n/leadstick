@@ -1110,7 +1110,16 @@ function LeadStickWidget({ CONFIG }: { CONFIG: any }) {
 
   // Trigger lead submission when complete
   useEffect(() => {
-    if (currentStep === 'complete' && leadData.location && leadData.service && leadData.name && leadData.phone && leadData.email) {
+    // Check if we have all required fields
+    const hasName = leadData.name || (leadData.firstName && leadData.lastName);
+    const hasAllFields = currentStep === 'complete' && 
+                        leadData.location && 
+                        leadData.service && 
+                        hasName && 
+                        leadData.phone && 
+                        leadData.email;
+    
+    if (hasAllFields) {
       submitLead()
     }
   }, [currentStep])
