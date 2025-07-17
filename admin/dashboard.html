@@ -2279,8 +2279,8 @@
                                     <div class="flow-signpost-subtitle">${item.subheading || ''}</div>
                                 </div>
                                 <div class="flow-signpost-actions">
-                                    <button onclick="editSignpost(${index})" title="Edit">✏️</button>
-                                    <button onclick="deleteFlowItem(${index})" title="Delete">🗑️</button>
+                                    <button type="button" onclick="editSignpost(${index})" title="Edit">✏️</button>
+                                    <button type="button" onclick="deleteFlowItem(${index})" title="Delete">🗑️</button>
                                 </div>
                             </div>
                         </div>
@@ -2300,9 +2300,9 @@
                                     </div>
                                 </div>
                                 <div class="question-actions">
-                                    <button onclick="editQuestion(${index})" title="Edit">✏️</button>
-                                    <button onclick="duplicateQuestion(${index})" title="Duplicate">📋</button>
-                                    <button onclick="deleteFlowItem(${index})" title="Delete">🗑️</button>
+                                    <button type="button" onclick="editQuestion(${index})" title="Edit">✏️</button>
+                                    <button type="button" onclick="duplicateQuestion(${index})" title="Duplicate">📋</button>
+                                    <button type="button" onclick="deleteFlowItem(${index})" title="Delete">🗑️</button>
                                 </div>
                             </div>
                             ${item.questionType === 'select' || item.questionType === 'multiselect' ? `
@@ -2326,7 +2326,7 @@
                                     </div>
                                 </div>
                                 <div class="question-actions">
-                                    <button onclick="deleteFlowItem(${index})" title="Delete">🗑️</button>
+                                    <button type="button" onclick="deleteFlowItem(${index})" title="Delete">🗑️</button>
                                 </div>
                             </div>
                         </div>
