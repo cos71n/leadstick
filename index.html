@@ -91,13 +91,14 @@ API: https://api.leadstick.com/submit</code></pre>
     </div>
   </div>
 
-  <!-- LeadStick Widget Script -->
-  <script type="module">
-    // Import the widget directly
-    import { initLeadStick } from '/src/widget.tsx';
-    
-    // Initialize the widget with bubble configuration
-    initLeadStick({ siteId: 'bubble-test' });
+  <!-- LeadStick Widget -->
+  <script>
+  window.leadstickConfig = {
+      siteId: '66xysy',
+      apiUrl: 'https://leadstick-api.attribution.workers.dev'
+  };
   </script>
+  <script src="https://pub-2cf19529958742fea36d2ac68c558716.r2.dev/widget.js" async></script>
+  <!-- End LeadStick Widget -->
 </body>
 </html>
