@@ -795,6 +795,26 @@ export default {
           const avatarUrl = `https://pub-2cf19529958742fea36d2ac68c558716.r2.dev/${fileName}`;
           console.log('[Avatar Upload] Generated public URL:', avatarUrl);
           
+          // Update client configuration with new avatar URL
+          try {
+            const configKey = `client_config_${siteId}`;
+            const existingConfig = await env.LEADSTICK_CONFIGS.get(configKey, 'json');
+            
+            if (existingConfig) {
+              // Update existing config with new avatar
+              existingConfig.business = existingConfig.business || {};
+              existingConfig.business.avatar = avatarUrl;
+              
+              await env.LEADSTICK_CONFIGS.put(configKey, JSON.stringify(existingConfig));
+              console.log('[Avatar Upload] Client config updated with new avatar URL');
+            } else {
+              console.log('[Avatar Upload] No existing config found for siteId:', siteId);
+            }
+          } catch (configError) {
+            console.error('[Avatar Upload] Failed to update client config:', configError);
+            // Continue anyway - avatar was uploaded successfully
+          }
+          
           return new Response(JSON.stringify({
             success: true,
             avatarUrl: avatarUrl
@@ -908,6 +928,7 @@ export default {
               email: config.business?.email || '',
               agentName: config.business?.agentName || '',
               phone: config.business?.phone || '',
+              avatar: config.business?.avatar || '',
               theme: config.theme?.primary || '#3b82f6',
               desktopStyle: config.desktopStyle || 'bubble',
               barText: config.barText || 'Get A Quick Quote',

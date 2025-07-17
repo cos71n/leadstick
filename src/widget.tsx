@@ -874,12 +874,24 @@ function LeadStickWidget({ CONFIG }: { CONFIG: any }) {
 
 
   const getInputPlaceholder = () => {
+    const questions = getQuestionsFromFlow(CONFIG);
+    
     switch (currentStep) {
-      case 'location': return "e.g. Burleigh, Mermaid Waters, Tweed Heads..."
-      case 'service': return "Tell me about your stone project..."
+      case 'location': 
+        // Use the first question's placeholder if available
+        if (questions[0] && questions[0].placeholder) {
+          return questions[0].placeholder;
+        }
+        return "e.g. Burleigh, Mermaid Waters, Tweed Heads..."
+        
+      case 'service': 
+        // Use the second question's placeholder if available  
+        if (questions[1] && questions[1].placeholder) {
+          return questions[1].placeholder;
+        }
+        return "Tell me about your stone project..."
+        
       case 'contact': 
-        // Use the same logic as validation to determine current field type
-        const questions = getQuestionsFromFlow(CONFIG);
         const contactQuestions = questions.filter(q => 
           q.questionType && ['firstName', 'lastName', 'name', 'phone', 'email'].includes(q.questionType)
         );
@@ -895,32 +907,48 @@ function LeadStickWidget({ CONFIG }: { CONFIG: any }) {
         // Determine placeholder based on current contact question
         if (filledCount < contactQuestions.length) {
           const currentContactQuestion = contactQuestions[filledCount];
-          if (currentContactQuestion && currentContactQuestion.questionType) {
-            switch (currentContactQuestion.questionType) {
-              case 'firstName': return "Enter your first name"
-              case 'lastName': return "Enter your last name"
-              case 'name': return "Enter your full name"
-              case 'phone': return "Enter your phone number"
-              case 'email': return "Enter your email address"
-              default: return "Type your response..."
+          if (currentContactQuestion) {
+            // First try to use the configured placeholder
+            if (currentContactQuestion.placeholder) {
+              return currentContactQuestion.placeholder;
+            }
+            
+            // Fall back to questionType-based placeholders
+            if (currentContactQuestion.questionType) {
+              switch (currentContactQuestion.questionType) {
+                case 'firstName': return "Enter your first name"
+                case 'lastName': return "Enter your last name"
+                case 'name': return "Enter your full name"
+                case 'phone': return "Enter your phone number"
+                case 'email': return "Enter your email address"
+                default: return "Type your response..."
+              }
             }
           } else {
             // Fallback to question content analysis
             const allQuestions = questions.slice(2); // Skip location and service questions
             const currentQuestion = allQuestions[filledCount];
             
-            if (currentQuestion && currentQuestion.question) {
-              const questionText = currentQuestion.question.toLowerCase();
-              if (questionText.includes('first name') || questionText.includes('firstname')) {
-                return "Enter your first name";
-              } else if (questionText.includes('last name') || questionText.includes('lastname')) {
-                return "Enter your last name";
-              } else if (questionText.includes('name')) {
-                return "Enter your full name";
-              } else if (questionText.includes('phone') || questionText.includes('number') || currentQuestion.question.includes('📱')) {
-                return "Enter your phone number";
-              } else if (questionText.includes('email') || currentQuestion.question.includes('✉️')) {
-                return "Enter your email address";
+            if (currentQuestion) {
+              // First try to use the configured placeholder
+              if (currentQuestion.placeholder) {
+                return currentQuestion.placeholder;
+              }
+              
+              // Fall back to question content analysis
+              if (currentQuestion.question) {
+                const questionText = currentQuestion.question.toLowerCase();
+                if (questionText.includes('first name') || questionText.includes('firstname')) {
+                  return "Enter your first name";
+                } else if (questionText.includes('last name') || questionText.includes('lastname')) {
+                  return "Enter your last name";
+                } else if (questionText.includes('name')) {
+                  return "Enter your full name";
+                } else if (questionText.includes('phone') || questionText.includes('number') || currentQuestion.question.includes('📱')) {
+                  return "Enter your phone number";
+                } else if (questionText.includes('email') || currentQuestion.question.includes('✉️')) {
+                  return "Enter your email address";
+                }
               }
             }
           }
@@ -1015,28 +1043,35 @@ function LeadStickWidget({ CONFIG }: { CONFIG: any }) {
   }
 
   const submitLead = async () => {
+    console.log('[Widget] submitLead() called');
+    console.log('[Widget] Full leadData:', leadData);
+    
     try {
       // Spam prevention checks
       // 1. Check honeypot field
       if (leadData.website && leadData.website.trim() !== '') {
-        console.warn('Honeypot field filled - likely spam')
+        console.warn('[Widget] Honeypot field filled - likely spam')
         // Silently fail for bots
         return
       }
       
       // 2. Check time-based validation (minimum 5 seconds)
       const timeElapsed = Date.now() - (leadData.formOpenTime || Date.now())
+      console.log('[Widget] Time elapsed:', timeElapsed);
+      
       if (timeElapsed < 5000) {
-        console.warn('Form submitted too quickly - likely spam')
+        console.warn('[Widget] Form submitted too quickly - likely spam')
         addMessage('Please take your time to fill out the form properly.', 'ai')
         return
       }
       
       // Get attribution data
       const attribution = attributionTracker.getAttributionData()
+      console.log('[Widget] Attribution data:', attribution);
       
       // Track GA4 event with attribution
       if (typeof gtag !== 'undefined') {
+        console.log('[Widget] Sending GA4 event');
         gtag('event', 'leadstick_completed', {
           business_name: CONFIG.business.name,
           service_selected: leadData.service,
@@ -1051,26 +1086,36 @@ function LeadStickWidget({ CONFIG }: { CONFIG: any }) {
         })
       }
 
+      const requestData = {
+        ...leadData,
+        attribution,
+        business: CONFIG.business.name,
+        timestamp: new Date().toISOString(),
+        source: 'leadstick-widget',
+        siteId: CONFIG.siteId,
+        // Include submission time for server-side validation
+        submissionTime: timeElapsed
+      };
+      
+      console.log('[Widget] About to submit to API:', CONFIG.apiEndpoint);
+      console.log('[Widget] Request data:', requestData);
+
       // Submit to API with attribution data
       const response = await fetch(CONFIG.apiEndpoint, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          ...leadData,
-          attribution,
-          business: CONFIG.business.name,
-          timestamp: new Date().toISOString(),
-          source: 'leadstick-widget',
-          siteId: CONFIG.siteId,
-          // Include submission time for server-side validation
-          submissionTime: timeElapsed
-        })
+        body: JSON.stringify(requestData)
       })
+      
+      console.log('[Widget] API response status:', response.status);
+      console.log('[Widget] API response:', response);
 
       if (!response.ok) {
+        console.error('[Widget] API request failed with status:', response.status);
         const errorData = await response.json().catch(() => null)
+        console.error('[Widget] Error data:', errorData);
         
         if (response.status === 429) {
           // Rate limit exceeded - show user-friendly message
@@ -1092,8 +1137,13 @@ function LeadStickWidget({ CONFIG }: { CONFIG: any }) {
         
         throw new Error(errorData?.message || 'Failed to submit lead')
       }
+      
+      const responseData = await response.json();
+      console.log('[Widget] API response data:', responseData);
+      console.log('[Widget] Lead submission completed successfully!');
+      
     } catch (error) {
-      console.error('Error submitting lead:', error)
+      console.error('[Widget] Error submitting lead:', error)
       // Handle error gracefully - could show error message to user
     }
   }
@@ -1110,17 +1160,15 @@ function LeadStickWidget({ CONFIG }: { CONFIG: any }) {
 
   // Trigger lead submission when complete
   useEffect(() => {
-    // Check if we have all required fields
-    const hasName = leadData.name || (leadData.firstName && leadData.lastName);
-    const hasAllFields = currentStep === 'complete' && 
-                        leadData.location && 
-                        leadData.service && 
-                        hasName && 
-                        leadData.phone && 
-                        leadData.email;
+    console.log('[Widget] useEffect triggered - currentStep:', currentStep);
+    console.log('[Widget] leadData:', leadData);
     
-    if (hasAllFields) {
+    // Submit when we reach the complete step - let the API validate what's required
+    if (currentStep === 'complete') {
+      console.log('[Widget] Reached complete step, calling submitLead()');
       submitLead()
+    } else {
+      console.log('[Widget] Not at complete step yet, currentStep:', currentStep);
     }
   }, [currentStep])
 
@@ -1473,7 +1521,8 @@ function LeadStickWidget({ CONFIG }: { CONFIG: any }) {
           right: 0,
           bottom: 0,
           zIndex: 999999,
-          backgroundColor: CONFIG.theme.background
+          backgroundColor: CONFIG.theme.background,
+          pointerEvents: 'auto'
         }}>
           <div style={{
             display: 'flex',

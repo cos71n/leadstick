@@ -1915,13 +1915,18 @@
             document.getElementById('editAgentName').value = client.agentName || '';
             document.getElementById('editPhone').value = client.phone || '';
             
-            // Handle avatar
+            // Handle avatar - check both client.avatar and client.business.avatar
             const avatarImage = document.getElementById('avatarImage');
             const avatarPlaceholder = document.getElementById('avatarPlaceholder');
             const removeBtn = document.getElementById('removeAvatarBtn');
             
-            if (client.avatar) {
-                avatarImage.src = client.avatar;
+            const avatarUrl = client.avatar || (client.business && client.business.avatar);
+            console.log('[editClient] Avatar URL:', avatarUrl);
+            console.log('[editClient] client.avatar:', client.avatar);
+            console.log('[editClient] client.business?.avatar:', client.business?.avatar);
+            
+            if (avatarUrl) {
+                avatarImage.src = avatarUrl;
                 avatarImage.style.display = 'block';
                 avatarPlaceholder.style.display = 'none';
                 removeBtn.style.display = 'inline-block';
