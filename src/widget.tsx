@@ -441,25 +441,117 @@ const DEFAULT_QUOTE_STEPS = [
   },
 ]
 
-// Generate quote steps from signposts configuration
+// Generate quote steps from flow configuration
 function getQuoteSteps(CONFIG: any) {
+  // Extract signposts from flow structure
+  const signposts = (CONFIG.flow || []).filter((item: any) => item.type === 'signpost');
+  
   // If no signposts are configured, use default steps
-  if (!CONFIG.signposts || CONFIG.signposts.length === 0) {
+  if (signposts.length === 0) {
     return DEFAULT_QUOTE_STEPS;
   }
   
   // Convert signposts to quote steps format
-  return CONFIG.signposts
-    .sort((a: any, b: any) => (a.order || 0) - (b.order || 0))
-    .map((signpost: any, index: number) => ({
-      step: index + 1,
-      title: signpost.title,
-      description: signpost.description,
-      chatStep: index === 0 ? 'location' as ChatStep : 
-                index === 1 ? 'service' as ChatStep : 
-                'contact' as ChatStep,
-      signpostId: signpost.id
-    }));
+  return signposts.map((signpost: any, index: number) => ({
+    step: index + 1,
+    title: signpost.heading || signpost.title || `Step ${index + 1}`,
+    description: signpost.subheading || signpost.description || '',
+    chatStep: index === 0 ? 'location' as ChatStep : 
+              index === 1 ? 'service' as ChatStep : 
+              'contact' as ChatStep,
+    signpostId: signpost.id
+  }));
+}
+
+// Get questions from flow configuration
+function getQuestionsFromFlow(CONFIG: any) {
+  if (!CONFIG.flow) return [];
+  return CONFIG.flow.filter((item: any) => item.type === 'question');
+}
+
+// Get specific question by step or type
+function getQuestionForStep(CONFIG: any, step: ChatStep, subStep?: string) {
+  const questions = getQuestionsFromFlow(CONFIG);
+  
+  // Define default questions as fallback
+  const defaultQuestions = {
+    location: "📍 First, what's your location/suburb?",
+    service: "Perfect! Tell me about your project, the more details the better.",
+    contact: {
+      intro: "Great! Now I need your contact details.",
+      name: "👤 What's your name?",
+      phone: "📱 What's your phone number?",
+      email: "✉️ What's your email address?"
+    }
+  };
+  
+  // Try to find question by matching criteria
+  if (step === 'location') {
+    const locationQ = questions.find(q => 
+      q.question && (
+        q.question.includes('location') || 
+        q.question.includes('suburb') ||
+        q.question.includes('📍')
+      )
+    );
+    return locationQ?.question || defaultQuestions.location;
+  }
+  
+  if (step === 'service') {
+    const serviceQ = questions.find(q => 
+      q.question && (
+        q.question.includes('project') || 
+        q.question.includes('service') ||
+        q.question.includes('work')
+      )
+    );
+    return serviceQ?.question || defaultQuestions.service;
+  }
+  
+  if (step === 'contact') {
+    if (subStep === 'intro') {
+      const contactIntroQ = questions.find(q => 
+        q.question && (
+          q.question.includes('contact') || 
+          q.question.includes('details')
+        )
+      );
+      return contactIntroQ?.question || defaultQuestions.contact.intro;
+    }
+    
+    if (subStep === 'name') {
+      const nameQ = questions.find(q => 
+        q.question && (
+          q.question.includes('name') || 
+          q.question.includes('👤')
+        )
+      );
+      return nameQ?.question || defaultQuestions.contact.name;
+    }
+    
+    if (subStep === 'phone') {
+      const phoneQ = questions.find(q => 
+        q.question && (
+          q.question.includes('phone') || 
+          q.question.includes('number') ||
+          q.question.includes('📱')
+        )
+      );
+      return phoneQ?.question || defaultQuestions.contact.phone;
+    }
+    
+    if (subStep === 'email') {
+      const emailQ = questions.find(q => 
+        q.question && (
+          q.question.includes('email') || 
+          q.question.includes('✉️')
+        )
+      );
+      return emailQ?.question || defaultQuestions.contact.email;
+    }
+  }
+  
+  return '';
 }
 
 // Consolidated Widget Component
@@ -492,7 +584,10 @@ function LeadStickWidget({ CONFIG }: { CONFIG: any }) {
     const welcomeMessage = CONFIG.messages?.welcome 
       ? substituteAgentName(CONFIG.messages.welcome)
       : `Hi, ${CONFIG.business.agentName} here. Let me know a little about your project. Your message comes straight to my phone and I'll send your quote ASAP`;
-    const firstQuestion = CONFIG.flow?.[0]?.question || "📍 First, what's your location/suburb?";
+    
+    // Extract the first question from the flow
+    const questions = (CONFIG.flow || []).filter((item: any) => item.type === 'question');
+    const firstQuestion = questions.length > 0 ? questions[0].question : "📍 First, what's your location/suburb?";
     
     return [
       {
@@ -544,7 +639,9 @@ function LeadStickWidget({ CONFIG }: { CONFIG: any }) {
       const welcomeMessage = CONFIG.messages?.welcome 
         ? substituteAgentName(CONFIG.messages.welcome)
         : `Hi, ${CONFIG.business.agentName} here. Let me know a little about your project. Your message comes straight to my phone and I'll send your quote ASAP`;
-      const firstQuestion = CONFIG.flow?.[0]?.question || "📍 First, what's your location/suburb?";
+      // Extract the first question from the flow
+      const questions = (CONFIG.flow || []).filter((item: any) => item.type === 'question');
+      const firstQuestion = questions.length > 0 ? questions[0].question : "📍 First, what's your location/suburb?";
       
       setMessages([
         {
@@ -630,24 +727,24 @@ function LeadStickWidget({ CONFIG }: { CONFIG: any }) {
     switch (currentStep) {
       case 'location':
         setLeadData(prev => ({ ...prev, location: userInput }))
-        addMessage("Perfect! Tell me about your project, the more details the better.", 'ai')
+        addMessage(getQuestionForStep(CONFIG, 'service'), 'ai')
         setCurrentStep('service')
         break
 
       case 'service':
         setLeadData(prev => ({ ...prev, service: userInput }))
-        addMessage("Great! Now I need your contact details.", 'ai')
-        addMessage("👤 What's your name?", 'ai')
+        addMessage(getQuestionForStep(CONFIG, 'contact', 'intro'), 'ai')
+        addMessage(getQuestionForStep(CONFIG, 'contact', 'name'), 'ai')
         setCurrentStep('contact')
         break
 
       case 'contact':
         if (!leadData.name) {
           setLeadData(prev => ({ ...prev, name: userInput }))
-          addMessage("📱 What's your phone number?", 'ai')
+          addMessage(getQuestionForStep(CONFIG, 'contact', 'phone'), 'ai')
         } else if (!leadData.phone) {
           setLeadData(prev => ({ ...prev, phone: userInput }))
-          addMessage("✉️ What's your email address?", 'ai')
+          addMessage(getQuestionForStep(CONFIG, 'contact', 'email'), 'ai')
         } else if (!leadData.email) {
           setLeadData(prev => ({ ...prev, email: userInput }))
           addMessage("Perfect! I've got all your details. I'll get back to you ASAP.", 'ai')
