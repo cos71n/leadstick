@@ -584,6 +584,60 @@
             font-size: 12px;
         }
 
+        .flow-signpost {
+            background: #2563eb;
+            color: white;
+            border: none;
+            padding: 12px 16px;
+            margin-bottom: 16px;
+            border-radius: 8px;
+            cursor: move;
+            transition: all 0.2s;
+        }
+
+        .flow-signpost:hover {
+            background: #1d4ed8;
+            box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
+        }
+
+        .flow-signpost-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .flow-signpost-title {
+            font-size: 16px;
+            font-weight: 600;
+            margin: 0;
+        }
+
+        .flow-signpost-subtitle {
+            font-size: 12px;
+            opacity: 0.9;
+            margin-top: 4px;
+        }
+
+        .flow-signpost-actions {
+            display: flex;
+            gap: 8px;
+        }
+
+        .flow-signpost-actions button {
+            background: rgba(255, 255, 255, 0.2);
+            border: none;
+            color: white;
+            padding: 6px 10px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            transition: background 0.2s;
+        }
+
+        .flow-signpost-actions button:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+
         .signpost-builder {
             border: 1px solid #e5e7eb;
             border-radius: 8px;
@@ -1010,33 +1064,18 @@
                     </div>
 
                     <div class="form-group">
-                        <label>Signpost Configuration</label>
-                        <div class="signpost-builder">
-                            <div class="signpost-header">
-                                <h3>Progress Signposts</h3>
-                                <div class="signpost-info">
-                                    <small>Configure the progress indicators shown at the top of the chat. Questions will be grouped under these signposts.</small>
-                                </div>
-                                <button type="button" class="btn btn-primary btn-small" onclick="addSignpost()">
-                                    ➕ Add Signpost
-                                </button>
-                            </div>
-                            <div class="signpost-list" id="signpostList">
-                                <!-- Signposts will be rendered here -->
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="form-group">
                         <label>Questions & Flow</label>
                         <div class="questions-builder">
                             <div class="questions-header">
                                 <h3>Question Flow</h3>
                                 <div class="add-question-dropdown">
                                     <button type="button" class="btn btn-primary btn-small" onclick="toggleQuestionDropdown()">
-                                        ➕ Add Question
+                                        ➕ Add Item
                                     </button>
                                     <div class="dropdown-content" id="questionDropdown">
+                                        <div style="border-bottom: 1px solid #e5e7eb; padding-bottom: 4px; margin-bottom: 4px;">
+                                            <button type="button" class="dropdown-item" onclick="addSignpost()" style="font-weight: 600;">🎯 Signpost</button>
+                                        </div>
                                         <button type="button" class="dropdown-item" onclick="addQuestion('text')">📝 Text Input</button>
                                         <button type="button" class="dropdown-item" onclick="addQuestion('select')">📋 Single Choice</button>
                                         <button type="button" class="dropdown-item" onclick="addQuestion('multiselect')">☑️ Multiple Choice</button>
@@ -1101,15 +1140,6 @@
                         <div class="validation-error"></div>
                     </div>
 
-                    <div class="form-group" id="signpostGroup">
-                        <label for="questionSignpost">Assign to Signpost</label>
-                        <select id="questionSignpost" name="questionSignpost">
-                            <option value="">No signpost (ungrouped)</option>
-                            <!-- Signpost options will be populated dynamically -->
-                        </select>
-                        <div class="help-text">Optional: Group this question under a progress signpost</div>
-                        <div class="validation-error"></div>
-                    </div>
 
                     <div class="form-group" id="placeholderGroup">
                         <label for="questionPlaceholder">Placeholder Text</label>
@@ -1163,6 +1193,53 @@
                     </div>
                 </form>
             </div>
+        </div>
+    </div>
+
+    <!-- Signpost Editor Modal -->
+    <div id="signpostEditorModal" class="modal">
+        <div class="modal-content" style="max-width: 500px;">
+            <div class="modal-header">
+                <h2 id="signpostEditorTitle">Add Signpost</h2>
+                <button class="close-btn" onclick="closeSignpostEditor()">&times;</button>
+            </div>
+
+            <form id="signpostEditorForm" onsubmit="saveSignpost(event)">
+                <div class="form-group">
+                    <label for="signpostHeading">Signpost Heading *</label>
+                    <input 
+                        type="text" 
+                        id="signpostHeading" 
+                        name="signpostHeading" 
+                        required
+                        maxlength="50"
+                        placeholder="e.g., Location, Project Details, Contact"
+                    >
+                    <div class="help-text">This appears as the main step title</div>
+                </div>
+
+                <div class="form-group">
+                    <label for="signpostSubheading">Subheading *</label>
+                    <input 
+                        type="text" 
+                        id="signpostSubheading" 
+                        name="signpostSubheading" 
+                        required
+                        maxlength="100"
+                        placeholder="e.g., Where are you?, Tell us about it, Your details"
+                    >
+                    <div class="help-text">Brief description shown below the heading</div>
+                </div>
+
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-secondary" onclick="closeSignpostEditor()">
+                        Cancel
+                    </button>
+                    <button type="submit" class="btn btn-primary">
+                        Save Signpost
+                    </button>
+                </div>
+            </form>
         </div>
     </div>
 
@@ -1226,18 +1303,12 @@
                 hasCsrfToken: !!csrfToken
             });
             
-            let currentQuestions = [];
-            let editingQuestionIndex = -1;
-            let currentSignposts = [];
-            let editingSignpostIndex = -1;
+            let currentFlow = [];
+            let editingItemIndex = -1;
             
-            // Question management global state
-            window.currentQuestions = currentQuestions;
-            window.editingQuestionIndex = editingQuestionIndex;
-            
-            // Signpost management global state
-            window.currentSignposts = currentSignposts;
-            window.editingSignpostIndex = editingSignpostIndex;
+            // Flow management global state
+            window.currentFlow = currentFlow;
+            window.editingItemIndex = editingItemIndex;
 
             // Authentication check function
             async function checkAuthentication() {
@@ -1697,8 +1768,9 @@
             
             // Keep default welcome message text (don't clear it)
             
-            // Clear questions
-            loadQuestions([]);
+            // Clear questions and signposts
+            loadFlow([]);
+            loadSignposts([]);
             
             // Clear any previous validation errors
             document.querySelectorAll('#editModal .form-group').forEach(group => {
@@ -1777,11 +1849,19 @@
             const showPhoneCta = client.showPhoneCta !== false; // Default to true
             document.getElementById('showPhoneCta').checked = showPhoneCta;
             
-            // Load questions
-            loadQuestions(client.questions || []);
-            
-            // Load signposts
-            loadSignposts(client.signposts || []);
+            // Load flow (unified structure of signposts and questions)
+            if (client.flow && Array.isArray(client.flow)) {
+                loadFlow(client.flow);
+            } else {
+                // Fallback to old format
+                // Legacy support: convert old format to flow
+                const legacyFlow = (client.questions || []).map(q => ({...q, type: 'question', questionType: q.type}));
+                loadFlow(legacyFlow);
+                // Load signposts separately if using old format
+                if (client.signposts) {
+                    loadSignposts(client.signposts || []);
+                }
+            }
             
             // Clear any previous validation errors
             document.querySelectorAll('#editModal .form-group').forEach(group => {
@@ -1985,8 +2065,7 @@
                     showPhoneCta: showPhoneCta,
                     desktopStyle: formData.get('widgetType'),
                     barText: sanitizeInput(formData.get('barText') || 'Get A Quick Quote'),
-                    flow: window.currentQuestions || [],
-                    signposts: window.currentSignposts || []
+                    flow: window.currentFlow || []
                 };
                 
                 // Site ID is auto-generated for create mode, only used for edit mode
@@ -2047,10 +2126,147 @@
             }
         }
 
-        // Question Management Functions
-        function loadQuestions(questions = []) {
-            window.currentQuestions = questions;
-            currentQuestions = questions;
+        // Helper function to create unified flow from questions and signposts
+        function createUnifiedFlow(questions = [], signposts = []) {
+            const flow = [];
+            
+            // First, add all signposts to the flow
+            signposts.forEach(signpost => {
+                flow.push({
+                    type: 'signpost',
+                    ...signpost
+                });
+            });
+            
+            // Then add all questions
+            questions.forEach(question => {
+                // Ensure question has type property
+                flow.push({
+                    type: 'question',
+                    ...question
+                });
+            });
+            
+            // Sort by order if questions have signpostId
+            // Questions without signpostId come first
+            flow.sort((a, b) => {
+                // Signposts always come before their questions
+                if (a.type === 'signpost' && b.type === 'question' && b.signpostId === a.id) {
+                    return -1;
+                }
+                if (b.type === 'signpost' && a.type === 'question' && a.signpostId === b.id) {
+                    return 1;
+                }
+                
+                // Questions without signpost come first
+                if (a.type === 'question' && b.type === 'question') {
+                    if (!a.signpostId && b.signpostId) return -1;
+                    if (a.signpostId && !b.signpostId) return 1;
+                }
+                
+                return 0;
+            });
+            
+            return flow;
+        }
+
+        // Flow Management Functions
+        function loadFlow(flow = []) {
+            window.currentFlow = flow || [];
+            currentFlow = window.currentFlow;
+            renderFlow();
+        }
+
+        function renderFlow() {
+            const questionList = document.getElementById('questionList');
+            if (!questionList) return;
+            
+            if (currentFlow.length === 0) {
+                questionList.innerHTML = `
+                    <div style="text-align: center; color: #6b7280; padding: 40px;">
+                        <p>No questions or signposts yet.</p>
+                        <p style="font-size: 12px;">Click "Add Item" to get started.</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            questionList.innerHTML = currentFlow.map((item, index) => {
+                if (item.type === 'signpost') {
+                    return `
+                        <div class="flow-signpost" data-index="${index}">
+                            <div class="flow-signpost-header">
+                                <div>
+                                    <h4 class="flow-signpost-title">${item.heading || 'Signpost'}</h4>
+                                    <div class="flow-signpost-subtitle">${item.subheading || ''}</div>
+                                </div>
+                                <div class="flow-signpost-actions">
+                                    <button onclick="editSignpost(${index})" title="Edit">✏️</button>
+                                    <button onclick="deleteFlowItem(${index})" title="Delete">🗑️</button>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                } else {
+                    // Regular question
+                    return `
+                        <div class="question-item" data-index="${index}">
+                            <div class="question-header">
+                                <div class="question-info">
+                                    <h4>${item.question}</h4>
+                                    <div class="question-details">
+                                        <span class="question-type-tag">${getQuestionTypeLabel(item.type)}</span>
+                                        ${item.validation?.required ? '<span class="required-badge">Required</span>' : ''}
+                                    </div>
+                                </div>
+                                <div class="question-actions">
+                                    <button onclick="editQuestion(${index})" title="Edit">✏️</button>
+                                    <button onclick="duplicateQuestion(${index})" title="Duplicate">📋</button>
+                                    <button onclick="deleteFlowItem(${index})" title="Delete">🗑️</button>
+                                </div>
+                            </div>
+                            ${item.type === 'select' || item.type === 'multiselect' ? `
+                                <div class="options-preview">
+                                    <ul class="options-list">
+                                        ${(item.options || []).map(opt => `<li>• ${opt}</li>`).join('')}
+                                    </ul>
+                                </div>
+                            ` : ''}
+                        </div>
+                    `;
+                }
+            }).join('');
+        }
+
+        // Question Management Functions (legacy compatibility)
+        function loadQuestions(flow = []) {
+            // If flow is passed as an array, use it directly
+            // If it's the old format (questions array), convert it
+            if (Array.isArray(flow)) {
+                // Check if this is already a flow array or old questions array
+                const isFlowFormat = flow.length > 0 && flow[0].hasOwnProperty('type') && 
+                                   (flow[0].type === 'signpost' || flow[0].type === 'question');
+                
+                if (isFlowFormat) {
+                    // Extract only questions from the flow
+                    const questions = flow.filter(item => item.type === 'question');
+                    window.currentQuestions = questions;
+                    currentQuestions = questions;
+                    
+                    // Also extract signposts if they exist
+                    const signposts = flow.filter(item => item.type === 'signpost');
+                    if (signposts.length > 0 && typeof loadSignposts === 'function') {
+                        loadSignposts(signposts);
+                    }
+                } else {
+                    // Old format - treat as questions array
+                    window.currentQuestions = flow;
+                    currentQuestions = flow;
+                }
+            } else {
+                window.currentQuestions = [];
+                currentQuestions = [];
+            }
             renderQuestions();
         }
 
@@ -2156,12 +2372,11 @@
         }
 
         function editQuestion(index) {
-            const question = currentQuestions[index];
-            if (!question) return;
+            const item = currentFlow[index];
+            if (!item || item.type !== 'question') return;
             
-            window.editingQuestionIndex = index;
-            editingQuestionIndex = index;
-            openQuestionEditor(question.type, question);
+            window.editingItemIndex = index;
+            openQuestionEditor(item.type, item);
         }
 
         function deleteQuestion(index) {
@@ -2187,10 +2402,9 @@
             title.textContent = existingQuestion ? 'Edit Question' : 'Add Question';
             
             // Set default type
-            document.getElementById('questionType').value = type;
+            document.getElementById('questionType').value = existingQuestion ? existingQuestion.questionType : type;
             
-            // Populate signpost dropdown
-            populateSignpostDropdown();
+            // Note: Signpost assignment is now handled through the flow structure
             
             // Set default question text for contact fields
             if (!existingQuestion) {
@@ -2211,7 +2425,7 @@
                 document.getElementById('questionText').value = existingQuestion.question || '';
                 document.getElementById('questionPlaceholder').value = existingQuestion.placeholder || '';
                 document.getElementById('questionRequired').checked = existingQuestion.validation?.required !== false;
-                document.getElementById('questionSignpost').value = existingQuestion.signpostId || '';
+                // Signpost assignment is now handled through flow structure
                 
                 if (existingQuestion.validation?.minLength) {
                     document.getElementById('minLength').value = existingQuestion.validation.minLength;
@@ -2316,8 +2530,9 @@
             const formData = new FormData(form);
             
             const question = {
-                id: editingQuestionIndex >= 0 ? currentQuestions[editingQuestionIndex].id : generateQuestionId(),
-                type: formData.get('questionType'),
+                id: window.editingItemIndex >= 0 ? currentFlow[window.editingItemIndex].id : generateQuestionId(),
+                type: 'question',
+                questionType: formData.get('questionType'),
                 question: formData.get('questionText').trim(),
                 validation: {
                     required: formData.get('questionRequired') === 'on'
@@ -2330,23 +2545,19 @@
                 question.placeholder = placeholder;
             }
             
-            // Add signpost assignment if provided
-            const signpostId = formData.get('questionSignpost')?.trim();
-            if (signpostId) {
-                question.signpostId = signpostId;
-            }
+            // Note: Signpost assignment is now handled through flow structure
             
             // Add type-specific fields
-            if (question.type === 'text' && formData.get('minLength')) {
+            if (question.questionType === 'text' && formData.get('minLength')) {
                 question.validation.minLength = parseInt(formData.get('minLength'));
             }
             
-            if (question.type === 'multiselect' && formData.get('minSelection')) {
+            if (question.questionType === 'multiselect' && formData.get('minSelection')) {
                 question.validation.minSelection = parseInt(formData.get('minSelection'));
             }
             
             // Add options for select/multiselect
-            if (question.type === 'select' || question.type === 'multiselect') {
+            if (question.questionType === 'select' || question.questionType === 'multiselect') {
                 const optionInputs = document.querySelectorAll('#optionsList input');
                 question.options = Array.from(optionInputs)
                     .map(input => input.value.trim())
@@ -2359,14 +2570,14 @@
             }
             
             // Add or update question
-            if (editingQuestionIndex >= 0) {
-                currentQuestions[editingQuestionIndex] = question;
+            if (window.editingItemIndex >= 0) {
+                currentFlow[window.editingItemIndex] = question;
             } else {
-                currentQuestions.push(question);
+                currentFlow.push(question);
             }
             
-            window.currentQuestions = currentQuestions;
-            renderQuestions();
+            window.currentFlow = currentFlow;
+            renderFlow();
             closeQuestionEditor();
         }
 
@@ -2487,16 +2698,25 @@ window.leadstickConfig = {
         window.validateClientInput = validateClientInput;
         window.showInputError = showInputError;
         window.clearInputError = clearInputError;
+        window.loadFlow = loadFlow;
+        window.renderFlow = renderFlow;
         window.loadQuestions = loadQuestions;
         window.toggleQuestionDropdown = toggleQuestionDropdown;
         window.addQuestion = addQuestion;
         window.editQuestion = editQuestion;
         window.deleteQuestion = deleteQuestion;
+        window.deleteFlowItem = deleteFlowItem;
         window.closeQuestionEditor = closeQuestionEditor;
         window.updateQuestionTypeOptions = updateQuestionTypeOptions;
         window.addOption = addOption;
         window.removeOption = removeOption;
         window.saveQuestion = saveQuestion;
+        window.addSignpost = addSignpost;
+        window.openSignpostEditor = openSignpostEditor;
+        window.closeSignpostEditor = closeSignpostEditor;
+        window.saveSignpost = saveSignpost;
+        window.editSignpost = editSignpost;
+        window.getQuestionTypeLabel = getQuestionTypeLabel;
 
         // SIGNPOST MANAGEMENT FUNCTIONS
         function loadSignposts(signposts = []) {
@@ -2564,19 +2784,96 @@ window.leadstickConfig = {
         }
 
         function addSignpost() {
+            // Close dropdown
+            document.getElementById('questionDropdown').classList.remove('show');
+            // Open signpost editor
+            openSignpostEditor();
+        }
+
+        function openSignpostEditor(existingSignpost = null, index = -1) {
+            const modal = document.getElementById('signpostEditorModal');
+            const title = document.getElementById('signpostEditorTitle');
+            const form = document.getElementById('signpostEditorForm');
+            
+            // Reset form
+            form.reset();
+            
+            // Set title and populate data
+            if (existingSignpost) {
+                title.textContent = 'Edit Signpost';
+                document.getElementById('signpostHeading').value = existingSignpost.heading || '';
+                document.getElementById('signpostSubheading').value = existingSignpost.subheading || '';
+                window.editingItemIndex = index;
+            } else {
+                title.textContent = 'Add Signpost';
+                window.editingItemIndex = -1;
+            }
+            
+            // Show modal
+            modal.classList.add('active');
+        }
+
+        function closeSignpostEditor() {
+            document.getElementById('signpostEditorModal').classList.remove('active');
+            window.editingItemIndex = -1;
+        }
+
+        function saveSignpost(event) {
+            event.preventDefault();
+            
+            const form = event.target;
+            const formData = new FormData(form);
+            
             const signpost = {
-                id: `signpost_${Date.now()}`,
-                title: `Step ${currentSignposts.length + 1}`,
-                description: 'Describe this step',
-                order: currentSignposts.length + 1
+                id: window.editingItemIndex >= 0 ? currentFlow[window.editingItemIndex].id : `signpost_${Date.now()}`,
+                type: 'signpost',
+                heading: formData.get('signpostHeading').trim(),
+                subheading: formData.get('signpostSubheading').trim()
             };
             
-            currentSignposts.push(signpost);
-            window.currentSignposts = currentSignposts;
-            renderSignposts();
+            // Add or update signpost
+            if (window.editingItemIndex >= 0) {
+                currentFlow[window.editingItemIndex] = signpost;
+            } else {
+                currentFlow.push(signpost);
+            }
             
-            // Auto-edit the new signpost
-            editSignpost(currentSignposts.length - 1);
+            window.currentFlow = currentFlow;
+            renderFlow();
+            closeSignpostEditor();
+        }
+
+        function editSignpost(index) {
+            const item = currentFlow[index];
+            if (!item || item.type !== 'signpost') return;
+            openSignpostEditor(item, index);
+        }
+
+        function deleteFlowItem(index) {
+            const item = currentFlow[index];
+            if (!item) return;
+            
+            const itemType = item.type === 'signpost' ? 'signpost' : 'question';
+            const itemName = item.type === 'signpost' ? item.heading : item.question;
+            
+            if (confirm(`Are you sure you want to delete this ${itemType}? "${itemName}"`)) {
+                currentFlow.splice(index, 1);
+                window.currentFlow = currentFlow;
+                renderFlow();
+            }
+        }
+
+        function getQuestionTypeLabel(type) {
+            const types = {
+                'text': '📝 Text',
+                'select': '📋 Choice',
+                'multiselect': '☑️ Multi-Choice',
+                'firstName': '👤 First Name',
+                'lastName': '👤 Last Name',
+                'email': '📧 Email',
+                'phone': '📞 Phone'
+            };
+            return types[type] || type;
         }
 
         function editSignpost(index) {
