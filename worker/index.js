@@ -770,7 +770,7 @@ export default {
           });
 
           // Return the public URL
-          const avatarUrl = `https://your-r2-domain.com/${fileName}`;
+          const avatarUrl = `https://pub-2cf19529958742fea36d2ac68c558716.r2.dev/${fileName}`;
           
           return new Response(JSON.stringify({
             success: true,

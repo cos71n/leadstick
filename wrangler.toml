@@ -35,6 +35,11 @@ ADMIN_ALLOWED_ORIGINS = "https://leadstick-dashboard.pages.dev"
 binding = "LEADSTICK_CONFIGS"
 id = "9ed0226c090542429677c61665c4ebc2"
 
+# R2 Buckets
+[[r2_buckets]]
+binding = "R2_BUCKET"
+bucket_name = "leadstick-widget"
+
 # Secrets are managed via CLI:
 # wrangler secret put RESEND_API_KEY
 # wrangler secret put GA4_MEASUREMENT_ID
