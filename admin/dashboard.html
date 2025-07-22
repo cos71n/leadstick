@@ -995,6 +995,20 @@
                     </div>
 
                     <div class="form-group">
+                        <label for="editEmailSubject">Email Subject Line</label>
+                        <input 
+                            type="text" 
+                            id="editEmailSubject" 
+                            name="emailSubject" 
+                            maxlength="200"
+                            placeholder="New Lead: {service} in {location}"
+                            oninput="validateEditInput('editEmailSubject', this.value)"
+                        >
+                        <div class="help-text">Customize the email subject. Use {service}, {location}, {name}, {phone} for dynamic values</div>
+                        <div class="validation-error"></div>
+                    </div>
+
+                    <div class="form-group">
                         <label for="editAgentName">Agent Name</label>
                         <input 
                             type="text" 
@@ -1850,6 +1864,7 @@
             document.getElementById('editSiteId').value = ''; // Will be auto-generated
             document.getElementById('editBusinessName').value = '';
             document.getElementById('editEmail').value = '';
+            document.getElementById('editEmailSubject').value = '';
             document.getElementById('editAgentName').value = '';
             document.getElementById('editPhone').value = '';
             
@@ -1912,6 +1927,7 @@
             document.getElementById('editSiteId').value = client.siteId || '';
             document.getElementById('editBusinessName').value = client.businessName || '';
             document.getElementById('editEmail').value = client.email || '';
+            document.getElementById('editEmailSubject').value = client.emailSubject || '';
             document.getElementById('editAgentName').value = client.agentName || '';
             document.getElementById('editPhone').value = client.phone || '';
             
@@ -2216,6 +2232,7 @@
                     business: {
                         name: sanitizeInput(formData.get('businessName')),
                         email: sanitizeInput(formData.get('email')),
+                        emailSubject: sanitizeInput(formData.get('emailSubject') || ''),
                         agentName: sanitizeInput(formData.get('agentName') || ''),
                         phone: sanitizeInput(formData.get('phone') || ''),
                         avatar: avatarUrl

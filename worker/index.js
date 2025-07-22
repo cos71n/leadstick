@@ -262,7 +262,9 @@ function validateAndSanitizeLead(leadData) {
     siteId: sanitizeInput(leadData.siteId, 50),
     // Include honeypot and submission time for logging (but not for email)
     website: sanitizeInput(leadData.website || '', 100),
-    submissionTime: leadData.submissionTime
+    submissionTime: leadData.submissionTime,
+    // Include attribution data for email tracking
+    attribution: leadData.attribution || null
   };
   
   // Validate required fields
@@ -926,6 +928,7 @@ export default {
               siteId: config.siteId,
               businessName: config.business?.name || '',
               email: config.business?.email || '',
+              emailSubject: config.business?.emailSubject || '',
               agentName: config.business?.agentName || '',
               phone: config.business?.phone || '',
               avatar: config.business?.avatar || '',
@@ -1103,6 +1106,7 @@ export default {
           business: {
             name: businessNameValidation.sanitized,
             email: emailValidation.sanitized,
+            emailSubject: body.business?.emailSubject ? sanitizeInput(body.business.emailSubject, 200) : '',
             phone: phoneValidation.sanitized,
             agentName: agentNameValidation.sanitized,
             avatar: avatarValidation.sanitized
@@ -1281,6 +1285,7 @@ export default {
           business: {
             name: businessNameValidation.sanitized || '',
             email: emailValidation.sanitized || '',
+            emailSubject: body.business?.emailSubject ? sanitizeInput(body.business.emailSubject, 200) : '',
             phone: phoneValidation.sanitized || '',
             agentName: agentNameValidation.sanitized || '',
             avatar: avatarValidation.sanitized || ''
@@ -1485,12 +1490,18 @@ export default {
 
       // Get configuration for email recipient (if siteId provided)
       let recipientEmail = env.LEAD_EMAIL_RECIPIENT || 'leads@example.com';
+      let customSubject = '';
       if (sanitized.siteId) {
         try {
           const configKey = `client_config_${sanitized.siteId}`;
           const config = await env.LEADSTICK_CONFIGS.get(configKey, 'json');
-          if (config && config.business && config.business.email) {
-            recipientEmail = config.business.email;
+          if (config && config.business) {
+            if (config.business.email) {
+              recipientEmail = config.business.email;
+            }
+            if (config.business.emailSubject) {
+              customSubject = config.business.emailSubject;
+            }
           }
         } catch (error) {
           console.warn('Failed to fetch client config:', error);
@@ -1499,9 +1510,10 @@ export default {
 
       // Parse multiple email addresses (comma-separated)
       const emailList = recipientEmail.split(',').map(email => email.trim()).filter(email => email);
+      console.log('Parsed email list:', emailList);
 
       // Send email via Resend
-      const emailSent = await sendEmail(sanitized, leadId, emailList, env);
+      const emailSent = await sendEmail(sanitized, leadId, emailList, env, customSubject);
       
       // Track in GA4 (optional)
       await trackGA4Event(sanitized, leadId, env);
@@ -1544,7 +1556,7 @@ export default {
 };
 
 // Send email notification
-async function sendEmail(lead, leadId, emailList, env) {
+async function sendEmail(lead, leadId, emailList, env, customSubject = '') {
   if (!env.RESEND_API_KEY) {
     console.warn('RESEND_API_KEY not configured');
     return false;
@@ -1554,6 +1566,9 @@ async function sendEmail(lead, leadId, emailList, env) {
     console.warn('No email recipients provided');
     return false;
   }
+
+  console.log('Sending email to recipients:', emailList);
+  console.log('Attribution data being passed to email:', lead.attribution);
 
   try {
     // Format attribution data for email display
@@ -1648,6 +1663,29 @@ async function sendEmail(lead, leadId, emailList, env) {
     const metrics = calculateConversionMetrics(lead.attribution, lead.timestamp);
     const marketingInsight = getMarketingInsight(metrics, lead.attribution);
 
+    // Process custom subject if provided, otherwise use default
+    let subject = '';
+    if (customSubject) {
+      // Replace variables in custom subject
+      subject = customSubject
+        .replace(/{service}/g, escapeHtml(lead.service || 'Inquiry'))
+        .replace(/{location}/g, escapeHtml(lead.location || 'Unknown'))
+        .replace(/{name}/g, escapeHtml(lead.name || 'Customer'))
+        .replace(/{phone}/g, escapeHtml(lead.phone || ''));
+    } else {
+      // Improved default subject line
+      const businessName = lead.business || 'Website';
+      subject = `🎯 New ${escapeHtml(lead.service || 'Lead')} Inquiry - ${escapeHtml(lead.location || businessName)}`;
+    }
+
+    const emailPayload = {
+      from: env.LEAD_EMAIL_FROM || 'LeadStick <noreply@leadstick.com>',
+      to: emailList,
+      subject: subject,
+    };
+
+    console.log('Email payload being sent to Resend:', JSON.stringify(emailPayload, null, 2));
+
     const response = await fetch('https://api.resend.com/emails', {
       method: 'POST',
       headers: {
@@ -1655,9 +1693,7 @@ async function sendEmail(lead, leadId, emailList, env) {
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        from: env.LEAD_EMAIL_FROM || 'LeadStick <noreply@leadstick.com>',
-        to: emailList,
-        subject: `New Lead: ${escapeHtml(lead.service)} in ${escapeHtml(lead.location)}`,
+        ...emailPayload,
         html: `
           <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 0 auto; background: white;">
             
@@ -1756,7 +1792,9 @@ async function sendEmail(lead, leadId, emailList, env) {
       console.error('Resend API error:', {
         status: response.status,
         statusText: response.statusText,
-        body: errorText
+        body: errorText,
+        emailList: emailList,
+        emailListLength: emailList.length
       });
       return false;
     }
