@@ -1,11 +1,31 @@
 import { h, Fragment } from 'preact'
 import { useState, useEffect, useRef } from 'preact/hooks'
 import { render } from 'preact'
-import { CONFIG } from './config'
+import { CONFIG as DEFAULT_CONFIG } from './config'
 
 // Global gtag function for GA4 tracking
 declare global {
   function gtag(...args: any[]): void
+}
+
+// Utility function to darken a hex color
+function darkenColor(hex: string, amount: number): string {
+  // Remove # if present
+  hex = hex.replace('#', '');
+  
+  // Parse hex to RGB
+  const r = parseInt(hex.substring(0, 2), 16);
+  const g = parseInt(hex.substring(2, 4), 16);
+  const b = parseInt(hex.substring(4, 6), 16);
+  
+  // Darken by reducing each component
+  const newR = Math.max(0, Math.floor(r * (1 - amount)));
+  const newG = Math.max(0, Math.floor(g * (1 - amount)));
+  const newB = Math.max(0, Math.floor(b * (1 - amount)));
+  
+  // Convert back to hex
+  const toHex = (n: number) => n.toString(16).padStart(2, '0');
+  return `#${toHex(newR)}${toHex(newG)}${toHex(newB)}`;
 }
 
 // Types
@@ -496,7 +516,7 @@ function getQuestionByIndex(CONFIG: any, index: number) {
 }
 
 // Consolidated Widget Component
-function LeadStickWidget({ CONFIG }: { CONFIG: any }) {
+function LeadStickWidget({ CONFIG: dynamicConfig }: { CONFIG: any }) {
   const [isOpen, setIsOpen] = useState(false)
   const [isMobile, setIsMobile] = useState(false)
   const [currentStep, setCurrentStep] = useState<ChatStep>('location')
@@ -520,16 +540,16 @@ function LeadStickWidget({ CONFIG }: { CONFIG: any }) {
   
   // Helper function to substitute [Agent Name] placeholder with actual agent name
   const substituteAgentName = (message: string): string => {
-    return message.replace(/\[Agent Name\]/g, CONFIG.business.agentName);
+    return message.replace(/\[Agent Name\]/g, dynamicConfig.business.agentName);
   };
 
   const [messages, setMessages] = useState(() => {
-    const welcomeMessage = CONFIG.messages?.welcome 
-      ? substituteAgentName(CONFIG.messages.welcome)
-      : `Hi, ${CONFIG.business.agentName} here. Let me know a little about your project. Your message comes straight to my phone and I'll send your quote ASAP`;
+    const welcomeMessage = dynamicConfig.messages?.welcome 
+      ? substituteAgentName(dynamicConfig.messages.welcome)
+      : `Hi, ${dynamicConfig.business.agentName} here. Let me know a little about your project. Your message comes straight to my phone and I'll send your quote ASAP`;
     
     // Extract the first question from the flow
-    const questions = (CONFIG.flow || []).filter((item: any) => item.type === 'question');
+    const questions = (dynamicConfig.flow || []).filter((item: any) => item.type === 'question');
     const firstQuestion = questions.length > 0 ? questions[0].question : "📍 First, what's your location/suburb?";
     
     return [
@@ -581,11 +601,11 @@ function LeadStickWidget({ CONFIG }: { CONFIG: any }) {
         website: '', // Reset honeypot
         formOpenTime: Date.now() // Track new session time
       })
-      const welcomeMessage = CONFIG.messages?.welcome 
-        ? substituteAgentName(CONFIG.messages.welcome)
-        : `Hi, ${CONFIG.business.agentName} here. Let me know a little about your project. Your message comes straight to my phone and I'll send your quote ASAP`;
+      const welcomeMessage = dynamicConfig.messages?.welcome 
+        ? substituteAgentName(dynamicConfig.messages.welcome)
+        : `Hi, ${dynamicConfig.business.agentName} here. Let me know a little about your project. Your message comes straight to my phone and I'll send your quote ASAP`;
       // Extract the first question from the flow
-      const questions = (CONFIG.flow || []).filter((item: any) => item.type === 'question');
+      const questions = (dynamicConfig.flow || []).filter((item: any) => item.type === 'question');
       const firstQuestion = questions.length > 0 ? questions[0].question : "📍 First, what's your location/suburb?";
       
       setMessages([
@@ -670,7 +690,7 @@ function LeadStickWidget({ CONFIG }: { CONFIG: any }) {
     let validationType = 'general'
     if (currentStep === 'contact') {
       // Get all contact questions from the flow to determine the current field type
-      const questions = getQuestionsFromFlow(CONFIG);
+      const questions = getQuestionsFromFlow(dynamicConfig);
       const contactQuestions = questions.filter(q => 
         q.questionType && ['firstName', 'lastName', 'name', 'phone', 'email'].includes(q.questionType)
       );
@@ -726,7 +746,7 @@ function LeadStickWidget({ CONFIG }: { CONFIG: any }) {
       case 'location':
         setLeadData(prev => ({ ...prev, location: userInput }))
         // Use second question from flow (index 1)
-        const secondQuestion = getQuestionByIndex(CONFIG, 1);
+        const secondQuestion = getQuestionByIndex(dynamicConfig, 1);
         if (secondQuestion) {
           addMessage(secondQuestion, 'ai')
         }
@@ -736,7 +756,7 @@ function LeadStickWidget({ CONFIG }: { CONFIG: any }) {
       case 'service':
         setLeadData(prev => ({ ...prev, service: userInput }))
         // Use third question from flow (index 2)
-        const thirdQuestion = getQuestionByIndex(CONFIG, 2);
+        const thirdQuestion = getQuestionByIndex(dynamicConfig, 2);
         if (thirdQuestion) {
           addMessage(thirdQuestion, 'ai')
         }
@@ -758,7 +778,7 @@ function LeadStickWidget({ CONFIG }: { CONFIG: any }) {
         }
         
         // Check if we have all required contact fields
-        const questions = getQuestionsFromFlow(CONFIG);
+        const questions = getQuestionsFromFlow(dynamicConfig);
         const contactQuestions = questions.filter(q => 
           q.questionType && ['firstName', 'lastName', 'name', 'phone', 'email'].includes(q.questionType)
         );
@@ -789,13 +809,13 @@ function LeadStickWidget({ CONFIG }: { CONFIG: any }) {
           const displayName = updatedLeadData.name || 
                              (updatedLeadData.firstName + (updatedLeadData.lastName ? ' ' + updatedLeadData.lastName : ''));
           
-          const completionMessage = CONFIG.messages?.completion 
-            ? substituteAgentName(CONFIG.messages.completion)
+          const completionMessage = dynamicConfig.messages?.completion 
+            ? substituteAgentName(dynamicConfig.messages.completion)
             : "Perfect! I've got all your details. I'll get back to you ASAP.";
           addMessage(completionMessage, 'ai')
           
           // Build dynamic summary based on what was actually submitted
-          const questions = getQuestionsFromFlow(CONFIG);
+          const questions = getQuestionsFromFlow(dynamicConfig);
           let summaryParts = [];
           
           // Add location if submitted
@@ -861,8 +881,8 @@ function LeadStickWidget({ CONFIG }: { CONFIG: any }) {
             : '📋 Summary: All details collected';
             
           addMessage(summaryMessage, 'ai')
-          const phoneButtonMessage = CONFIG.messages?.phoneButton 
-            ? substituteAgentName(CONFIG.messages.phoneButton)
+          const phoneButtonMessage = dynamicConfig.messages?.phoneButton 
+            ? substituteAgentName(dynamicConfig.messages.phoneButton)
             : "Or call me directly for immediate assistance!";
           addMessage(`PHONE_BUTTON:${phoneButtonMessage}`, 'ai')
           setCurrentStep('complete')
@@ -874,7 +894,7 @@ function LeadStickWidget({ CONFIG }: { CONFIG: any }) {
 
 
   const getInputPlaceholder = () => {
-    const questions = getQuestionsFromFlow(CONFIG);
+    const questions = getQuestionsFromFlow(dynamicConfig);
     
     switch (currentStep) {
       case 'location': 
@@ -960,12 +980,12 @@ function LeadStickWidget({ CONFIG }: { CONFIG: any }) {
 
   // Get questions grouped by signpost
   const getQuestionsBySignpost = () => {
-    if (!CONFIG.flow || !CONFIG.signposts) return {};
+    if (!dynamicConfig.flow || !dynamicConfig.signposts) return {};
     
     const grouped: {[key: string]: any[]} = {};
     
     // Group questions by signpost
-    CONFIG.flow.forEach((question: any) => {
+    dynamicConfig.flow.forEach((question: any) => {
       const signpostId = question.signpostId || 'ungrouped';
       if (!grouped[signpostId]) {
         grouped[signpostId] = [];
@@ -978,10 +998,10 @@ function LeadStickWidget({ CONFIG }: { CONFIG: any }) {
 
   // Get current signpost step based on which questions have been answered
   const getCurrentStepNumber = () => {
-    const steps = getQuoteSteps(CONFIG);
+    const steps = getQuoteSteps(dynamicConfig);
     
     // If using default steps, use original logic
-    if (!CONFIG.signposts || CONFIG.signposts.length === 0) {
+    if (!dynamicConfig.signposts || dynamicConfig.signposts.length === 0) {
       const stepMap = {
         'location': 1,
         'service': 2,
@@ -1005,8 +1025,8 @@ function LeadStickWidget({ CONFIG }: { CONFIG: any }) {
     if (leadData.email) answeredQuestions.add('email');
     
     // Find which signpost we're currently on
-    for (let i = 0; i < CONFIG.signposts.length; i++) {
-      const signpost = CONFIG.signposts[i];
+    for (let i = 0; i < dynamicConfig.signposts.length; i++) {
+      const signpost = dynamicConfig.signposts[i];
       const signpostQuestions = questionsBySignpost[signpost.id] || [];
       
       // Check if all questions in this signpost are answered
@@ -1023,10 +1043,10 @@ function LeadStickWidget({ CONFIG }: { CONFIG: any }) {
   }
 
   const isStepCompleted = (stepNumber: number) => {
-    const steps = getQuoteSteps(CONFIG);
+    const steps = getQuoteSteps(dynamicConfig);
     
     // If using default steps, use original logic
-    if (!CONFIG.signposts || CONFIG.signposts.length === 0) {
+    if (!dynamicConfig.signposts || dynamicConfig.signposts.length === 0) {
       switch (stepNumber) {
         case 1: return !!leadData.location
         case 2: return !!leadData.service
@@ -1073,7 +1093,7 @@ function LeadStickWidget({ CONFIG }: { CONFIG: any }) {
       if (typeof gtag !== 'undefined') {
         console.log('[Widget] Sending GA4 event');
         gtag('event', 'leadstick_completed', {
-          business_name: CONFIG.business.name,
+          business_name: dynamicConfig.business.name,
           service_selected: leadData.service,
           location: leadData.location,
           lead_source: 'leadstick-widget',
@@ -1089,19 +1109,19 @@ function LeadStickWidget({ CONFIG }: { CONFIG: any }) {
       const requestData = {
         ...leadData,
         attribution,
-        business: CONFIG.business.name,
+        business: dynamicConfig.business.name,
         timestamp: new Date().toISOString(),
         source: 'leadstick-widget',
-        siteId: CONFIG.siteId,
+        siteId: dynamicConfig.siteId,
         // Include submission time for server-side validation
         submissionTime: timeElapsed
       };
       
-      console.log('[Widget] About to submit to API:', CONFIG.apiEndpoint);
+      console.log('[Widget] About to submit to API:', dynamicConfig.apiEndpoint);
       console.log('[Widget] Request data:', requestData);
 
       // Submit to API with attribution data
-      const response = await fetch(CONFIG.apiEndpoint, {
+      const response = await fetch(dynamicConfig.apiEndpoint, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -1200,11 +1220,11 @@ function LeadStickWidget({ CONFIG }: { CONFIG: any }) {
       transition: 'all 0.2s'
     },
     indicatorActive: {
-      backgroundColor: CONFIG.theme.primary,
+      backgroundColor: dynamicConfig.theme.primary,
       color: 'white'
     },
     indicatorCompleted: {
-      backgroundColor: CONFIG.theme.primary,
+      backgroundColor: dynamicConfig.theme.primary,
       color: 'white'
     },
     title: {
@@ -1214,7 +1234,7 @@ function LeadStickWidget({ CONFIG }: { CONFIG: any }) {
     },
     description: {
       fontSize: '12px',
-      color: CONFIG.theme.muted,
+      color: dynamicConfig.theme.muted,
       textAlign: 'center' as const
     },
     separator: {
@@ -1226,7 +1246,7 @@ function LeadStickWidget({ CONFIG }: { CONFIG: any }) {
       backgroundColor: '#f3f4f6'
     },
     separatorCompleted: {
-      backgroundColor: CONFIG.theme.primary
+      backgroundColor: dynamicConfig.theme.primary
     }
   }
 
@@ -1249,7 +1269,7 @@ function LeadStickWidget({ CONFIG }: { CONFIG: any }) {
               height: '56px',
               border: 'none',
               borderRadius: 0,
-              backgroundColor: CONFIG.theme.primary,
+              backgroundColor: dynamicConfig.theme.primary,
               color: 'white',
               display: 'flex',
               alignItems: 'center',
@@ -1262,8 +1282,8 @@ function LeadStickWidget({ CONFIG }: { CONFIG: any }) {
               cursor: 'pointer',
               pointerEvents: 'auto'
             }}
-            onMouseOver={(e) => e.currentTarget.style.backgroundColor = CONFIG.theme.primaryHover}
-            onMouseOut={(e) => e.currentTarget.style.backgroundColor = CONFIG.theme.primary}
+            onMouseOver={(e) => e.currentTarget.style.backgroundColor = dynamicConfig.theme.primaryHover}
+            onMouseOut={(e) => e.currentTarget.style.backgroundColor = dynamicConfig.theme.primary}
           >
             <MessageCircleIcon />
             Get Quick Quote
@@ -1283,8 +1303,8 @@ function LeadStickWidget({ CONFIG }: { CONFIG: any }) {
           style={{
             display: 'flex',
             flexDirection: 'column',
-            backgroundColor: CONFIG.theme.background,
-            border: '1px solid ' + CONFIG.theme.border,
+            backgroundColor: dynamicConfig.theme.background,
+            border: '1px solid ' + dynamicConfig.theme.border,
             borderRadius: '8px',
             boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)',
             overflow: 'hidden',
@@ -1309,7 +1329,7 @@ function LeadStickWidget({ CONFIG }: { CONFIG: any }) {
             textAlign: 'center',
             justifyContent: 'center',
             padding: '16px',
-            borderBottom: '1px solid ' + CONFIG.theme.border
+            borderBottom: '1px solid ' + dynamicConfig.theme.border
           }}>
             <div style={{
               display: 'flex',
@@ -1322,12 +1342,12 @@ function LeadStickWidget({ CONFIG }: { CONFIG: any }) {
                 fontSize: '20px',
                 fontWeight: '600',
                 margin: 0,
-                color: CONFIG.theme.text
+                color: dynamicConfig.theme.text
               }}>Get A Quick Quote</h1>
             </div>
             <p style={{
               fontSize: '14px',
-              color: CONFIG.theme.muted,
+              color: dynamicConfig.theme.muted,
               marginBottom: '12px',
               margin: 0
             }}>
@@ -1337,10 +1357,10 @@ function LeadStickWidget({ CONFIG }: { CONFIG: any }) {
             {/* Progress Stepper */}
             <div style={{ width: '100%', marginBottom: '16px' }}>
               <div style={stepperStyles.container}>
-                {getQuoteSteps(CONFIG).map(({ step, title, description }, index) => {
+                {getQuoteSteps(dynamicConfig).map(({ step, title, description }, index) => {
                   const isActive = getCurrentStepNumber() === step
                   const isCompleted = isStepCompleted(step)
-                  const isLast = index === getQuoteSteps(CONFIG).length - 1
+                  const isLast = index === getQuoteSteps(dynamicConfig).length - 1
 
                   return (
                     <div key={step} style={stepperStyles.item}>
@@ -1378,7 +1398,7 @@ function LeadStickWidget({ CONFIG }: { CONFIG: any }) {
               padding: '16px'
             }}>
             {messages.map((message) => (
-              <ChatMessage key={message.id} message={message} CONFIG={CONFIG} />
+              <ChatMessage key={message.id} message={message} CONFIG={dynamicConfig} />
             ))}
 
 
@@ -1394,7 +1414,7 @@ function LeadStickWidget({ CONFIG }: { CONFIG: any }) {
               handleSubmit={handleSubmit}
               getInputPlaceholder={getInputPlaceholder}
               currentStep={currentStep}
-              CONFIG={CONFIG}
+              CONFIG={dynamicConfig}
               isMobile={false}
             />
           )}
@@ -1419,7 +1439,7 @@ function LeadStickWidget({ CONFIG }: { CONFIG: any }) {
                 alignItems: 'center',
                 gap: '4px'
               }}
-              onMouseOver={(e) => e.currentTarget.style.color = CONFIG.theme.primary}
+              onMouseOver={(e) => e.currentTarget.style.color = dynamicConfig.theme.primary}
               onMouseOut={(e) => e.currentTarget.style.color = '#9ca3af'}
             >
               Powered by <span style={{ fontWeight: '500' }}>Postclick</span>
@@ -1437,7 +1457,20 @@ function LeadStickWidget({ CONFIG }: { CONFIG: any }) {
               border: 'none',
               cursor: 'pointer',
               padding: '4px',
-              display: isMobile ? 'block' : 'none'
+              display: isMobile ? 'block' : 'none',
+              color: dynamicConfig.theme.text,
+              borderRadius: '4px',
+              transition: 'background-color 0.2s, color 0.2s'
+            }}
+            onMouseOver={(e: MouseEvent) => {
+              const target = e.currentTarget as HTMLButtonElement
+              target.style.backgroundColor = dynamicConfig.theme.primary
+              target.style.color = 'white'
+            }}
+            onMouseOut={(e: MouseEvent) => {
+              const target = e.currentTarget as HTMLButtonElement
+              target.style.backgroundColor = 'transparent'
+              target.style.color = dynamicConfig.theme.text
             }}
           >
             <XIcon />
@@ -1445,12 +1478,12 @@ function LeadStickWidget({ CONFIG }: { CONFIG: any }) {
         </div>
 
         {/* Toggle Button or Floating Bar */}
-        {!isOpen && CONFIG.desktopStyle === 'bar' ? (
+        {!isOpen && dynamicConfig.desktopStyle === 'bar' ? (
           // Floating Bar
           <button
             onClick={toggleChat}
             style={{
-              backgroundColor: CONFIG.theme.primary,
+              backgroundColor: dynamicConfig.theme.primary,
               color: 'white',
               padding: '12px 24px',
               borderRadius: '24px',
@@ -1469,15 +1502,15 @@ function LeadStickWidget({ CONFIG }: { CONFIG: any }) {
             onMouseOver={(e) => {
               e.currentTarget.style.boxShadow = '0 6px 20px rgba(0, 0, 0, 0.2)'
               e.currentTarget.style.transform = 'translateY(-2px)'
-              e.currentTarget.style.backgroundColor = CONFIG.theme.primaryHover
+              e.currentTarget.style.backgroundColor = dynamicConfig.theme.primaryHover
             }}
             onMouseOut={(e) => {
               e.currentTarget.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.15)'
               e.currentTarget.style.transform = 'translateY(0)'
-              e.currentTarget.style.backgroundColor = CONFIG.theme.primary
+              e.currentTarget.style.backgroundColor = dynamicConfig.theme.primary
             }}
           >
-            {CONFIG.barText.substring(0, CONFIG.barTextMaxLength)}
+            {dynamicConfig.barText.substring(0, dynamicConfig.barTextMaxLength)}
           </button>
         ) : (
           // Floating Bubble
@@ -1492,7 +1525,7 @@ function LeadStickWidget({ CONFIG }: { CONFIG: any }) {
               alignItems: 'center',
               justifyContent: 'center',
               transition: 'all 0.3s',
-              backgroundColor: CONFIG.theme.primary,
+              backgroundColor: dynamicConfig.theme.primary,
               color: 'white',
               border: 'none',
               cursor: 'pointer',
@@ -1500,11 +1533,11 @@ function LeadStickWidget({ CONFIG }: { CONFIG: any }) {
             }}
             onMouseOver={(e) => {
               e.currentTarget.style.boxShadow = '0 20px 25px -5px rgba(0, 0, 0, 0.3)'
-              e.currentTarget.style.backgroundColor = CONFIG.theme.primaryHover
+              e.currentTarget.style.backgroundColor = dynamicConfig.theme.primaryHover
             }}
             onMouseOut={(e) => {
               e.currentTarget.style.boxShadow = '0 10px 15px -3px rgba(0, 0, 0, 0.1)'
-              e.currentTarget.style.backgroundColor = CONFIG.theme.primary
+              e.currentTarget.style.backgroundColor = dynamicConfig.theme.primary
             }}
           >
             {isOpen ? <XIcon /> : <MessageCircleIcon />}
@@ -1521,13 +1554,13 @@ function LeadStickWidget({ CONFIG }: { CONFIG: any }) {
           right: 0,
           bottom: 0,
           zIndex: 999999,
-          backgroundColor: CONFIG.theme.background,
+          backgroundColor: dynamicConfig.theme.background,
           pointerEvents: 'auto'
         }}>
           <div style={{
             display: 'flex',
             flexDirection: 'column',
-            backgroundColor: CONFIG.theme.background,
+            backgroundColor: dynamicConfig.theme.background,
             height: '100%',
             overflow: 'hidden'
           }}>
@@ -1538,7 +1571,7 @@ function LeadStickWidget({ CONFIG }: { CONFIG: any }) {
               textAlign: 'center',
               justifyContent: 'center',
               padding: '16px',
-              borderBottom: '1px solid ' + CONFIG.theme.border,
+              borderBottom: '1px solid ' + dynamicConfig.theme.border,
               position: 'relative'
             }}>
               {/* Tap To Call Button */}
@@ -1547,21 +1580,21 @@ function LeadStickWidget({ CONFIG }: { CONFIG: any }) {
                   // Track GA4 event
                   if (typeof gtag !== 'undefined') {
                     gtag('event', 'leadstick_phone_tapped', {
-                      business_name: CONFIG.business.name,
-                      phone_number: CONFIG.business.phone,
+                      business_name: dynamicConfig.business.name,
+                      phone_number: dynamicConfig.business.phone,
                       source: 'mobile_chat_header',
                       page_url: window.location.href,
                       timestamp: new Date().toISOString()
                     })
                   }
-                  window.open(`tel:${CONFIG.business.phone}`, '_self')
+                  window.open(`tel:${dynamicConfig.business.phone}`, '_self')
                 }}
                 style={{
                   position: 'absolute',
                   top: '12px',
                   left: '12px',
                   backgroundColor: 'transparent',
-                  border: '1px solid ' + CONFIG.theme.border,
+                  border: '1px solid ' + dynamicConfig.theme.border,
                   borderRadius: '6px',
                   padding: '6px 10px',
                   display: 'flex',
@@ -1569,18 +1602,18 @@ function LeadStickWidget({ CONFIG }: { CONFIG: any }) {
                   gap: '6px',
                   fontSize: '12px',
                   fontWeight: '500',
-                  color: CONFIG.theme.primary,
+                  color: dynamicConfig.theme.primary,
                   cursor: 'pointer',
                   pointerEvents: 'auto',
                   transition: 'all 0.2s'
                 }}
                 onMouseOver={(e) => {
-                  e.currentTarget.style.backgroundColor = CONFIG.theme.primary
+                  e.currentTarget.style.backgroundColor = dynamicConfig.theme.primary
                   e.currentTarget.style.color = 'white'
                 }}
                 onMouseOut={(e) => {
                   e.currentTarget.style.backgroundColor = 'transparent'
-                  e.currentTarget.style.color = CONFIG.theme.primary
+                  e.currentTarget.style.color = dynamicConfig.theme.primary
                 }}
               >
                 <PhoneIcon />
@@ -1599,7 +1632,19 @@ function LeadStickWidget({ CONFIG }: { CONFIG: any }) {
                   cursor: 'pointer',
                   padding: '6px',
                   pointerEvents: 'auto',
-                  color: '#000000'
+                  color: dynamicConfig.theme.text,
+                  borderRadius: '4px',
+                  transition: 'background-color 0.2s, color 0.2s'
+                }}
+                onMouseOver={(e: MouseEvent) => {
+                  const target = e.currentTarget as HTMLButtonElement
+                  target.style.backgroundColor = dynamicConfig.theme.primary
+                  target.style.color = 'white'
+                }}
+                onMouseOut={(e: MouseEvent) => {
+                  const target = e.currentTarget as HTMLButtonElement
+                  target.style.backgroundColor = 'transparent'
+                  target.style.color = dynamicConfig.theme.text
                 }}
               >
                 <XIcon />
@@ -1617,12 +1662,12 @@ function LeadStickWidget({ CONFIG }: { CONFIG: any }) {
                   fontSize: '20px',
                   fontWeight: '600',
                   margin: 0,
-                  color: CONFIG.theme.text
+                  color: dynamicConfig.theme.text
                 }}>Get A Quick Quote</h1>
               </div>
               <p style={{
                 fontSize: '14px',
-                color: CONFIG.theme.muted,
+                color: dynamicConfig.theme.muted,
                 marginBottom: '12px',
                 margin: 0
               }}>
@@ -1632,10 +1677,10 @@ function LeadStickWidget({ CONFIG }: { CONFIG: any }) {
               {/* Progress Stepper - Mobile */}
               <div style={{ width: '100%', marginBottom: '16px' }}>
                 <div style={stepperStyles.container}>
-                  {getQuoteSteps(CONFIG).map(({ step, title, description }, index) => {
+                  {getQuoteSteps(dynamicConfig).map(({ step, title, description }, index) => {
                     const isActive = getCurrentStepNumber() === step
                     const isCompleted = isStepCompleted(step)
-                    const isLast = index === getQuoteSteps(CONFIG).length - 1
+                    const isLast = index === getQuoteSteps(dynamicConfig).length - 1
 
                     return (
                       <div key={step} style={stepperStyles.item}>
@@ -1669,7 +1714,7 @@ function LeadStickWidget({ CONFIG }: { CONFIG: any }) {
                 padding: '16px'
               }}>
               {messages.map((message) => (
-                <ChatMessage key={message.id} message={message} CONFIG={CONFIG} />
+                <ChatMessage key={message.id} message={message} CONFIG={dynamicConfig} />
               ))}
 
 
@@ -1685,7 +1730,7 @@ function LeadStickWidget({ CONFIG }: { CONFIG: any }) {
                 handleSubmit={handleSubmit}
                 getInputPlaceholder={getInputPlaceholder}
                 currentStep={currentStep}
-                CONFIG={CONFIG}
+                CONFIG={dynamicConfig}
                 isMobile={true}
               />
             )}
@@ -1714,7 +1759,7 @@ function LeadStickWidget({ CONFIG }: { CONFIG: any }) {
                   alignItems: 'center',
                   gap: '4px'
                 }}
-                onMouseOver={(e) => e.currentTarget.style.color = CONFIG.theme.primary}
+                onMouseOver={(e) => e.currentTarget.style.color = dynamicConfig.theme.primary}
                 onMouseOut={(e) => e.currentTarget.style.color = '#9ca3af'}
               >
                 Powered by <span style={{ fontWeight: '500' }}>Postclick</span>
@@ -1729,11 +1774,11 @@ function LeadStickWidget({ CONFIG }: { CONFIG: any }) {
 
 // Initialize widget when script loads
 export async function initLeadStick(options?: { siteId?: string }) {
-  let finalConfig = CONFIG; // Default config as fallback
+  let finalConfig = DEFAULT_CONFIG; // Default config as fallback
   
   // Get API URL from window.leadstickConfig if available
   const leadstickConfig = (window as any).leadstickConfig;
-  const apiUrl = leadstickConfig?.apiUrl || CONFIG.apiEndpoint;
+  const apiUrl = leadstickConfig?.apiUrl || DEFAULT_CONFIG.apiEndpoint;
   
   // If siteId provided, fetch configuration from API
   if (options?.siteId) {
@@ -1742,11 +1787,18 @@ export async function initLeadStick(options?: { siteId?: string }) {
       if (response.ok) {
         const customConfig = await response.json();
         // Merge with default config, prioritizing custom config
+        const mergedTheme = { ...DEFAULT_CONFIG.theme, ...(customConfig.theme || {}) };
+        
+        // If primaryHover is not provided but primary is, generate a darker hover color
+        if (customConfig.theme?.primary && !customConfig.theme?.primaryHover) {
+          mergedTheme.primaryHover = darkenColor(customConfig.theme.primary, 0.1);
+        }
+        
         finalConfig = {
-          ...CONFIG,
+          ...DEFAULT_CONFIG,
           ...customConfig,
-          business: { ...CONFIG.business, ...(customConfig.business || {}) },
-          theme: { ...CONFIG.theme, ...(customConfig.theme || {}) },
+          business: { ...DEFAULT_CONFIG.business, ...(customConfig.business || {}) },
+          theme: mergedTheme,
           apiEndpoint: apiUrl, // Use the API URL from leadstickConfig
           siteId: options.siteId
         };

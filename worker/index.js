@@ -1009,12 +1009,13 @@ export default {
         const emailValidation = validateAdminInput(clientData.business?.email, 'email', true);
         
         // Validate optional fields
+        const emailSubjectValidation = validateAdminInput(clientData.business?.emailSubject, 'message', false);
         const phoneValidation = validateAdminInput(clientData.business?.phone, 'phone', false);
         const agentNameValidation = validateAdminInput(clientData.business?.agentName, 'agentName', false);
         const avatarValidation = validateAdminInput(clientData.business?.avatar, 'avatar', false);
         
         // Collect all validation errors
-        [businessNameValidation, emailValidation, phoneValidation, agentNameValidation, avatarValidation]
+        [businessNameValidation, emailValidation, emailSubjectValidation, phoneValidation, agentNameValidation, avatarValidation]
           .forEach(validation => {
             if (!validation.isValid) {
               validationErrors.push(...validation.errors);
@@ -1106,7 +1107,7 @@ export default {
           business: {
             name: businessNameValidation.sanitized,
             email: emailValidation.sanitized,
-            emailSubject: body.business?.emailSubject ? sanitizeInput(body.business.emailSubject, 200) : '',
+            emailSubject: emailSubjectValidation.sanitized || '',
             phone: phoneValidation.sanitized,
             agentName: agentNameValidation.sanitized,
             avatar: avatarValidation.sanitized
@@ -1206,12 +1207,13 @@ export default {
         // Validate business fields (all optional for updates)
         const businessNameValidation = validateAdminInput(clientData.business?.name, 'businessName', false);
         const emailValidation = validateAdminInput(clientData.business?.email, 'email', false);
+        const emailSubjectValidation = validateAdminInput(clientData.business?.emailSubject, 'message', false);
         const phoneValidation = validateAdminInput(clientData.business?.phone, 'phone', false);
         const agentNameValidation = validateAdminInput(clientData.business?.agentName, 'agentName', false);
         const avatarValidation = validateAdminInput(clientData.business?.avatar, 'avatar', false);
         
         // Collect validation errors
-        [businessNameValidation, emailValidation, phoneValidation, agentNameValidation, avatarValidation]
+        [businessNameValidation, emailValidation, emailSubjectValidation, phoneValidation, agentNameValidation, avatarValidation]
           .forEach(validation => {
             if (!validation.isValid) {
               validationErrors.push(...validation.errors);
@@ -1285,7 +1287,7 @@ export default {
           business: {
             name: businessNameValidation.sanitized || '',
             email: emailValidation.sanitized || '',
-            emailSubject: body.business?.emailSubject ? sanitizeInput(body.business.emailSubject, 200) : '',
+            emailSubject: emailSubjectValidation.sanitized || '',
             phone: phoneValidation.sanitized || '',
             agentName: agentNameValidation.sanitized || '',
             avatar: avatarValidation.sanitized || ''
@@ -1666,16 +1668,11 @@ async function sendEmail(lead, leadId, emailList, env, customSubject = '') {
     // Process custom subject if provided, otherwise use default
     let subject = '';
     if (customSubject) {
-      // Replace variables in custom subject
-      subject = customSubject
-        .replace(/{service}/g, escapeHtml(lead.service || 'Inquiry'))
-        .replace(/{location}/g, escapeHtml(lead.location || 'Unknown'))
-        .replace(/{name}/g, escapeHtml(lead.name || 'Customer'))
-        .replace(/{phone}/g, escapeHtml(lead.phone || ''));
+      // Replace {name} variable in custom subject
+      subject = customSubject.replace(/{name}/g, escapeHtml(lead.name || 'Customer'));
     } else {
       // Improved default subject line
-      const businessName = lead.business || 'Website';
-      subject = `🎯 New ${escapeHtml(lead.service || 'Lead')} Inquiry - ${escapeHtml(lead.location || businessName)}`;
+      subject = `🎯 New Lead from ${escapeHtml(lead.name || 'Website')}`;
     }
 
     const emailPayload = {

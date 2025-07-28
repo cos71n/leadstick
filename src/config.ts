@@ -30,6 +30,7 @@ export const CONFIG = {
     measurementId: "G-XXXXXXXXXX" // Will be configured during deployment
   },
   apiEndpoint: "https://leadstick-api.attribution.workers.dev",
+  siteId: "", // Default empty siteId
   // New desktop widget style configuration
   desktopStyle: 'bubble' as 'bubble' | 'bar', // Default to bubble for backward compatibility
   barText: 'Get A Quick Quote', // Default text for floating bar
