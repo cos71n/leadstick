@@ -6,7 +6,7 @@ compatibility_date = "2024-07-01"
 [vars]
 ENVIRONMENT = "development"
 LEAD_EMAIL_RECIPIENT = "michael.costin@localdigital.com.au"
-LEAD_EMAIL_FROM = "LeadStick <hello@coscorp.com.au>"
+LEAD_EMAIL_FROM = "Postclick Lead <noreply@post.click>"
 # CORS configuration for development
 ADMIN_ALLOWED_ORIGINS = "https://leadstick-dashboard.pages.dev,http://localhost:3000,http://127.0.0.1:3000"
 
