@@ -99,17 +99,46 @@ const CheckIcon = () => (
   </svg>
 )
 
+// Helper function to determine input mode based on current question type
+const getInputMode = (currentStep: ChatStep, leadData: LeadData, CONFIG: any): 'text' | 'tel' | 'email' => {
+  if (currentStep !== 'contact') return 'text';
+
+  const questions = getQuestionsFromFlow(CONFIG);
+  const contactQuestions = questions.filter(q =>
+    q.questionType && ['firstName', 'lastName', 'name', 'phone', 'email'].includes(q.questionType)
+  );
+
+  // Count how many contact fields we've already filled
+  let filledCount = 0;
+  if (leadData.name) filledCount++;
+  if (leadData.firstName) filledCount++;
+  if (leadData.lastName) filledCount++;
+  if (leadData.phone) filledCount++;
+  if (leadData.email) filledCount++;
+
+  // Determine input mode based on current contact question
+  if (filledCount < contactQuestions.length) {
+    const currentContactQuestion = contactQuestions[filledCount];
+    if (currentContactQuestion && currentContactQuestion.questionType) {
+      if (currentContactQuestion.questionType === 'phone') return 'tel';
+      if (currentContactQuestion.questionType === 'email') return 'email';
+    }
+  }
+
+  return 'text';
+};
+
 // Chat Input Form Component
-const ChatInputForm = ({ 
-  input, 
-  setInput, 
-  leadData, 
-  setLeadData, 
-  handleSubmit, 
-  getInputPlaceholder, 
-  currentStep, 
+const ChatInputForm = ({
+  input,
+  setInput,
+  leadData,
+  setLeadData,
+  handleSubmit,
+  getInputPlaceholder,
+  currentStep,
   CONFIG,
-  isMobile = false 
+  isMobile = false
 }: {
   input: string;
   setInput: (value: string) => void;
@@ -155,7 +184,7 @@ const ChatInputForm = ({
         onChange={(e) => setInput(e.target.value)}
         placeholder={getInputPlaceholder()}
         maxLength={500}
-        inputMode={currentStep === 'contact' && leadData.name && !leadData.phone ? 'tel' : 'text'}
+        inputMode={getInputMode(currentStep, leadData, CONFIG)}
         style={{
           minHeight: '48px',
           resize: 'none',
@@ -1088,8 +1117,64 @@ function LeadStickWidget({ CONFIG: dynamicConfig }: { CONFIG: any }) {
       // Get attribution data
       const attribution = attributionTracker.getAttributionData()
       console.log('[Widget] Attribution data:', attribution);
-      
-      // Track GA4 event with attribution
+
+      const requestData = {
+        ...leadData,
+        attribution,
+        business: dynamicConfig.business.name,
+        timestamp: new Date().toISOString(),
+        source: 'leadstick-widget',
+        siteId: dynamicConfig.siteId,
+        // Include submission time for server-side validation
+        submissionTime: timeElapsed
+      };
+
+      console.log('[Widget] About to submit to API:', dynamicConfig.apiEndpoint);
+      console.log('[Widget] Request data:', requestData);
+
+      // Submit to API with attribution data
+      const response = await fetch(dynamicConfig.apiEndpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(requestData)
+      })
+
+      console.log('[Widget] API response status:', response.status);
+      console.log('[Widget] API response:', response);
+
+      if (!response.ok) {
+        console.error('[Widget] API request failed with status:', response.status);
+        const errorData = await response.json().catch(() => null)
+        console.error('[Widget] Error data:', errorData);
+
+        if (response.status === 429) {
+          // Rate limit exceeded - show user-friendly message
+          const retryAfter = errorData?.retryAfter || 3600
+          const minutes = Math.ceil(retryAfter / 60)
+
+          if (retryAfter < 60) {
+            addMessage(`Please wait ${retryAfter} seconds before submitting again.`, 'ai')
+          } else if (minutes < 60) {
+            addMessage(`You've reached the submission limit. Please try again in ${minutes} minute${minutes > 1 ? 's' : ''}.`, 'ai')
+          } else {
+            addMessage('You\'ve reached the submission limit. Please try again later or call us directly.', 'ai')
+          }
+
+          // Show phone button for immediate contact
+          addMessage("PHONE_BUTTON", 'ai')
+          return
+        }
+
+        throw new Error(errorData?.message || 'Failed to submit lead')
+      }
+
+      const responseData = await response.json();
+      console.log('[Widget] API response data:', responseData);
+      console.log('[Widget] Lead submission completed successfully!');
+
+      // Track GA4 event and Google Ads conversion AFTER successful API response
       if (typeof gtag !== 'undefined') {
         console.log('[Widget] Sending GA4 event');
         gtag('event', 'leadstick_completed', {
@@ -1104,63 +1189,16 @@ function LeadStickWidget({ CONFIG: dynamicConfig }: { CONFIG: any }) {
           session_id: attribution.sessionId,
           value: 100
         })
-      }
 
-      const requestData = {
-        ...leadData,
-        attribution,
-        business: dynamicConfig.business.name,
-        timestamp: new Date().toISOString(),
-        source: 'leadstick-widget',
-        siteId: dynamicConfig.siteId,
-        // Include submission time for server-side validation
-        submissionTime: timeElapsed
-      };
-      
-      console.log('[Widget] About to submit to API:', dynamicConfig.apiEndpoint);
-      console.log('[Widget] Request data:', requestData);
-
-      // Submit to API with attribution data
-      const response = await fetch(dynamicConfig.apiEndpoint, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(requestData)
-      })
-      
-      console.log('[Widget] API response status:', response.status);
-      console.log('[Widget] API response:', response);
-
-      if (!response.ok) {
-        console.error('[Widget] API request failed with status:', response.status);
-        const errorData = await response.json().catch(() => null)
-        console.error('[Widget] Error data:', errorData);
-        
-        if (response.status === 429) {
-          // Rate limit exceeded - show user-friendly message
-          const retryAfter = errorData?.retryAfter || 3600
-          const minutes = Math.ceil(retryAfter / 60)
-          
-          if (retryAfter < 60) {
-            addMessage(`Please wait ${retryAfter} seconds before submitting again.`, 'ai')
-          } else if (minutes < 60) {
-            addMessage(`You've reached the submission limit. Please try again in ${minutes} minute${minutes > 1 ? 's' : ''}.`, 'ai')
-          } else {
-            addMessage('You\'ve reached the submission limit. Please try again later or call us directly.', 'ai')
-          }
-          
-          // Show phone button for immediate contact
-          addMessage("PHONE_BUTTON", 'ai')
-          return
+        // Track Google Ads conversion if configured
+        if (dynamicConfig.googleAds?.conversionId && dynamicConfig.googleAds?.conversionLabel) {
+          console.log('[Widget] Sending Google Ads conversion event');
+          gtag('event', 'conversion', {
+            'send_to': `${dynamicConfig.googleAds.conversionId}/${dynamicConfig.googleAds.conversionLabel}`,
+            'transaction_id': attribution.sessionId
+          })
         }
-        
-        throw new Error(errorData?.message || 'Failed to submit lead')
       }
-      
-      const responseData = await response.json();
-      console.log('[Widget] API response data:', responseData);
-      console.log('[Widget] Lead submission completed successfully!');
       
     } catch (error) {
       console.error('[Widget] Error submitting lead:', error)
