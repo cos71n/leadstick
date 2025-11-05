@@ -241,17 +241,9 @@ function validateAndSanitizeLead(leadData) {
     return { sanitized: null, errors, isSpam: true };
   }
   
-  // Handle firstName/lastName or combined name
-  let fullName = '';
-  if (leadData.name) {
-    fullName = leadData.name;
-  } else if (leadData.firstName || leadData.lastName) {
-    fullName = (sanitizeInput(leadData.firstName || '', 50) + ' ' + sanitizeInput(leadData.lastName || '', 50)).trim();
-  }
-  
   // Sanitize all inputs
   const sanitized = {
-    name: sanitizeInput(fullName, 100),
+    name: sanitizeInput(leadData.name, 100),
     phone: sanitizeInput(leadData.phone, 20),
     email: sanitizeInput(leadData.email, 100),
     location: sanitizeInput(leadData.location, 200),
@@ -262,9 +254,7 @@ function validateAndSanitizeLead(leadData) {
     siteId: sanitizeInput(leadData.siteId, 50),
     // Include honeypot and submission time for logging (but not for email)
     website: sanitizeInput(leadData.website || '', 100),
-    submissionTime: leadData.submissionTime,
-    // Include attribution data for email tracking
-    attribution: leadData.attribution || null
+    submissionTime: leadData.submissionTime
   };
   
   // Validate required fields
@@ -714,15 +704,32 @@ export default {
 
     // Route: POST /admin/upload-avatar - Upload avatar to R2
     if (request.method === 'POST' && url.pathname === '/admin/upload-avatar') {
-      // Check authentication with CSRF
-      const authResult = await authenticateAdmin(request, env, true);
-      if (!authResult.valid) {
-        logAdminOperation('UNAUTHORIZED_ACCESS_ATTEMPT', { 
-          endpoint: '/admin/upload-avatar',
-          method: 'POST'
+      console.log('[Avatar Upload] Received upload request');
+      
+      // Extract tokens from request headers
+      const authToken = request.headers.get('Authorization')?.replace('Bearer ', '');
+      const csrfToken = request.headers.get('X-CSRF-Token');
+      
+      console.log('[Avatar Upload] Auth token present:', !!authToken);
+      console.log('[Avatar Upload] CSRF token present:', !!csrfToken);
+      
+      if (!authToken || !csrfToken) {
+        console.log('[Avatar Upload] Missing authentication tokens');
+        return new Response(JSON.stringify({
+          error: 'Authentication required'
+        }), { 
+          status: 401, 
+          headers: corsHeaders 
         });
-        return new Response(JSON.stringify({ 
-          error: authResult.error || 'Unauthorized. Valid session required.' 
+      }
+      
+      const authResult = await verifySessionToken(authToken, env);
+      console.log('[Avatar Upload] Auth verification result:', authResult);
+      
+      if (!authResult.valid) {
+        console.log('[Avatar Upload] Invalid session token');
+        return new Response(JSON.stringify({
+          error: 'Invalid session'
         }), { 
           status: 401, 
           headers: corsHeaders 
@@ -796,26 +803,6 @@ export default {
           // Return the public URL
           const avatarUrl = `https://pub-2cf19529958742fea36d2ac68c558716.r2.dev/${fileName}`;
           console.log('[Avatar Upload] Generated public URL:', avatarUrl);
-          
-          // Update client configuration with new avatar URL
-          try {
-            const configKey = `client_config_${siteId}`;
-            const existingConfig = await env.LEADSTICK_CONFIGS.get(configKey, 'json');
-            
-            if (existingConfig) {
-              // Update existing config with new avatar
-              existingConfig.business = existingConfig.business || {};
-              existingConfig.business.avatar = avatarUrl;
-              
-              await env.LEADSTICK_CONFIGS.put(configKey, JSON.stringify(existingConfig));
-              console.log('[Avatar Upload] Client config updated with new avatar URL');
-            } else {
-              console.log('[Avatar Upload] No existing config found for siteId:', siteId);
-            }
-          } catch (configError) {
-            console.error('[Avatar Upload] Failed to update client config:', configError);
-            // Continue anyway - avatar was uploaded successfully
-          }
           
           return new Response(JSON.stringify({
             success: true,
@@ -928,10 +915,8 @@ export default {
               siteId: config.siteId,
               businessName: config.business?.name || '',
               email: config.business?.email || '',
-              emailSubject: config.business?.emailSubject || '',
               agentName: config.business?.agentName || '',
               phone: config.business?.phone || '',
-              avatar: config.business?.avatar || '',
               theme: config.theme?.primary || '#3b82f6',
               desktopStyle: config.desktopStyle || 'bubble',
               barText: config.barText || 'Get A Quick Quote',
@@ -1009,13 +994,12 @@ export default {
         const emailValidation = validateAdminInput(clientData.business?.email, 'email', true);
         
         // Validate optional fields
-        const emailSubjectValidation = validateAdminInput(clientData.business?.emailSubject, 'message', false);
         const phoneValidation = validateAdminInput(clientData.business?.phone, 'phone', false);
         const agentNameValidation = validateAdminInput(clientData.business?.agentName, 'agentName', false);
         const avatarValidation = validateAdminInput(clientData.business?.avatar, 'avatar', false);
         
         // Collect all validation errors
-        [businessNameValidation, emailValidation, emailSubjectValidation, phoneValidation, agentNameValidation, avatarValidation]
+        [businessNameValidation, emailValidation, phoneValidation, agentNameValidation, avatarValidation]
           .forEach(validation => {
             if (!validation.isValid) {
               validationErrors.push(...validation.errors);
@@ -1107,7 +1091,6 @@ export default {
           business: {
             name: businessNameValidation.sanitized,
             email: emailValidation.sanitized,
-            emailSubject: emailSubjectValidation.sanitized || '',
             phone: phoneValidation.sanitized,
             agentName: agentNameValidation.sanitized,
             avatar: avatarValidation.sanitized
@@ -1207,13 +1190,12 @@ export default {
         // Validate business fields (all optional for updates)
         const businessNameValidation = validateAdminInput(clientData.business?.name, 'businessName', false);
         const emailValidation = validateAdminInput(clientData.business?.email, 'email', false);
-        const emailSubjectValidation = validateAdminInput(clientData.business?.emailSubject, 'message', false);
         const phoneValidation = validateAdminInput(clientData.business?.phone, 'phone', false);
         const agentNameValidation = validateAdminInput(clientData.business?.agentName, 'agentName', false);
         const avatarValidation = validateAdminInput(clientData.business?.avatar, 'avatar', false);
         
         // Collect validation errors
-        [businessNameValidation, emailValidation, emailSubjectValidation, phoneValidation, agentNameValidation, avatarValidation]
+        [businessNameValidation, emailValidation, phoneValidation, agentNameValidation, avatarValidation]
           .forEach(validation => {
             if (!validation.isValid) {
               validationErrors.push(...validation.errors);
@@ -1287,7 +1269,6 @@ export default {
           business: {
             name: businessNameValidation.sanitized || '',
             email: emailValidation.sanitized || '',
-            emailSubject: emailSubjectValidation.sanitized || '',
             phone: phoneValidation.sanitized || '',
             agentName: agentNameValidation.sanitized || '',
             avatar: avatarValidation.sanitized || ''
@@ -1405,8 +1386,6 @@ export default {
 
     // Route: POST / (lead submission)
     if (request.method === 'POST' && url.pathname === '/') {
-      console.log('[Lead Submission] Received POST request to /');
-      
       try {
       // Get client IP for rate limiting
       const clientIP = request.headers.get('CF-Connecting-IP') || 
@@ -1451,17 +1430,6 @@ export default {
       
       // Parse lead data
       const leadData = await request.json();
-      console.log('[Lead Submission] Received lead data:', {
-        hasName: !!leadData.name,
-        hasFirstName: !!leadData.firstName,
-        hasLastName: !!leadData.lastName,
-        hasPhone: !!leadData.phone,
-        hasEmail: !!leadData.email,
-        hasLocation: !!leadData.location,
-        hasService: !!leadData.service,
-        source: leadData.source,
-        siteId: leadData.siteId
-      });
       
       // Validate and sanitize lead data
       const { sanitized, errors, isSpam } = validateAndSanitizeLead(leadData);
@@ -1492,18 +1460,12 @@ export default {
 
       // Get configuration for email recipient (if siteId provided)
       let recipientEmail = env.LEAD_EMAIL_RECIPIENT || 'leads@example.com';
-      let customSubject = '';
       if (sanitized.siteId) {
         try {
           const configKey = `client_config_${sanitized.siteId}`;
           const config = await env.LEADSTICK_CONFIGS.get(configKey, 'json');
-          if (config && config.business) {
-            if (config.business.email) {
-              recipientEmail = config.business.email;
-            }
-            if (config.business.emailSubject) {
-              customSubject = config.business.emailSubject;
-            }
+          if (config && config.business && config.business.email) {
+            recipientEmail = config.business.email;
           }
         } catch (error) {
           console.warn('Failed to fetch client config:', error);
@@ -1512,10 +1474,9 @@ export default {
 
       // Parse multiple email addresses (comma-separated)
       const emailList = recipientEmail.split(',').map(email => email.trim()).filter(email => email);
-      console.log('Parsed email list:', emailList);
 
       // Send email via Resend
-      const emailSent = await sendEmail(sanitized, leadId, emailList, env, customSubject);
+      const emailSent = await sendEmail(sanitized, leadId, emailList, env);
       
       // Track in GA4 (optional)
       await trackGA4Event(sanitized, leadId, env);
@@ -1558,7 +1519,7 @@ export default {
 };
 
 // Send email notification
-async function sendEmail(lead, leadId, emailList, env, customSubject = '') {
+async function sendEmail(lead, leadId, emailList, env) {
   if (!env.RESEND_API_KEY) {
     console.warn('RESEND_API_KEY not configured');
     return false;
@@ -1568,9 +1529,6 @@ async function sendEmail(lead, leadId, emailList, env, customSubject = '') {
     console.warn('No email recipients provided');
     return false;
   }
-
-  console.log('Sending email to recipients:', emailList);
-  console.log('Attribution data being passed to email:', lead.attribution);
 
   try {
     // Format attribution data for email display
@@ -1665,24 +1623,6 @@ async function sendEmail(lead, leadId, emailList, env, customSubject = '') {
     const metrics = calculateConversionMetrics(lead.attribution, lead.timestamp);
     const marketingInsight = getMarketingInsight(metrics, lead.attribution);
 
-    // Process custom subject if provided, otherwise use default
-    let subject = '';
-    if (customSubject) {
-      // Replace {name} variable in custom subject
-      subject = customSubject.replace(/{name}/g, escapeHtml(lead.name || 'Customer'));
-    } else {
-      // Improved default subject line
-      subject = `🎯 New Lead from ${escapeHtml(lead.name || 'Website')}`;
-    }
-
-    const emailPayload = {
-      from: env.LEAD_EMAIL_FROM || 'LeadStick <noreply@leadstick.com>',
-      to: emailList,
-      subject: subject,
-    };
-
-    console.log('Email payload being sent to Resend:', JSON.stringify(emailPayload, null, 2));
-
     const response = await fetch('https://api.resend.com/emails', {
       method: 'POST',
       headers: {
@@ -1690,17 +1630,19 @@ async function sendEmail(lead, leadId, emailList, env, customSubject = '') {
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        ...emailPayload,
+        from: env.LEAD_EMAIL_FROM || 'LeadStick <noreply@leadstick.com>',
+        to: emailList,
+        subject: `🎯 Postclick: New Lead`,
         html: `
           <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 0 auto; background: white;">
             
             <!-- Header -->
             <div style="background: linear-gradient(135deg, #f97316 0%, #ea580c 100%); padding: 24px; border-radius: 8px 8px 0 0;">
               <h1 style="margin: 0; color: white; font-size: 24px; font-weight: 600; display: flex; align-items: center;">
-                🎯 New Lead from Your Website!
+                🎯 New Lead from Your Postclick Website!
               </h1>
               <p style="margin: 8px 0 0 0; color: #fed7aa; font-size: 14px;">
-                A potential customer has submitted a quote request through your LeadStick widget.
+                A potential customer has submitted a quote request through the LeadStick widget on your <a href="https://postclick.io" style="color: #fed7aa; text-decoration: underline;">Postclick</a> website.
               </p>
             </div>
 
@@ -1770,12 +1712,12 @@ async function sendEmail(lead, leadId, emailList, env, customSubject = '') {
               <!-- Footer -->
               <div style="border-top: 1px solid #e5e7eb; padding-top: 16px; margin-top: 20px;">
                 <p style="margin: 0; font-size: 12px; color: #9ca3af; text-align: center;">
-                  <strong>Lead ID:</strong> ${escapeHtml(leadId)} | 
+                  <strong>Lead ID:</strong> ${escapeHtml(leadId)} |
                   <strong>Submitted:</strong> ${escapeHtml(lead.timestamp || new Date().toISOString())} |
                   <strong>Source:</strong> ${escapeHtml(lead.source || 'leadstick-widget')}
                 </p>
                 <p style="margin: 8px 0 0 0; font-size: 11px; color: #9ca3af; text-align: center;">
-                  Powered by <a href="https://leadstick.com" style="color: #f97316; text-decoration: none;">LeadStick</a>
+                  Powered by <a href="https://postclick.io" style="color: #f97316; text-decoration: none;">Postclick</a>
                 </p>
               </div>
             </div>
@@ -1784,21 +1726,7 @@ async function sendEmail(lead, leadId, emailList, env, customSubject = '') {
       })
     });
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('Resend API error:', {
-        status: response.status,
-        statusText: response.statusText,
-        body: errorText,
-        emailList: emailList,
-        emailListLength: emailList.length
-      });
-      return false;
-    }
-    
-    const responseData = await response.json();
-    console.log('Email sent successfully:', responseData);
-    return true;
+    return response.ok;
   } catch (error) {
     console.error('Email sending failed:', error);
     return false;
