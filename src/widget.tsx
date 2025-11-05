@@ -99,35 +99,6 @@ const CheckIcon = () => (
   </svg>
 )
 
-// Helper function to determine input mode based on current question type
-const getInputMode = (currentStep: ChatStep, leadData: LeadData, CONFIG: any): 'text' | 'tel' | 'email' => {
-  if (currentStep !== 'contact') return 'text';
-
-  const questions = getQuestionsFromFlow(CONFIG);
-  const contactQuestions = questions.filter(q =>
-    q.questionType && ['firstName', 'lastName', 'name', 'phone', 'email'].includes(q.questionType)
-  );
-
-  // Count how many contact fields we've already filled
-  let filledCount = 0;
-  if (leadData.name) filledCount++;
-  if (leadData.firstName) filledCount++;
-  if (leadData.lastName) filledCount++;
-  if (leadData.phone) filledCount++;
-  if (leadData.email) filledCount++;
-
-  // Determine input mode based on current contact question
-  if (filledCount < contactQuestions.length) {
-    const currentContactQuestion = contactQuestions[filledCount];
-    if (currentContactQuestion && currentContactQuestion.questionType) {
-      if (currentContactQuestion.questionType === 'phone') return 'tel';
-      if (currentContactQuestion.questionType === 'email') return 'email';
-    }
-  }
-
-  return 'text';
-};
-
 // Chat Input Form Component
 const ChatInputForm = ({
   input,
@@ -149,7 +120,37 @@ const ChatInputForm = ({
   currentStep: ChatStep;
   CONFIG: any;
   isMobile?: boolean;
-}) => (
+}) => {
+  // Helper function to determine input mode based on current question type
+  const getInputMode = (): 'text' | 'tel' | 'email' => {
+    if (currentStep !== 'contact') return 'text';
+
+    const questions = (CONFIG.flow || []).filter((item: any) => item.type === 'question');
+    const contactQuestions = questions.filter((q: any) =>
+      q.questionType && ['firstName', 'lastName', 'name', 'phone', 'email'].includes(q.questionType)
+    );
+
+    // Count how many contact fields we've already filled
+    let filledCount = 0;
+    if (leadData.name) filledCount++;
+    if (leadData.firstName) filledCount++;
+    if (leadData.lastName) filledCount++;
+    if (leadData.phone) filledCount++;
+    if (leadData.email) filledCount++;
+
+    // Determine input mode based on current contact question
+    if (filledCount < contactQuestions.length) {
+      const currentContactQuestion = contactQuestions[filledCount];
+      if (currentContactQuestion && currentContactQuestion.questionType) {
+        if (currentContactQuestion.questionType === 'phone') return 'tel';
+        if (currentContactQuestion.questionType === 'email') return 'email';
+      }
+    }
+
+    return 'text';
+  };
+
+  return (
   <div style={{
     borderTop: '1px solid ' + CONFIG.theme.border,
     padding: '16px',
@@ -184,7 +185,7 @@ const ChatInputForm = ({
         onChange={(e) => setInput(e.target.value)}
         placeholder={getInputPlaceholder()}
         maxLength={500}
-        inputMode={getInputMode(currentStep, leadData, CONFIG)}
+        inputMode={getInputMode()}
         style={{
           minHeight: '48px',
           resize: 'none',
@@ -236,7 +237,8 @@ const ChatInputForm = ({
       </div>
     </form>
   </div>
-)
+  );
+}
 
 // Chat Message Component
 const ChatMessage = ({ message, CONFIG }: { message: any; CONFIG: any }) => (
