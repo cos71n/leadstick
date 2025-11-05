@@ -241,9 +241,17 @@ function validateAndSanitizeLead(leadData) {
     return { sanitized: null, errors, isSpam: true };
   }
   
+  // Handle firstName/lastName or combined name
+  let fullName = '';
+  if (leadData.name) {
+    fullName = leadData.name;
+  } else if (leadData.firstName || leadData.lastName) {
+    fullName = (sanitizeInput(leadData.firstName || '', 50) + ' ' + sanitizeInput(leadData.lastName || '', 50)).trim();
+  }
+
   // Sanitize all inputs
   const sanitized = {
-    name: sanitizeInput(leadData.name, 100),
+    name: sanitizeInput(fullName, 100),
     phone: sanitizeInput(leadData.phone, 20),
     email: sanitizeInput(leadData.email, 100),
     location: sanitizeInput(leadData.location, 200),
@@ -254,7 +262,9 @@ function validateAndSanitizeLead(leadData) {
     siteId: sanitizeInput(leadData.siteId, 50),
     // Include honeypot and submission time for logging (but not for email)
     website: sanitizeInput(leadData.website || '', 100),
-    submissionTime: leadData.submissionTime
+    submissionTime: leadData.submissionTime,
+    // Include attribution data for email tracking
+    attribution: leadData.attribution || null
   };
   
   // Validate required fields
