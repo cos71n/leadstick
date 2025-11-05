@@ -26,7 +26,7 @@ name = "leadstick-api-production"
 [env.production.vars]
 ENVIRONMENT = "production"
 LEAD_EMAIL_RECIPIENT = "michael.costin@localdigital.com.au"
-LEAD_EMAIL_FROM = "LeadStick <hello@coscorp.com.au>"
+LEAD_EMAIL_FROM = "Postclick Lead <noreply@post.click>"
 # CORS configuration for production (strict)
 ADMIN_ALLOWED_ORIGINS = "https://leadstick-dashboard.pages.dev"
 
