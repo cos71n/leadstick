@@ -156,6 +156,13 @@ const CheckIcon = () => (
   </svg>
 )
 
+const RestartIcon = () => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <path d="M1 4v6h6"/>
+    <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/>
+  </svg>
+)
+
 // Chat Input Form Component
 const ChatInputForm = ({
   input,
@@ -166,7 +173,8 @@ const ChatInputForm = ({
   getInputPlaceholder,
   currentStep,
   CONFIG,
-  isMobile = false
+  isMobile = false,
+  onRestart
 }: {
   input: string;
   setInput: (value: string) => void;
@@ -177,6 +185,7 @@ const ChatInputForm = ({
   currentStep: ChatStep;
   CONFIG: any;
   isMobile?: boolean;
+  onRestart: () => void;
 }) => {
   // Helper function to determine input mode based on current question type
   const getInputMode = (): 'text' | 'tel' | 'email' => {
@@ -289,6 +298,28 @@ const ChatInputForm = ({
         >
           Send
           <CornerDownLeftIcon />
+        </button>
+        <button
+          type="button"
+          onClick={onRestart}
+          title="Start over"
+          style={{
+            backgroundColor: 'transparent',
+            border: 'none',
+            borderRadius: '6px',
+            padding: isMobile ? '12px' : '8px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            cursor: 'pointer',
+            color: '#9ca3af',
+            transition: 'color 0.2s',
+            pointerEvents: 'auto'
+          }}
+          onMouseOver={(e) => e.currentTarget.style.color = '#6b7280'}
+          onMouseOut={(e) => e.currentTarget.style.color = '#9ca3af'}
+        >
+          <RestartIcon />
         </button>
       </div>
     </form>
@@ -718,6 +749,32 @@ function LeadStickWidget({ CONFIG: dynamicConfig }: { CONFIG: any }) {
 
   const toggleChat = () => setIsOpen(!isOpen)
 
+  const resetChat = () => {
+    setCurrentStep('location')
+    setLeadData({
+      location: '',
+      service: '',
+      name: '',
+      firstName: '',
+      lastName: '',
+      phone: '',
+      email: '',
+      finalMessage: '',
+      website: '',
+      formOpenTime: Date.now()
+    })
+    const welcomeMessage = dynamicConfig.messages?.welcome
+      ? substituteAgentName(dynamicConfig.messages.welcome)
+      : `Hi, ${dynamicConfig.business.agentName} here. Let me know a little about your project. Your message comes straight to my phone and I'll send your quote ASAP`;
+    const questions = (dynamicConfig.flow || []).filter((item: any) => item.type === 'question');
+    const firstQuestion = questions.length > 0 ? questions[0].question : "📍 First, what's your location/suburb?";
+    setMessages([
+      { id: 1, content: welcomeMessage, sender: "ai" },
+      { id: 2, content: firstQuestion, sender: "ai" },
+    ])
+    setInput("")
+  }
+
   // Listen for external open/close/toggle triggers (data attributes & JS API)
   useEffect(() => {
     const onOpen = () => setIsOpen(true)
@@ -748,46 +805,12 @@ function LeadStickWidget({ CONFIG: dynamicConfig }: { CONFIG: any }) {
     return () => window.removeEventListener('resize', checkMobile)
   }, [])
 
-  // Reset chat when opened
+  // Track analytics when chat is opened (form state persists across open/close)
   useEffect(() => {
     if (isOpen) {
-      // Track chat started event
       if (dynamicConfig.siteId) {
         trackAnalyticsEvent(dynamicConfig.apiEndpoint, dynamicConfig.siteId, 'chat_started')
       }
-      setCurrentStep('location')
-      setLeadData({
-        location: '',
-        service: '',
-        name: '',
-        firstName: '',
-        lastName: '',
-        phone: '',
-        email: '',
-        finalMessage: '',
-        website: '', // Reset honeypot
-        formOpenTime: Date.now() // Track new session time
-      })
-      const welcomeMessage = dynamicConfig.messages?.welcome 
-        ? substituteAgentName(dynamicConfig.messages.welcome)
-        : `Hi, ${dynamicConfig.business.agentName} here. Let me know a little about your project. Your message comes straight to my phone and I'll send your quote ASAP`;
-      // Extract the first question from the flow
-      const questions = (dynamicConfig.flow || []).filter((item: any) => item.type === 'question');
-      const firstQuestion = questions.length > 0 ? questions[0].question : "📍 First, what's your location/suburb?";
-      
-      setMessages([
-        {
-          id: 1,
-          content: welcomeMessage,
-          sender: "ai",
-        },
-        {
-          id: 2,
-          content: firstQuestion,
-          sender: "ai",
-        },
-      ])
-      setInput("")
     }
   }, [isOpen])
 
@@ -1641,6 +1664,7 @@ function LeadStickWidget({ CONFIG: dynamicConfig }: { CONFIG: any }) {
               currentStep={currentStep}
               CONFIG={dynamicConfig}
               isMobile={false}
+              onRestart={resetChat}
             />
           )}
 
@@ -1961,6 +1985,7 @@ function LeadStickWidget({ CONFIG: dynamicConfig }: { CONFIG: any }) {
                 currentStep={currentStep}
                 CONFIG={dynamicConfig}
                 isMobile={true}
+                onRestart={resetChat}
               />
             )}
             
