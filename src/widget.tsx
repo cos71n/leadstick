@@ -633,16 +633,13 @@ function trackAnalyticsEvent(apiEndpoint: string, siteId: string, event: string)
       device: window.innerWidth < 768 ? 'mobile' : 'desktop'
     })
     const url = `${apiEndpoint}/api/track`
-    if (navigator.sendBeacon) {
-      navigator.sendBeacon(url, new Blob([data], { type: 'application/json' }))
-    } else {
-      fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: data,
-        keepalive: true
-      }).catch(() => {})
-    }
+    fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: data,
+      keepalive: true,
+      mode: 'cors'
+    }).catch(() => {})
   } catch (e) {
     // Silently fail - analytics should never break the widget
   }

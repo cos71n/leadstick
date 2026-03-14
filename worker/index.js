@@ -1667,10 +1667,13 @@ export default {
           });
         }
 
-        // Adjust dates for timezone offset
+        // Adjust dates for timezone offset — format as 'YYYY-MM-DD HH:MM:SS' for Analytics Engine
         const tzOffsetMs = tz * 60 * 1000;
-        const startDate = new Date(new Date(startParam + 'T00:00:00Z').getTime() + tzOffsetMs).toISOString();
-        const endDate = new Date(new Date(endParam + 'T23:59:59Z').getTime() + tzOffsetMs).toISOString();
+        const startDateObj = new Date(new Date(startParam + 'T00:00:00Z').getTime() + tzOffsetMs);
+        const endDateObj = new Date(new Date(endParam + 'T23:59:59Z').getTime() + tzOffsetMs);
+        const toAEDateTime = (d) => d.toISOString().replace('T', ' ').replace('Z', '').split('.')[0];
+        const startDate = toAEDateTime(startDateObj);
+        const endDate = toAEDateTime(endDateObj);
 
         if (!env.CF_ACCOUNT_ID || !env.CF_API_TOKEN) {
           return new Response(JSON.stringify({ error: 'Analytics not configured. Set CF_ACCOUNT_ID and CF_API_TOKEN secrets.' }), {
@@ -1763,12 +1766,12 @@ export default {
           : 0;
 
         // Check for KV historical data if date range might extend beyond Analytics Engine retention
-        const startDateObj = new Date(startParam);
+        const rangeStartDate = new Date(startParam);
         const ninetyDaysAgo = new Date();
         ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
         let historical = [];
 
-        if (startDateObj < ninetyDaysAgo) {
+        if (rangeStartDate < ninetyDaysAgo) {
           // Fetch monthly snapshots from KV for months in range
           const startMonth = startParam.substring(0, 7); // YYYY-MM
           const endMonth = endParam.substring(0, 7);
@@ -1976,8 +1979,9 @@ export default {
       const now = new Date();
       const prevMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
       const monthStr = prevMonth.toISOString().substring(0, 7); // YYYY-MM
-      const monthStart = new Date(prevMonth.getFullYear(), prevMonth.getMonth(), 1).toISOString();
-      const monthEnd = new Date(prevMonth.getFullYear(), prevMonth.getMonth() + 1, 0, 23, 59, 59).toISOString();
+      const toAEDate = (d) => d.toISOString().replace('T', ' ').replace('Z', '').split('.')[0];
+      const monthStart = toAEDate(new Date(prevMonth.getFullYear(), prevMonth.getMonth(), 1));
+      const monthEnd = toAEDate(new Date(prevMonth.getFullYear(), prevMonth.getMonth() + 1, 0, 23, 59, 59));
 
       // List all clients
       const listResult = await env.LEADSTICK_CONFIGS.list({ prefix: 'client_config_' });

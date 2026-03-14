@@ -3689,7 +3689,12 @@ window.leadstickConfig = {
         function getDateRange(preset) {
             const today = new Date();
             today.setHours(0, 0, 0, 0);
-            const fmt = d => d.toISOString().split('T')[0];
+            const fmt = d => {
+                const y = d.getFullYear();
+                const m = String(d.getMonth() + 1).padStart(2, '0');
+                const day = String(d.getDate()).padStart(2, '0');
+                return `${y}-${m}-${day}`;
+            };
 
             switch (preset) {
                 case 'today':
@@ -3792,10 +3797,12 @@ window.leadstickConfig = {
             document.getElementById('statsEmpty').style.display = 'none';
 
             try {
-                const response = await authenticatedFetch(
-                    `${API_BASE}/admin/analytics/${currentStatsSiteId}?start=${start}&end=${end}&tz=${tz}`
-                );
+                const analyticsUrl = `${API_BASE}/admin/analytics/${currentStatsSiteId}?start=${start}&end=${end}&tz=${tz}`;
+                console.log('[Stats] Fetching:', analyticsUrl);
+                const response = await authenticatedFetch(analyticsUrl);
+                console.log('[Stats] Response status:', response.status);
                 const data = await response.json();
+                console.log('[Stats] Response data:', JSON.stringify(data));
 
                 if (!response.ok) {
                     throw new Error(data.error || 'Failed to load analytics');
@@ -3811,7 +3818,7 @@ window.leadstickConfig = {
 
                 renderStatsData(data);
             } catch (error) {
-                console.error('Stats load error:', error);
+                console.error('[Stats] Load error:', error);
                 document.getElementById('statsLoading').style.display = 'none';
                 document.getElementById('statsEmpty').style.display = 'block';
                 document.getElementById('statsEmpty').querySelector('p:nth-child(2)').textContent = 'Error loading data: ' + error.message;
