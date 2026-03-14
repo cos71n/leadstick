@@ -119,7 +119,12 @@ function validateAdminInput(input, type, required = true) {
       // Basic URL validation
       if (value && !/^https?:\/\/.+/.test(value)) errors.push('Avatar must be a valid HTTPS URL');
       break;
-      
+
+    case 'webhookUrl':
+      if (value.length > 500) errors.push('Webhook URL must be less than 500 characters');
+      if (value && !/^https:\/\/.+/.test(value)) errors.push('Webhook URL must be a valid HTTPS URL');
+      break;
+
     case 'barText':
       if (value.length > 30) errors.push('Bar text must be less than 30 characters');
       break;
@@ -1268,6 +1273,17 @@ export default {
           sanitizedShowPhoneCta = Boolean(clientData.showPhoneCta);
         }
 
+        // Validate webhook URL
+        let sanitizedWebhookUrl = '';
+        if (clientData.webhookUrl !== undefined) {
+          const webhookValidation = validateAdminInput(clientData.webhookUrl, 'webhookUrl', false);
+          if (!webhookValidation.isValid) {
+            validationErrors.push(...webhookValidation.errors);
+          } else {
+            sanitizedWebhookUrl = webhookValidation.sanitized;
+          }
+        }
+
         // Create sanitized client data
         const sanitizedClientData = {
           siteId: generatedSiteId,
@@ -1285,6 +1301,7 @@ export default {
           barText: sanitizedBarText,
           barTextMaxLength: 30,
           showPhoneCta: sanitizedShowPhoneCta,
+          webhookUrl: sanitizedWebhookUrl,
           googleAds: sanitizedGoogleAds,
           metaAds: sanitizedMetaAds
         };
@@ -1492,6 +1509,17 @@ export default {
           sanitizedMetaAds.enablePixel = !!clientData.metaAds.enablePixel;
         }
 
+        // Validate webhook URL
+        let sanitizedWebhookUrl = '';
+        if (clientData.webhookUrl !== undefined) {
+          const webhookValidation = validateAdminInput(clientData.webhookUrl, 'webhookUrl', false);
+          if (!webhookValidation.isValid) {
+            validationErrors.push(...webhookValidation.errors);
+          } else {
+            sanitizedWebhookUrl = webhookValidation.sanitized;
+          }
+        }
+
         if (validationErrors.length > 0) {
           return new Response(JSON.stringify({
             error: 'Validation failed',
@@ -1518,6 +1546,7 @@ export default {
           desktopStyle: sanitizedDesktopStyle,
           barText: sanitizedBarText,
           barTextMaxLength: 30,
+          webhookUrl: sanitizedWebhookUrl,
           googleAds: sanitizedGoogleAds,
           metaAds: sanitizedMetaAds
         };
@@ -1887,14 +1916,15 @@ export default {
       // Generate lead ID
       const leadId = `lead_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
 
-      // Get configuration for email recipient (if siteId provided)
+      // Get configuration for email recipient and webhook (if siteId provided)
       let recipientEmail = env.LEAD_EMAIL_RECIPIENT || 'leads@example.com';
+      let clientConfig = null;
       if (sanitized.siteId) {
         try {
           const configKey = `client_config_${sanitized.siteId}`;
-          const config = await env.LEADSTICK_CONFIGS.get(configKey, 'json');
-          if (config && config.business && config.business.email) {
-            recipientEmail = config.business.email;
+          clientConfig = await env.LEADSTICK_CONFIGS.get(configKey, 'json');
+          if (clientConfig && clientConfig.business && clientConfig.business.email) {
+            recipientEmail = clientConfig.business.email;
           }
         } catch (error) {
           console.warn('Failed to fetch client config:', error);
@@ -1906,12 +1936,40 @@ export default {
 
       // Send email via Resend
       const emailSent = await sendEmail(sanitized, leadId, emailList, env);
-      
+
       // Track in GA4 (optional)
       await trackGA4Event(sanitized, leadId, env);
 
       // Track Meta Conversions API (optional)
       await trackMetaCAPI(sanitized, leadId, request, env);
+
+      // Send webhook (if configured)
+      if (clientConfig?.webhookUrl) {
+        try {
+          const webhookPayload = {
+            leadId,
+            timestamp: new Date().toISOString(),
+            siteId: sanitized.siteId,
+            business: sanitized.business,
+            name: sanitized.name,
+            email: sanitized.email,
+            phone: sanitized.phone,
+            location: sanitized.location,
+            service: sanitized.service,
+            finalMessage: sanitized.finalMessage,
+            attribution: sanitized.attribution || null,
+            source: sanitized.source
+          };
+
+          await fetch(clientConfig.webhookUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(webhookPayload)
+          });
+        } catch (error) {
+          console.warn('Webhook delivery failed:', error);
+        }
+      }
 
       // Track server-verified conversion in Analytics Engine
       if (sanitized.siteId) {
