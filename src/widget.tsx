@@ -361,7 +361,12 @@ const ChatMessage = ({ message, CONFIG }: { message: any; CONFIG: any }) => (
             }
           </p>
           <button
-            onClick={() => window.open(`tel:${CONFIG.business.phone}`, '_self')}
+            onClick={() => {
+              if (CONFIG.siteId) {
+                trackAnalyticsEvent(CONFIG.apiEndpoint, CONFIG.siteId, 'phone_tap')
+              }
+              window.open(`tel:${CONFIG.business.phone}`, '_self')
+            }}
             style={{
               backgroundColor: CONFIG.theme.primary,
               color: 'white',
@@ -612,6 +617,37 @@ function getQuoteSteps(CONFIG: any) {
   }));
 }
 
+// First-party analytics tracking
+function trackAnalyticsEvent(apiEndpoint: string, siteId: string, event: string) {
+  try {
+    const attribution = AttributionTracker.getInstance().getAttributionData()
+    const lastTouch: any = attribution?.lastTouch || {}
+    const data = JSON.stringify({
+      siteId,
+      event,
+      source: lastTouch.source || 'direct',
+      medium: lastTouch.medium || 'direct',
+      campaign: lastTouch.campaign || '',
+      landingPage: window.location.pathname,
+      referrer: document.referrer,
+      device: window.innerWidth < 768 ? 'mobile' : 'desktop'
+    })
+    const url = `${apiEndpoint}/api/track`
+    if (navigator.sendBeacon) {
+      navigator.sendBeacon(url, new Blob([data], { type: 'application/json' }))
+    } else {
+      fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: data,
+        keepalive: true
+      }).catch(() => {})
+    }
+  } catch (e) {
+    // Silently fail - analytics should never break the widget
+  }
+}
+
 // Get questions from flow configuration
 function getQuestionsFromFlow(CONFIG: any) {
   if (!CONFIG.flow) return [];
@@ -718,6 +754,10 @@ function LeadStickWidget({ CONFIG: dynamicConfig }: { CONFIG: any }) {
   // Reset chat when opened
   useEffect(() => {
     if (isOpen) {
+      // Track chat started event
+      if (dynamicConfig.siteId) {
+        trackAnalyticsEvent(dynamicConfig.apiEndpoint, dynamicConfig.siteId, 'chat_started')
+      }
       setCurrentStep('location')
       setLeadData({
         location: '',
@@ -1349,6 +1389,10 @@ function LeadStickWidget({ CONFIG: dynamicConfig }: { CONFIG: any }) {
     // Submit when we reach the complete step - let the API validate what's required
     if (currentStep === 'complete') {
       console.log('[Widget] Reached complete step, calling submitLead()');
+      // Track chat completed event
+      if (dynamicConfig.siteId) {
+        trackAnalyticsEvent(dynamicConfig.apiEndpoint, dynamicConfig.siteId, 'chat_completed')
+      }
       submitLead()
     } else {
       console.log('[Widget] Not at complete step yet, currentStep:', currentStep);
@@ -1771,6 +1815,10 @@ function LeadStickWidget({ CONFIG: dynamicConfig }: { CONFIG: any }) {
                       timestamp: new Date().toISOString()
                     })
                   }
+                  // Track first-party phone tap event
+                  if (dynamicConfig.siteId) {
+                    trackAnalyticsEvent(dynamicConfig.apiEndpoint, dynamicConfig.siteId, 'phone_tap')
+                  }
                   window.open(`tel:${dynamicConfig.business.phone}`, '_self')
                 }}
                 style={{
@@ -2013,6 +2061,20 @@ export async function initLeadStick(options?: { siteId?: string }) {
       device_type: window.innerWidth < 768 ? 'mobile' : 'desktop',
       site_id: finalConfig.siteId || 'default'
     })
+  }
+
+  // Track first-party visit (deduped per session per siteId)
+  if (finalConfig.siteId) {
+    const visitKey = `leadstick_visit_${finalConfig.siteId}`
+    try {
+      if (!sessionStorage.getItem(visitKey)) {
+        sessionStorage.setItem(visitKey, '1')
+        trackAnalyticsEvent(finalConfig.apiEndpoint, finalConfig.siteId, 'visit')
+      }
+    } catch (e) {
+      // sessionStorage may be blocked in some browsers - track anyway
+      trackAnalyticsEvent(finalConfig.apiEndpoint, finalConfig.siteId, 'visit')
+    }
   }
 
   // Create container and render widget
