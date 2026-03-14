@@ -685,18 +685,33 @@ function LeadStickWidget({ CONFIG: dynamicConfig }: { CONFIG: any }) {
 
   const toggleChat = () => setIsOpen(!isOpen)
 
+  // Listen for external open/close/toggle triggers (data attributes & JS API)
+  useEffect(() => {
+    const onOpen = () => setIsOpen(true)
+    const onClose = () => setIsOpen(false)
+    const onToggle = () => setIsOpen(prev => !prev)
+    document.addEventListener('leadstick:open', onOpen)
+    document.addEventListener('leadstick:close', onClose)
+    document.addEventListener('leadstick:toggle', onToggle)
+    return () => {
+      document.removeEventListener('leadstick:open', onOpen)
+      document.removeEventListener('leadstick:close', onClose)
+      document.removeEventListener('leadstick:toggle', onToggle)
+    }
+  }, [])
+
   // Detect mobile/desktop and track attribution
   useEffect(() => {
     const checkMobile = () => {
       setIsMobile(window.innerWidth < 768)
     }
-    
+
     checkMobile()
     window.addEventListener('resize', checkMobile)
-    
+
     // Track attribution data on component mount
     attributionTracker.trackAttribution()
-    
+
     return () => window.removeEventListener('resize', checkMobile)
   }, [])
 
@@ -2114,8 +2129,26 @@ export async function initLeadStick(options?: { siteId?: string }) {
 
 // Auto-initialize if script is loaded (with global config if available)
 if (typeof window !== 'undefined') {
-  // Make initLeadStick globally available
-  (window as any).LeadStick = { init: initLeadStick };
+  // Make initLeadStick and open/close/toggle globally available
+  (window as any).LeadStick = {
+    init: initLeadStick,
+    open: () => document.dispatchEvent(new CustomEvent('leadstick:open')),
+    close: () => document.dispatchEvent(new CustomEvent('leadstick:close')),
+    toggle: () => document.dispatchEvent(new CustomEvent('leadstick:toggle')),
+  };
+
+  // Delegate clicks on elements with data-leadstick-* attributes
+  document.addEventListener('click', (e) => {
+    const target = (e.target as Element).closest('[data-leadstick-open], [data-leadstick-close], [data-leadstick-toggle]')
+    if (!target) return
+    if (target.hasAttribute('data-leadstick-open')) {
+      document.dispatchEvent(new CustomEvent('leadstick:open'))
+    } else if (target.hasAttribute('data-leadstick-close')) {
+      document.dispatchEvent(new CustomEvent('leadstick:close'))
+    } else if (target.hasAttribute('data-leadstick-toggle')) {
+      document.dispatchEvent(new CustomEvent('leadstick:toggle'))
+    }
+  });
   
   // Check for window.leadstickConfig and auto-initialize with siteId
   const leadstickConfig = (window as any).leadstickConfig;
