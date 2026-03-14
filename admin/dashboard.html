@@ -897,7 +897,160 @@
                 overflow-x: auto;
             }
         }
+        /* Stats Modal Styles */
+        .stats-kpi-grid {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+
+        .stats-kpi-card {
+            background: #f9fafb;
+            border: 1px solid #e5e7eb;
+            border-radius: 10px;
+            padding: 16px;
+            text-align: center;
+        }
+
+        .stats-kpi-card .kpi-value {
+            font-size: 28px;
+            font-weight: 700;
+            color: #1f2937;
+            line-height: 1.2;
+        }
+
+        .stats-kpi-card .kpi-label {
+            font-size: 12px;
+            font-weight: 500;
+            color: #6b7280;
+            margin-top: 4px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .stats-kpi-card.highlight {
+            background: #eff6ff;
+            border-color: #bfdbfe;
+        }
+
+        .stats-kpi-card.highlight .kpi-value {
+            color: #2563eb;
+        }
+
+        .stats-date-bar {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 24px;
+            flex-wrap: wrap;
+        }
+
+        .stats-date-bar select {
+            padding: 8px 12px;
+            border: 1px solid #d1d5db;
+            border-radius: 6px;
+            font-size: 14px;
+            background: white;
+            cursor: pointer;
+        }
+
+        .stats-date-bar input[type="date"] {
+            padding: 8px 12px;
+            border: 1px solid #d1d5db;
+            border-radius: 6px;
+            font-size: 14px;
+            background: white;
+        }
+
+        .stats-charts-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 24px;
+            margin-top: 24px;
+        }
+
+        .stats-chart-card {
+            background: #f9fafb;
+            border: 1px solid #e5e7eb;
+            border-radius: 10px;
+            padding: 20px;
+        }
+
+        .stats-chart-card h3 {
+            font-size: 15px;
+            font-weight: 600;
+            color: #374151;
+            margin: 0 0 16px 0;
+        }
+
+        .stats-channel-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+        }
+
+        .stats-channel-table th {
+            text-align: left;
+            padding: 8px 12px;
+            border-bottom: 2px solid #e5e7eb;
+            color: #6b7280;
+            font-weight: 600;
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .stats-channel-table td {
+            padding: 8px 12px;
+            border-bottom: 1px solid #f3f4f6;
+            color: #374151;
+        }
+
+        .stats-channel-table tr:last-child td {
+            border-bottom: none;
+        }
+
+        .stats-loading {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 60px 20px;
+            color: #6b7280;
+            font-size: 14px;
+        }
+
+        .stats-empty {
+            text-align: center;
+            padding: 60px 20px;
+            color: #9ca3af;
+        }
+
+        .stats-empty p {
+            margin: 8px 0 0 0;
+            font-size: 14px;
+        }
+
+        .btn-info {
+            background: #8b5cf6;
+            color: white;
+        }
+
+        .btn-info:hover {
+            background: #7c3aed;
+        }
+
+        @media (max-width: 768px) {
+            .stats-kpi-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+
+            .stats-charts-grid {
+                grid-template-columns: 1fr;
+            }
+        }
     </style>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
 </head>
 <body>
     <!-- Authentication Check Screen -->
@@ -1441,6 +1594,112 @@
         </div>
     </div>
 
+    <!-- Stats Modal -->
+    <div id="statsModal" class="modal">
+        <div class="modal-content" style="max-width: 1000px;">
+            <div class="modal-header">
+                <h2 id="statsModalTitle">Client Analytics</h2>
+                <button class="close-btn" onclick="closeStatsModal()">&times;</button>
+            </div>
+
+            <div class="stats-date-bar">
+                <select id="statsDateRange" onchange="onStatsDateRangeChange()">
+                    <option value="today">Today</option>
+                    <option value="yesterday">Yesterday</option>
+                    <option value="last7" selected>Last 7 Days</option>
+                    <option value="last14">Last 14 Days</option>
+                    <option value="thisMonth">This Month</option>
+                    <option value="lastMonth">Last Month</option>
+                    <option value="last30">Last 30 Days</option>
+                    <option value="last90">Last 90 Days</option>
+                    <option value="custom">Custom Range</option>
+                </select>
+                <input type="date" id="statsStartDate" style="display:none" onchange="onStatsCustomDateChange()">
+                <span id="statsDateTo" style="display:none; color:#6b7280;">to</span>
+                <input type="date" id="statsEndDate" style="display:none" onchange="onStatsCustomDateChange()">
+            </div>
+
+            <div id="statsLoading" class="stats-loading" style="display:none">Loading analytics data...</div>
+            <div id="statsEmpty" class="stats-empty" style="display:none">
+                <p style="font-size:32px; margin:0;">📊</p>
+                <p>No analytics data for this period.</p>
+                <p style="font-size:12px; color:#9ca3af;">Data will appear once the widget starts receiving traffic.</p>
+            </div>
+
+            <div id="statsContent" style="display:none">
+                <div class="stats-kpi-grid">
+                    <div class="stats-kpi-card">
+                        <div class="kpi-value" id="kpiVisits">0</div>
+                        <div class="kpi-label">Visits</div>
+                    </div>
+                    <div class="stats-kpi-card">
+                        <div class="kpi-value" id="kpiChatsStarted">0</div>
+                        <div class="kpi-label">Chats Started</div>
+                    </div>
+                    <div class="stats-kpi-card">
+                        <div class="kpi-value" id="kpiChatsCompleted">0</div>
+                        <div class="kpi-label">Chats Completed</div>
+                    </div>
+                    <div class="stats-kpi-card highlight">
+                        <div class="kpi-value" id="kpiConversions">0</div>
+                        <div class="kpi-label">Conversions</div>
+                    </div>
+                    <div class="stats-kpi-card highlight">
+                        <div class="kpi-value" id="kpiConversionRate">0%</div>
+                        <div class="kpi-label">Conversion Rate</div>
+                    </div>
+                </div>
+
+                <div class="stats-charts-grid">
+                    <div class="stats-chart-card">
+                        <h3>Daily Trend</h3>
+                        <canvas id="statsDailyChart"></canvas>
+                    </div>
+                    <div class="stats-chart-card">
+                        <h3>Channel Breakdown</h3>
+                        <canvas id="statsChannelChart"></canvas>
+                    </div>
+                </div>
+
+                <div style="margin-top:24px;">
+                    <div class="stats-chart-card">
+                        <h3>Channel Details</h3>
+                        <table class="stats-channel-table">
+                            <thead>
+                                <tr>
+                                    <th>Channel</th>
+                                    <th>Visits</th>
+                                    <th>Chats Started</th>
+                                    <th>Conversions</th>
+                                    <th>Conv. Rate</th>
+                                </tr>
+                            </thead>
+                            <tbody id="statsChannelTableBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div id="statsHistorical" style="display:none; margin-top:24px;">
+                    <div class="stats-chart-card">
+                        <h3>Historical Monthly Data</h3>
+                        <table class="stats-channel-table">
+                            <thead>
+                                <tr>
+                                    <th>Month</th>
+                                    <th>Visits</th>
+                                    <th>Chats Started</th>
+                                    <th>Conversions</th>
+                                    <th>Conv. Rate</th>
+                                </tr>
+                            </thead>
+                            <tbody id="statsHistoricalTableBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script id="main-script">
         console.log('[Dashboard] Script loaded, starting initialization...');
         
@@ -1777,7 +2036,13 @@
                 deleteBtn.textContent = '🗑️ Delete';
                 deleteBtn.onclick = () => deleteClient(client.siteId);
                 
+                const statsBtn = document.createElement('button');
+                statsBtn.className = 'btn btn-info btn-small';
+                statsBtn.textContent = '📊 Stats';
+                statsBtn.onclick = () => openStatsModal(client.siteId, client.business?.name || client.siteId);
+
                 actions.appendChild(editBtn);
+                actions.appendChild(statsBtn);
                 actions.appendChild(copyCodeBtn);
                 actions.appendChild(deleteBtn);
                 
@@ -3389,7 +3654,320 @@ window.leadstickConfig = {
         window.handleAvatarUpload = handleAvatarUpload;
         window.removeAvatar = removeAvatar;
         window.uploadAvatarToR2 = uploadAvatarToR2;
-        
+
+        // ========== STATS / ANALYTICS ==========
+        let currentStatsSiteId = null;
+        let dailyChart = null;
+        let channelChart = null;
+
+        const CHANNEL_LABELS = {
+            seo: 'SEO (Organic)',
+            google_ads: 'Google Ads',
+            facebook_ads: 'Facebook Ads',
+            microsoft_ads: 'Microsoft Ads',
+            social: 'Social',
+            email: 'Email',
+            referral: 'Referral',
+            direct: 'Direct',
+            paid_other: 'Other Paid',
+            other: 'Other'
+        };
+
+        const CHANNEL_COLORS = {
+            seo: '#10b981',
+            google_ads: '#3b82f6',
+            facebook_ads: '#8b5cf6',
+            microsoft_ads: '#06b6d4',
+            social: '#f59e0b',
+            email: '#ef4444',
+            referral: '#ec4899',
+            direct: '#6b7280',
+            paid_other: '#f97316',
+            other: '#9ca3af'
+        };
+
+        function getDateRange(preset) {
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            const fmt = d => {
+                const y = d.getFullYear();
+                const m = String(d.getMonth() + 1).padStart(2, '0');
+                const day = String(d.getDate()).padStart(2, '0');
+                return `${y}-${m}-${day}`;
+            };
+
+            switch (preset) {
+                case 'today':
+                    return { start: fmt(today), end: fmt(today) };
+                case 'yesterday': {
+                    const y = new Date(today);
+                    y.setDate(y.getDate() - 1);
+                    return { start: fmt(y), end: fmt(y) };
+                }
+                case 'last7': {
+                    const s = new Date(today);
+                    s.setDate(s.getDate() - 6);
+                    return { start: fmt(s), end: fmt(today) };
+                }
+                case 'last14': {
+                    const s = new Date(today);
+                    s.setDate(s.getDate() - 13);
+                    return { start: fmt(s), end: fmt(today) };
+                }
+                case 'thisMonth': {
+                    const s = new Date(today.getFullYear(), today.getMonth(), 1);
+                    return { start: fmt(s), end: fmt(today) };
+                }
+                case 'lastMonth': {
+                    const s = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+                    const e = new Date(today.getFullYear(), today.getMonth(), 0);
+                    return { start: fmt(s), end: fmt(e) };
+                }
+                case 'last30': {
+                    const s = new Date(today);
+                    s.setDate(s.getDate() - 29);
+                    return { start: fmt(s), end: fmt(today) };
+                }
+                case 'last90': {
+                    const s = new Date(today);
+                    s.setDate(s.getDate() - 89);
+                    return { start: fmt(s), end: fmt(today) };
+                }
+                default:
+                    return { start: fmt(today), end: fmt(today) };
+            }
+        }
+
+        function openStatsModal(siteId, businessName) {
+            currentStatsSiteId = siteId;
+            document.getElementById('statsModalTitle').textContent = (businessName || siteId) + ' — Analytics';
+            document.getElementById('statsDateRange').value = 'last7';
+            document.getElementById('statsStartDate').style.display = 'none';
+            document.getElementById('statsEndDate').style.display = 'none';
+            document.getElementById('statsDateTo').style.display = 'none';
+            document.getElementById('statsModal').classList.add('active');
+            loadStatsData();
+        }
+
+        function closeStatsModal() {
+            document.getElementById('statsModal').classList.remove('active');
+            if (dailyChart) { dailyChart.destroy(); dailyChart = null; }
+            if (channelChart) { channelChart.destroy(); channelChart = null; }
+            currentStatsSiteId = null;
+        }
+
+        function onStatsDateRangeChange() {
+            const val = document.getElementById('statsDateRange').value;
+            const showCustom = val === 'custom';
+            document.getElementById('statsStartDate').style.display = showCustom ? '' : 'none';
+            document.getElementById('statsEndDate').style.display = showCustom ? '' : 'none';
+            document.getElementById('statsDateTo').style.display = showCustom ? '' : 'none';
+            if (!showCustom) {
+                loadStatsData();
+            }
+        }
+
+        function onStatsCustomDateChange() {
+            const start = document.getElementById('statsStartDate').value;
+            const end = document.getElementById('statsEndDate').value;
+            if (start && end && start <= end) {
+                loadStatsData();
+            }
+        }
+
+        async function loadStatsData() {
+            if (!currentStatsSiteId) return;
+
+            const preset = document.getElementById('statsDateRange').value;
+            let start, end;
+            if (preset === 'custom') {
+                start = document.getElementById('statsStartDate').value;
+                end = document.getElementById('statsEndDate').value;
+                if (!start || !end) return;
+            } else {
+                const range = getDateRange(preset);
+                start = range.start;
+                end = range.end;
+            }
+
+            const tz = new Date().getTimezoneOffset();
+
+            document.getElementById('statsLoading').style.display = 'flex';
+            document.getElementById('statsContent').style.display = 'none';
+            document.getElementById('statsEmpty').style.display = 'none';
+
+            try {
+                const analyticsUrl = `${API_BASE}/admin/analytics/${currentStatsSiteId}?start=${start}&end=${end}&tz=${tz}`;
+                console.log('[Stats] Fetching:', analyticsUrl);
+                const response = await authenticatedFetch(analyticsUrl);
+                console.log('[Stats] Response status:', response.status);
+                const data = await response.json();
+                console.log('[Stats] Response data:', JSON.stringify(data));
+
+                if (!response.ok) {
+                    throw new Error(data.error || 'Failed to load analytics');
+                }
+
+                document.getElementById('statsLoading').style.display = 'none';
+
+                const s = data.summary || {};
+                if (s.visits === 0 && s.conversions === 0 && s.chats_started === 0) {
+                    document.getElementById('statsEmpty').style.display = 'block';
+                    return;
+                }
+
+                renderStatsData(data);
+            } catch (error) {
+                console.error('[Stats] Load error:', error);
+                document.getElementById('statsLoading').style.display = 'none';
+                document.getElementById('statsEmpty').style.display = 'block';
+                document.getElementById('statsEmpty').querySelector('p:nth-child(2)').textContent = 'Error loading data: ' + error.message;
+            }
+        }
+
+        function renderStatsData(data) {
+            const s = data.summary || {};
+            document.getElementById('kpiVisits').textContent = (s.visits || 0).toLocaleString();
+            document.getElementById('kpiChatsStarted').textContent = (s.chats_started || 0).toLocaleString();
+            document.getElementById('kpiChatsCompleted').textContent = (s.chats_completed || 0).toLocaleString();
+            document.getElementById('kpiConversions').textContent = (s.conversions || 0).toLocaleString();
+            document.getElementById('kpiConversionRate').textContent = (s.conversion_rate || 0).toFixed(1) + '%';
+
+            document.getElementById('statsContent').style.display = 'block';
+
+            // Daily trend chart
+            if (dailyChart) { dailyChart.destroy(); dailyChart = null; }
+            const dailyData = data.daily || [];
+            if (dailyData.length > 0) {
+                const ctx = document.getElementById('statsDailyChart').getContext('2d');
+                dailyChart = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: dailyData.map(d => {
+                            const date = new Date(d.date + 'T00:00:00');
+                            return date.toLocaleDateString('en-AU', { month: 'short', day: 'numeric' });
+                        }),
+                        datasets: [
+                            {
+                                label: 'Visits',
+                                data: dailyData.map(d => d.visits || 0),
+                                borderColor: '#3b82f6',
+                                backgroundColor: 'rgba(59,130,246,0.1)',
+                                fill: true,
+                                tension: 0.3
+                            },
+                            {
+                                label: 'Chats Started',
+                                data: dailyData.map(d => d.chats_started || 0),
+                                borderColor: '#f59e0b',
+                                backgroundColor: 'rgba(245,158,11,0.1)',
+                                fill: false,
+                                tension: 0.3
+                            },
+                            {
+                                label: 'Conversions',
+                                data: dailyData.map(d => d.conversions || 0),
+                                borderColor: '#10b981',
+                                backgroundColor: 'rgba(16,185,129,0.1)',
+                                fill: false,
+                                tension: 0.3
+                            }
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        plugins: { legend: { position: 'bottom' } },
+                        scales: {
+                            y: { beginAtZero: true, ticks: { precision: 0 } }
+                        }
+                    }
+                });
+            }
+
+            // Channel breakdown chart
+            if (channelChart) { channelChart.destroy(); channelChart = null; }
+            const channels = data.channels || [];
+            if (channels.length > 0) {
+                const ctx2 = document.getElementById('statsChannelChart').getContext('2d');
+                channelChart = new Chart(ctx2, {
+                    type: 'bar',
+                    data: {
+                        labels: channels.map(c => CHANNEL_LABELS[c.channel] || c.channel),
+                        datasets: [
+                            {
+                                label: 'Visits',
+                                data: channels.map(c => c.visits || 0),
+                                backgroundColor: channels.map(c => CHANNEL_COLORS[c.channel] || '#9ca3af')
+                            },
+                            {
+                                label: 'Conversions',
+                                data: channels.map(c => c.conversions || 0),
+                                backgroundColor: channels.map(c => {
+                                    const color = CHANNEL_COLORS[c.channel] || '#9ca3af';
+                                    return color + '99'; // Add transparency
+                                })
+                            }
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        indexAxis: 'y',
+                        plugins: { legend: { position: 'bottom' } },
+                        scales: {
+                            x: { beginAtZero: true, ticks: { precision: 0 } }
+                        }
+                    }
+                });
+            }
+
+            // Channel details table
+            const tbody = document.getElementById('statsChannelTableBody');
+            tbody.innerHTML = '';
+            channels.forEach(c => {
+                const tr = document.createElement('tr');
+                const rate = c.visits > 0 ? ((c.conversions / c.visits) * 100).toFixed(1) + '%' : '0%';
+                const channelLabel = CHANNEL_LABELS[c.channel] || c.channel;
+                const color = CHANNEL_COLORS[c.channel] || '#9ca3af';
+                tr.innerHTML = `
+                    <td><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${color};margin-right:8px;"></span>${channelLabel}</td>
+                    <td>${(c.visits || 0).toLocaleString()}</td>
+                    <td>${(c.chats_started || 0).toLocaleString()}</td>
+                    <td>${(c.conversions || 0).toLocaleString()}</td>
+                    <td>${rate}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+
+            // Historical monthly data
+            const historical = data.historical || [];
+            const histSection = document.getElementById('statsHistorical');
+            if (historical.length > 0) {
+                histSection.style.display = 'block';
+                const histBody = document.getElementById('statsHistoricalTableBody');
+                histBody.innerHTML = '';
+                historical.forEach(h => {
+                    const tr = document.createElement('tr');
+                    const rate = h.visits > 0 ? ((h.conversions / h.visits) * 100).toFixed(1) + '%' : '0%';
+                    tr.innerHTML = `
+                        <td>${h.month}</td>
+                        <td>${(h.visits || 0).toLocaleString()}</td>
+                        <td>${(h.chats_started || 0).toLocaleString()}</td>
+                        <td>${(h.conversions || 0).toLocaleString()}</td>
+                        <td>${rate}</td>
+                    `;
+                    histBody.appendChild(tr);
+                });
+            } else {
+                histSection.style.display = 'none';
+            }
+        }
+
+        // Export stats functions to global scope
+        window.openStatsModal = openStatsModal;
+        window.closeStatsModal = closeStatsModal;
+        window.onStatsDateRangeChange = onStatsDateRangeChange;
+        window.onStatsCustomDateChange = onStatsCustomDateChange;
+
         // Add event listeners for widget type changes
         document.getElementById('editBubble').addEventListener('change', function() {
             if (this.checked) {

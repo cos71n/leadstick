@@ -149,6 +149,55 @@ function validateAdminInput(input, type, required = true) {
   };
 }
 
+// Channel classification for analytics
+function classifyChannel(source, medium) {
+  const src = (source || '').toLowerCase().trim();
+  const med = (medium || '').toLowerCase().trim();
+
+  // Google Ads
+  if (src === 'google' && (med === 'cpc' || med === 'ppc')) return 'google_ads';
+  // Facebook/Instagram Ads
+  if ((src === 'facebook' || src === 'instagram' || src === 'fb') && (med === 'cpc' || med === 'paid' || med === 'paidsocial')) return 'facebook_ads';
+  // Microsoft/Bing Ads
+  if ((src === 'bing' || src === 'microsoft') && (med === 'cpc' || med === 'ppc')) return 'microsoft_ads';
+  // Organic Search (SEO)
+  if (['google', 'bing', 'yahoo', 'duckduckgo', 'baidu'].includes(src) && med === 'organic') return 'seo';
+  // Organic Social
+  if (['facebook', 'instagram', 'linkedin', 'twitter', 'youtube', 'tiktok', 'pinterest'].includes(src) && (med === 'social' || med === 'organic')) return 'social';
+  // Other paid
+  if (med === 'cpc' || med === 'ppc' || med === 'paid') return 'paid_other';
+  // Email
+  if (med === 'email') return 'email';
+  // Referral
+  if (med === 'referral') return 'referral';
+  // Direct
+  if (src === 'direct' || (!src && !med)) return 'direct';
+
+  return 'other';
+}
+
+// Write analytics event to Analytics Engine
+function writeAnalyticsEvent(env, siteId, event, source, medium, campaign, landingPage, device, referrer) {
+  if (!env.ANALYTICS) return;
+  try {
+    const channel = classifyChannel(source, medium);
+    // Extract referrer domain
+    let referrerDomain = '';
+    try {
+      if (referrer) referrerDomain = new URL(referrer).hostname;
+    } catch (e) {
+      referrerDomain = referrer || '';
+    }
+    env.ANALYTICS.writeDataPoint({
+      indexes: [siteId],
+      blobs: [event, channel, source || '', medium || '', campaign || '', landingPage || '', device || '', referrerDomain],
+      doubles: [1]
+    });
+  } catch (error) {
+    console.error('Analytics write failed:', error);
+  }
+}
+
 // Persistent rate limiting using Cloudflare KV
 // This approach persists across worker restarts and provides robust protection
 async function checkRateLimit(clientIP, env) {
@@ -925,6 +974,42 @@ export default {
       }
     }
 
+    // Route: POST /api/track - Record analytics event (public)
+    if (request.method === 'POST' && url.pathname === '/api/track') {
+      try {
+        const data = await request.json();
+        const { siteId, event, source, medium, campaign, landingPage, referrer, device } = data;
+
+        // Validate required fields
+        if (!siteId || typeof siteId !== 'string' || siteId.length < 3 || siteId.length > 50) {
+          return new Response(null, { status: 400, headers: corsHeaders });
+        }
+
+        const validEvents = ['visit', 'chat_started', 'chat_completed', 'phone_tap'];
+        if (!event || !validEvents.includes(event)) {
+          return new Response(null, { status: 400, headers: corsHeaders });
+        }
+
+        // Write to Analytics Engine
+        writeAnalyticsEvent(
+          env,
+          sanitizeInput(siteId, 50),
+          event,
+          sanitizeInput(source || '', 100),
+          sanitizeInput(medium || '', 100),
+          sanitizeInput(campaign || '', 200),
+          sanitizeInput(landingPage || '', 500),
+          sanitizeInput(device || '', 10),
+          sanitizeInput(referrer || '', 500)
+        );
+
+        return new Response(null, { status: 204, headers: corsHeaders });
+      } catch (error) {
+        console.error('Analytics tracking error:', error);
+        return new Response(null, { status: 204, headers: corsHeaders }); // Fail silently
+      }
+    }
+
     // Route: GET /admin/clients - List all clients
     if (request.method === 'GET' && url.pathname === '/admin/clients') {
       // Check authentication
@@ -1540,6 +1625,194 @@ export default {
       }
     }
 
+    // Route: GET /admin/analytics/:siteId - Query analytics data
+    if (request.method === 'GET' && url.pathname.startsWith('/admin/analytics/')) {
+      const authResult = await authenticateAdmin(request, env);
+      if (!authResult.valid) {
+        return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+          status: 401, headers: corsHeaders
+        });
+      }
+
+      const siteId = url.pathname.split('/')[3];
+      if (!siteId) {
+        return new Response(JSON.stringify({ error: 'Site ID required' }), {
+          status: 400, headers: corsHeaders
+        });
+      }
+
+      const siteIdValidation = validateAdminInput(siteId, 'siteId', true);
+      if (!siteIdValidation.isValid) {
+        return new Response(JSON.stringify({ error: 'Invalid Site ID format' }), {
+          status: 400, headers: corsHeaders
+        });
+      }
+
+      try {
+        const startParam = url.searchParams.get('start');
+        const endParam = url.searchParams.get('end');
+        const tz = parseInt(url.searchParams.get('tz') || '0', 10);
+
+        if (!startParam || !endParam) {
+          return new Response(JSON.stringify({ error: 'start and end date parameters required' }), {
+            status: 400, headers: corsHeaders
+          });
+        }
+
+        // Validate date format (YYYY-MM-DD)
+        const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+        if (!dateRegex.test(startParam) || !dateRegex.test(endParam)) {
+          return new Response(JSON.stringify({ error: 'Invalid date format. Use YYYY-MM-DD' }), {
+            status: 400, headers: corsHeaders
+          });
+        }
+
+        // Adjust dates for timezone offset — format as 'YYYY-MM-DD HH:MM:SS' for Analytics Engine
+        const tzOffsetMs = tz * 60 * 1000;
+        const startDateObj = new Date(new Date(startParam + 'T00:00:00Z').getTime() + tzOffsetMs);
+        const endDateObj = new Date(new Date(endParam + 'T23:59:59Z').getTime() + tzOffsetMs);
+        const toAEDateTime = (d) => d.toISOString().replace('T', ' ').replace('Z', '').split('.')[0];
+        const startDate = toAEDateTime(startDateObj);
+        const endDate = toAEDateTime(endDateObj);
+
+        if (!env.CF_ACCOUNT_ID || !env.CF_API_TOKEN) {
+          return new Response(JSON.stringify({ error: 'Analytics not configured. Set CF_ACCOUNT_ID and CF_API_TOKEN secrets.' }), {
+            status: 500, headers: corsHeaders
+          });
+        }
+
+        // Query Analytics Engine SQL API
+        const sanitizedSiteId = siteIdValidation.sanitized.replace(/'/g, "''");
+        const query = `
+          SELECT
+            blob1 AS event_type,
+            blob2 AS channel,
+            toDate(timestamp) AS date,
+            SUM(_sample_interval * double1) AS count
+          FROM leadstick_events
+          WHERE
+            index1 = '${sanitizedSiteId}'
+            AND timestamp >= toDateTime('${startDate}')
+            AND timestamp <= toDateTime('${endDate}')
+          GROUP BY event_type, channel, date
+          ORDER BY date ASC
+        `;
+
+        const analyticsResponse = await fetch(
+          `https://api.cloudflare.com/client/v4/accounts/${env.CF_ACCOUNT_ID}/analytics_engine/sql`,
+          {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${env.CF_API_TOKEN}`,
+              'Content-Type': 'text/plain'
+            },
+            body: query
+          }
+        );
+
+        if (!analyticsResponse.ok) {
+          const errorText = await analyticsResponse.text();
+          console.error('Analytics Engine query failed:', analyticsResponse.status, errorText);
+          return new Response(JSON.stringify({ error: 'Failed to query analytics' }), {
+            status: 502, headers: corsHeaders
+          });
+        }
+
+        const rawData = await analyticsResponse.json();
+        const rows = rawData.data || [];
+
+        // Aggregate summary
+        const summary = { visits: 0, chats_started: 0, chats_completed: 0, conversions: 0, phone_taps: 0 };
+        const dailyMap = {};
+        const channelMap = {};
+
+        for (const row of rows) {
+          const count = Math.round(parseFloat(row.count) || 0);
+          const eventType = row.event_type;
+          const channel = row.channel;
+          const date = row.date;
+
+          // Summary totals
+          if (eventType === 'visit') summary.visits += count;
+          else if (eventType === 'chat_started') summary.chats_started += count;
+          else if (eventType === 'chat_completed') summary.chats_completed += count;
+          else if (eventType === 'conversion') summary.conversions += count;
+          else if (eventType === 'phone_tap') summary.phone_taps += count;
+
+          // Daily breakdown
+          if (!dailyMap[date]) {
+            dailyMap[date] = { date, visits: 0, chats_started: 0, chats_completed: 0, conversions: 0, phone_taps: 0 };
+          }
+          if (eventType === 'visit') dailyMap[date].visits += count;
+          else if (eventType === 'chat_started') dailyMap[date].chats_started += count;
+          else if (eventType === 'chat_completed') dailyMap[date].chats_completed += count;
+          else if (eventType === 'conversion') dailyMap[date].conversions += count;
+          else if (eventType === 'phone_tap') dailyMap[date].phone_taps += count;
+
+          // Channel breakdown
+          if (!channelMap[channel]) {
+            channelMap[channel] = { channel, visits: 0, chats_started: 0, chats_completed: 0, conversions: 0, phone_taps: 0 };
+          }
+          if (eventType === 'visit') channelMap[channel].visits += count;
+          else if (eventType === 'chat_started') channelMap[channel].chats_started += count;
+          else if (eventType === 'chat_completed') channelMap[channel].chats_completed += count;
+          else if (eventType === 'conversion') channelMap[channel].conversions += count;
+          else if (eventType === 'phone_tap') channelMap[channel].phone_taps += count;
+        }
+
+        // Compute conversion rate
+        summary.conversion_rate = summary.visits > 0
+          ? Math.round((summary.conversions / summary.visits) * 10000) / 100
+          : 0;
+
+        // Check for KV historical data if date range might extend beyond Analytics Engine retention
+        const rangeStartDate = new Date(startParam);
+        const ninetyDaysAgo = new Date();
+        ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
+        let historical = [];
+
+        if (rangeStartDate < ninetyDaysAgo) {
+          // Fetch monthly snapshots from KV for months in range
+          const startMonth = startParam.substring(0, 7); // YYYY-MM
+          const endMonth = endParam.substring(0, 7);
+          const monthKeys = [];
+          let current = new Date(startParam);
+          while (current.toISOString().substring(0, 7) <= endMonth) {
+            const monthKey = `analytics_monthly_${sanitizedSiteId}_${current.toISOString().substring(0, 7)}`;
+            monthKeys.push({ key: monthKey, month: current.toISOString().substring(0, 7) });
+            current.setMonth(current.getMonth() + 1);
+          }
+
+          for (const { key, month } of monthKeys) {
+            try {
+              const snapshot = await env.LEADSTICK_CONFIGS.get(key, 'json');
+              if (snapshot) {
+                historical.push(snapshot);
+              }
+            } catch (e) {
+              // Skip missing snapshots
+            }
+          }
+        }
+
+        const daily = Object.values(dailyMap).sort((a, b) => a.date.localeCompare(b.date));
+        const channels = Object.values(channelMap).sort((a, b) => b.visits - a.visits);
+
+        return new Response(JSON.stringify({
+          summary,
+          daily,
+          channels,
+          historical
+        }), { headers: corsHeaders });
+
+      } catch (error) {
+        console.error('Analytics query error:', error);
+        return new Response(JSON.stringify({ error: 'Failed to fetch analytics' }), {
+          status: 500, headers: corsHeaders
+        });
+      }
+    }
+
     // Route: POST / (lead submission)
     if (request.method === 'POST' && url.pathname === '/') {
       try {
@@ -1640,6 +1913,22 @@ export default {
       // Track Meta Conversions API (optional)
       await trackMetaCAPI(sanitized, leadId, request, env);
 
+      // Track server-verified conversion in Analytics Engine
+      if (sanitized.siteId) {
+        const lastTouch = sanitized.attribution?.lastTouch || {};
+        writeAnalyticsEvent(
+          env,
+          sanitized.siteId,
+          'conversion',
+          lastTouch.source || 'direct',
+          lastTouch.medium || 'direct',
+          lastTouch.campaign || '',
+          lastTouch.landingPage || '',
+          '', // device not available server-side
+          lastTouch.referrer || ''
+        );
+      }
+
       // Add rate limit headers to successful responses
       const successHeaders = {
         ...corsHeaders,
@@ -1668,12 +1957,134 @@ export default {
     }
 
     // Default 404 for unknown routes
-    return new Response(JSON.stringify({ 
-      error: 'Not found' 
-    }), { 
-      status: 404, 
-      headers: corsHeaders 
+    return new Response(JSON.stringify({
+      error: 'Not found'
+    }), {
+      status: 404,
+      headers: corsHeaders
     });
+  },
+
+  // Cron Trigger: Monthly analytics snapshots to KV
+  async scheduled(event, env, ctx) {
+    console.log('[Cron] Analytics snapshot triggered:', new Date().toISOString());
+
+    if (!env.CF_ACCOUNT_ID || !env.CF_API_TOKEN) {
+      console.error('[Cron] CF_ACCOUNT_ID or CF_API_TOKEN not configured, skipping snapshot');
+      return;
+    }
+
+    try {
+      // Determine the previous month
+      const now = new Date();
+      const prevMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+      const monthStr = prevMonth.toISOString().substring(0, 7); // YYYY-MM
+      const toAEDate = (d) => d.toISOString().replace('T', ' ').replace('Z', '').split('.')[0];
+      const monthStart = toAEDate(new Date(prevMonth.getFullYear(), prevMonth.getMonth(), 1));
+      const monthEnd = toAEDate(new Date(prevMonth.getFullYear(), prevMonth.getMonth() + 1, 0, 23, 59, 59));
+
+      // List all clients
+      const listResult = await env.LEADSTICK_CONFIGS.list({ prefix: 'client_config_' });
+      const clientKeys = listResult.keys || [];
+      console.log(`[Cron] Found ${clientKeys.length} clients to snapshot`);
+
+      for (const keyInfo of clientKeys) {
+        const siteId = keyInfo.name.replace('client_config_', '');
+        const snapshotKey = `analytics_monthly_${siteId}_${monthStr}`;
+
+        // Check if snapshot already exists (written on the 1st)
+        if (now.getDate() === 15) {
+          const existing = await env.LEADSTICK_CONFIGS.get(snapshotKey);
+          if (existing) {
+            console.log(`[Cron] Snapshot already exists for ${siteId} ${monthStr}, skipping`);
+            continue;
+          }
+        }
+
+        // Query Analytics Engine for this client's monthly data
+        const query = `
+          SELECT
+            blob1 AS event_type,
+            blob2 AS channel,
+            SUM(_sample_interval * double1) AS count
+          FROM leadstick_events
+          WHERE
+            index1 = '${siteId.replace(/'/g, "''")}'
+            AND timestamp >= toDateTime('${monthStart}')
+            AND timestamp <= toDateTime('${monthEnd}')
+          GROUP BY event_type, channel
+        `;
+
+        try {
+          const response = await fetch(
+            `https://api.cloudflare.com/client/v4/accounts/${env.CF_ACCOUNT_ID}/analytics_engine/sql`,
+            {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${env.CF_API_TOKEN}`,
+                'Content-Type': 'text/plain'
+              },
+              body: query
+            }
+          );
+
+          if (!response.ok) {
+            console.error(`[Cron] Analytics query failed for ${siteId}:`, response.status);
+            continue;
+          }
+
+          const rawData = await response.json();
+          const rows = rawData.data || [];
+
+          // Build snapshot
+          const snapshot = {
+            month: monthStr,
+            visits: 0,
+            chats_started: 0,
+            chats_completed: 0,
+            conversions: 0,
+            phone_taps: 0,
+            channels: {},
+            created_at: now.toISOString()
+          };
+
+          for (const row of rows) {
+            const count = Math.round(parseFloat(row.count) || 0);
+            const eventType = row.event_type;
+            const channel = row.channel;
+
+            // Summary totals
+            if (eventType === 'visit') snapshot.visits += count;
+            else if (eventType === 'chat_started') snapshot.chats_started += count;
+            else if (eventType === 'chat_completed') snapshot.chats_completed += count;
+            else if (eventType === 'conversion') snapshot.conversions += count;
+            else if (eventType === 'phone_tap') snapshot.phone_taps += count;
+
+            // Channel breakdown
+            if (!snapshot.channels[channel]) {
+              snapshot.channels[channel] = { visits: 0, chats_started: 0, chats_completed: 0, conversions: 0, phone_taps: 0 };
+            }
+            if (eventType === 'visit') snapshot.channels[channel].visits += count;
+            else if (eventType === 'chat_started') snapshot.channels[channel].chats_started += count;
+            else if (eventType === 'chat_completed') snapshot.channels[channel].chats_completed += count;
+            else if (eventType === 'conversion') snapshot.channels[channel].conversions += count;
+            else if (eventType === 'phone_tap') snapshot.channels[channel].phone_taps += count;
+          }
+
+          // Only save if there's data
+          if (snapshot.visits > 0 || snapshot.conversions > 0 || snapshot.chats_started > 0) {
+            await env.LEADSTICK_CONFIGS.put(snapshotKey, JSON.stringify(snapshot));
+            console.log(`[Cron] Saved snapshot for ${siteId} ${monthStr}: ${snapshot.visits} visits, ${snapshot.conversions} conversions`);
+          }
+        } catch (queryError) {
+          console.error(`[Cron] Error processing ${siteId}:`, queryError);
+        }
+      }
+
+      console.log('[Cron] Analytics snapshot complete');
+    } catch (error) {
+      console.error('[Cron] Analytics snapshot failed:', error);
+    }
   }
 };
 
