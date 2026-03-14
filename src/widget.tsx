@@ -1439,6 +1439,26 @@ function LeadStickWidget({ CONFIG: dynamicConfig }: { CONFIG: any }) {
         </div>
       )}
 
+      {/* Desktop: Dark overlay backdrop */}
+      {!isMobile && (
+        <div
+          onClick={() => isOpen && setIsOpen(false)}
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.65)',
+            zIndex: 49,
+            opacity: isOpen ? 1 : 0,
+            visibility: isOpen ? 'visible' : 'hidden',
+            transition: 'opacity 0.25s ease-out, visibility 0.25s ease-out',
+            pointerEvents: isOpen ? 'auto' : 'none'
+          }}
+        />
+      )}
+
       {/* Desktop: Floating chat bubble or bar */}
       <div style={{
         position: 'fixed',
@@ -1448,6 +1468,7 @@ function LeadStickWidget({ CONFIG: dynamicConfig }: { CONFIG: any }) {
         display: !isMobile ? 'block' : 'none'
       }}>
         <div
+          onClick={(e: MouseEvent) => e.stopPropagation()}
           style={{
             display: 'flex',
             flexDirection: 'column',
