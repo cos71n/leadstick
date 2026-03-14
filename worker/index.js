@@ -933,6 +933,7 @@ export default {
               showPhoneCta: config.showPhoneCta !== false,
               questions: config.flow || [],
               messages: config.messages || {},
+              googleAds: config.googleAds || {},
               lastModified: key.metadata?.lastModified || new Date().toISOString()
             });
           }
@@ -1026,12 +1027,13 @@ export default {
           });
         }
         
-        // Validate and sanitize theme, message, and desktop style data
+        // Validate and sanitize theme, message, desktop style, and Google Ads data
         let sanitizedTheme = {};
         let sanitizedMessages = {};
         let sanitizedFlow = [];
         let sanitizedDesktopStyle = 'bubble'; // Default
         let sanitizedBarText = 'Get A Quick Quote'; // Default
+        let sanitizedGoogleAds = {};
         
         if (clientData.theme && typeof clientData.theme === 'object') {
           // Validate theme colors
@@ -1078,17 +1080,40 @@ export default {
             sanitizedBarText = barTextValidation.sanitized || 'Get A Quick Quote';
           }
         }
-        
+
+        // Validate Google Ads configuration
+        if (clientData.googleAds && typeof clientData.googleAds === 'object') {
+          // Validate conversion ID (format: AW-XXXXXXXXXX)
+          if (clientData.googleAds.conversionId !== undefined) {
+            const conversionId = String(clientData.googleAds.conversionId).trim();
+            if (conversionId && !/^AW-\d{9,11}$/.test(conversionId)) {
+              validationErrors.push('Invalid Google Ads Conversion ID format. Must be AW-XXXXXXXXXX');
+            } else {
+              sanitizedGoogleAds.conversionId = conversionId;
+            }
+          }
+
+          // Validate conversion label (alphanumeric, hyphens, underscores)
+          if (clientData.googleAds.conversionLabel !== undefined) {
+            const conversionLabel = String(clientData.googleAds.conversionLabel).trim();
+            if (conversionLabel && !/^[A-Za-z0-9_\-]{1,100}$/.test(conversionLabel)) {
+              validationErrors.push('Invalid Google Ads Conversion Label format');
+            } else {
+              sanitizedGoogleAds.conversionLabel = conversionLabel;
+            }
+          }
+        }
+
         if (validationErrors.length > 0) {
-          return new Response(JSON.stringify({ 
+          return new Response(JSON.stringify({
             error: 'Validation failed',
             details: validationErrors
-          }), { 
-            status: 400, 
-            headers: corsHeaders 
+          }), {
+            status: 400,
+            headers: corsHeaders
           });
         }
-        
+
         // Validate showPhoneCta boolean
         let sanitizedShowPhoneCta = true; // Default to true
         if (clientData.showPhoneCta !== undefined) {
@@ -1111,7 +1136,8 @@ export default {
           desktopStyle: sanitizedDesktopStyle,
           barText: sanitizedBarText,
           barTextMaxLength: 30,
-          showPhoneCta: sanitizedShowPhoneCta
+          showPhoneCta: sanitizedShowPhoneCta,
+          googleAds: sanitizedGoogleAds
         };
 
         // Save to KV
@@ -1212,12 +1238,13 @@ export default {
             }
           });
         
-        // Validate theme, message, and desktop style data
+        // Validate theme, message, desktop style, and Google Ads data
         let sanitizedTheme = {};
         let sanitizedMessages = {};
         let sanitizedFlow = [];
         let sanitizedDesktopStyle = 'bubble'; // Default
         let sanitizedBarText = 'Get A Quick Quote'; // Default
+        let sanitizedGoogleAds = {};
         
         if (clientData.theme && typeof clientData.theme === 'object') {
           if (clientData.theme.primary && !/^#[0-9A-Fa-f]{6}$/.test(clientData.theme.primary)) {
@@ -1262,17 +1289,40 @@ export default {
             sanitizedBarText = barTextValidation.sanitized || 'Get A Quick Quote';
           }
         }
-        
+
+        // Validate Google Ads configuration
+        if (clientData.googleAds && typeof clientData.googleAds === 'object') {
+          // Validate conversion ID (format: AW-XXXXXXXXXX)
+          if (clientData.googleAds.conversionId !== undefined) {
+            const conversionId = String(clientData.googleAds.conversionId).trim();
+            if (conversionId && !/^AW-\d{9,11}$/.test(conversionId)) {
+              validationErrors.push('Invalid Google Ads Conversion ID format. Must be AW-XXXXXXXXXX');
+            } else {
+              sanitizedGoogleAds.conversionId = conversionId;
+            }
+          }
+
+          // Validate conversion label (alphanumeric, hyphens, underscores)
+          if (clientData.googleAds.conversionLabel !== undefined) {
+            const conversionLabel = String(clientData.googleAds.conversionLabel).trim();
+            if (conversionLabel && !/^[A-Za-z0-9_\-]{1,100}$/.test(conversionLabel)) {
+              validationErrors.push('Invalid Google Ads Conversion Label format');
+            } else {
+              sanitizedGoogleAds.conversionLabel = conversionLabel;
+            }
+          }
+        }
+
         if (validationErrors.length > 0) {
-          return new Response(JSON.stringify({ 
+          return new Response(JSON.stringify({
             error: 'Validation failed',
             details: validationErrors
-          }), { 
-            status: 400, 
-            headers: corsHeaders 
+          }), {
+            status: 400,
+            headers: corsHeaders
           });
         }
-        
+
         // Create sanitized client data
         const sanitizedClientData = {
           siteId: siteIdValidation.sanitized,
@@ -1288,7 +1338,8 @@ export default {
           flow: sanitizedFlow,
           desktopStyle: sanitizedDesktopStyle,
           barText: sanitizedBarText,
-          barTextMaxLength: 30
+          barTextMaxLength: 30,
+          googleAds: sanitizedGoogleAds
         };
         
         // Save updated config

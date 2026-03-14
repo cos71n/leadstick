@@ -6,6 +6,31 @@ import { CONFIG as DEFAULT_CONFIG } from './config'
 // Global gtag function for GA4 tracking
 declare global {
   function gtag(...args: any[]): void
+  interface Window {
+    dataLayer: any[]
+  }
+}
+
+// Ensure gtag is loaded, injecting the script if needed.
+// If gtag already exists (e.g. via GTM or a direct snippet), we just
+// register the Google Ads conversion ID so `send_to` works.
+function ensureGtagLoaded(conversionId: string): void {
+  if (typeof gtag === 'undefined') {
+    // gtag not present — bootstrap dataLayer + gtag function + script
+    window.dataLayer = window.dataLayer || []
+    // @ts-ignore – gtag is defined as a global, we're creating it here
+    window.gtag = function gtag() { window.dataLayer.push(arguments) }
+    gtag('js', new Date())
+
+    const script = document.createElement('script')
+    script.async = true
+    script.src = `https://www.googletagmanager.com/gtag/js?id=${conversionId}`
+    document.head.appendChild(script)
+  }
+
+  // Always register the conversion ID so send_to works,
+  // even if gtag was already loaded via GTM or another snippet
+  gtag('config', conversionId, { send_page_view: false })
 }
 
 // Utility function to darken a hex color
@@ -125,12 +150,13 @@ const ChatInputForm = ({
   const getInputMode = (): 'text' | 'tel' | 'email' => {
     if (currentStep !== 'contact') return 'text';
 
+    // Get the current question type (same logic as validation)
     const questions = (CONFIG.flow || []).filter((item: any) => item.type === 'question');
     const contactQuestions = questions.filter((q: any) =>
       q.questionType && ['firstName', 'lastName', 'name', 'phone', 'email'].includes(q.questionType)
     );
 
-    // Count how many contact fields we've already filled
+    // Count filled contact fields to determine which question we're on
     let filledCount = 0;
     if (leadData.name) filledCount++;
     if (leadData.firstName) filledCount++;
@@ -138,13 +164,11 @@ const ChatInputForm = ({
     if (leadData.phone) filledCount++;
     if (leadData.email) filledCount++;
 
-    // Determine input mode based on current contact question
+    // Get current question
     if (filledCount < contactQuestions.length) {
-      const currentContactQuestion = contactQuestions[filledCount];
-      if (currentContactQuestion && currentContactQuestion.questionType) {
-        if (currentContactQuestion.questionType === 'phone') return 'tel';
-        if (currentContactQuestion.questionType === 'email') return 'email';
-      }
+      const currentQuestion = contactQuestions[filledCount];
+      if (currentQuestion?.questionType === 'phone') return 'tel';
+      if (currentQuestion?.questionType === 'email') return 'email';
     }
 
     return 'text';
@@ -1850,6 +1874,11 @@ export async function initLeadStick(options?: { siteId?: string }) {
     }
   }
   
+  // Load gtag for Google Ads conversion tracking if configured
+  if (finalConfig.googleAds?.conversionId) {
+    ensureGtagLoaded(finalConfig.googleAds.conversionId)
+  }
+
   // Track GA4 widget opened event
   if (typeof gtag !== 'undefined') {
     gtag('event', 'leadstick_started', {
