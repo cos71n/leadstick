@@ -794,34 +794,17 @@ export default {
     // Route: POST /admin/upload-avatar - Upload avatar to R2
     if (request.method === 'POST' && url.pathname === '/admin/upload-avatar') {
       console.log('[Avatar Upload] Received upload request');
-      
-      // Extract tokens from request headers
-      const authToken = request.headers.get('Authorization')?.replace('Bearer ', '');
-      const csrfToken = request.headers.get('X-CSRF-Token');
-      
-      console.log('[Avatar Upload] Auth token present:', !!authToken);
-      console.log('[Avatar Upload] CSRF token present:', !!csrfToken);
-      
-      if (!authToken || !csrfToken) {
-        console.log('[Avatar Upload] Missing authentication tokens');
-        return new Response(JSON.stringify({
-          error: 'Authentication required'
-        }), { 
-          status: 401, 
-          headers: corsHeaders 
-        });
-      }
-      
-      const authResult = await verifySessionToken(authToken, env);
+
+      const authResult = await authenticateAdmin(request, env, true);
       console.log('[Avatar Upload] Auth verification result:', authResult);
-      
+
       if (!authResult.valid) {
-        console.log('[Avatar Upload] Invalid session token');
+        console.log('[Avatar Upload] Authentication failed');
         return new Response(JSON.stringify({
-          error: 'Invalid session'
-        }), { 
-          status: 401, 
-          headers: corsHeaders 
+          error: authResult.error || 'Authentication required'
+        }), {
+          status: 401,
+          headers: corsHeaders
         });
       }
 
