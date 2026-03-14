@@ -33,6 +33,38 @@ function ensureGtagLoaded(conversionId: string): void {
   gtag('config', conversionId, { send_page_view: false })
 }
 
+// Meta Pixel standard events for deduplication with trackCustom
+const META_STANDARD_EVENTS = new Set([
+  'AddPaymentInfo', 'AddToCart', 'AddToWishlist', 'CompleteRegistration',
+  'Contact', 'CustomizeProduct', 'Donate', 'FindLocation', 'InitiateCheckout',
+  'Lead', 'Purchase', 'Schedule', 'Search', 'StartTrial', 'SubmitApplication',
+  'Subscribe', 'ViewContent'
+])
+
+// Ensure Meta Pixel is loaded, injecting the script if needed.
+function ensureMetaPixelLoaded(pixelId: string): void {
+  if (typeof (window as any).fbq !== 'undefined') return
+
+  // Standard Meta Pixel bootstrap (mirrors their official snippet)
+  const w = window as any
+  const n: any = w.fbq = function() {
+    n.callMethod ? n.callMethod.apply(n, arguments) : n.queue.push(arguments)
+  }
+  if (!w._fbq) w._fbq = n
+  n.push = n
+  n.loaded = true
+  n.version = '2.0'
+  n.queue = []
+
+  const script = document.createElement('script')
+  script.async = true
+  script.src = 'https://connect.facebook.net/en_US/fbevents.js'
+  document.head.appendChild(script)
+
+  w.fbq('init', pixelId)
+  w.fbq('track', 'PageView')
+}
+
 // Utility function to darken a hex color
 function darkenColor(hex: string, amount: number): string {
   // Remove # if present
@@ -467,20 +499,48 @@ class AttributionTracker {
     return null
   }
 
+  // Get or create the _fbp (Facebook browser ID) cookie
+  public getOrCreateFbp(): string {
+    const existing = this.getCookie('_fbp')
+    if (existing) return existing
+
+    const random = Math.floor(Math.random() * 10000000000)
+    const fbp = `fb.1.${Date.now()}.${random}`
+    this.setCookie('_fbp', fbp, 90)
+    return fbp
+  }
+
+  // Get or create the _fbc (Facebook click ID) cookie from fbclid
+  public getOrCreateFbc(): string | null {
+    const existing = this.getCookie('_fbc')
+    if (existing) return existing
+
+    const fbclid = this.getUrlParam('fbclid')
+    if (!fbclid) return null
+
+    const fbc = `fb.1.${Date.now()}.${fbclid}`
+    this.setCookie('_fbc', fbc, 90)
+    return fbc
+  }
+
   public trackAttribution(): void {
     const currentSession = this.captureCurrentSession()
-    
+
     // First touch (only set once per user)
     const existingFirstTouch = this.getCookie('leadstick_first_touch')
     if (!existingFirstTouch) {
       this.setCookie('leadstick_first_touch', JSON.stringify(currentSession), 90) // 90 days
     }
-    
+
     // Last touch (always update)
     this.setCookie('leadstick_last_touch', JSON.stringify(currentSession), 90)
-    
+
     // Session ID (for current session only)
     this.setCookie('leadstick_session_id', this.sessionId, 1) // 1 day
+
+    // Ensure Meta cookies exist for attribution matching
+    this.getOrCreateFbp()
+    this.getOrCreateFbc()
   }
 
   public getAttributionData(): { firstTouch: AttributionData; lastTouch: AttributionData; sessionId: string } {
@@ -1144,6 +1204,11 @@ function LeadStickWidget({ CONFIG: dynamicConfig }: { CONFIG: any }) {
       const attribution = attributionTracker.getAttributionData()
       console.log('[Widget] Attribution data:', attribution);
 
+      // Generate event ID for Meta deduplication (Pixel + CAPI)
+      const metaEventId = typeof crypto !== 'undefined' && crypto.randomUUID
+        ? crypto.randomUUID()
+        : `${Date.now()}-${Math.random().toString(36).substring(2, 10)}`
+
       const requestData = {
         ...leadData,
         attribution,
@@ -1152,7 +1217,12 @@ function LeadStickWidget({ CONFIG: dynamicConfig }: { CONFIG: any }) {
         source: 'leadstick-widget',
         siteId: dynamicConfig.siteId,
         // Include submission time for server-side validation
-        submissionTime: timeElapsed
+        submissionTime: timeElapsed,
+        // Meta CAPI data
+        metaEventId,
+        fbc: attributionTracker.getOrCreateFbc() || '',
+        fbp: attributionTracker.getOrCreateFbp(),
+        pageUrl: window.location.href
       };
 
       console.log('[Widget] About to submit to API:', dynamicConfig.apiEndpoint);
@@ -1223,6 +1293,20 @@ function LeadStickWidget({ CONFIG: dynamicConfig }: { CONFIG: any }) {
             'send_to': `${dynamicConfig.googleAds.conversionId}/${dynamicConfig.googleAds.conversionLabel}`,
             'transaction_id': attribution.sessionId
           })
+        }
+      }
+
+      // Track Meta Pixel conversion if configured
+      if (dynamicConfig.metaAds?.pixelId && dynamicConfig.metaAds?.enablePixel && typeof (window as any).fbq !== 'undefined') {
+        const eventName = dynamicConfig.metaAds.eventName || 'Lead'
+        const eventData = { content_name: leadData.service, content_category: leadData.location }
+        const eventOptions = { eventID: metaEventId }
+
+        console.log(`[Widget] Sending Meta Pixel event: ${eventName}`);
+        if (META_STANDARD_EVENTS.has(eventName)) {
+          (window as any).fbq('track', eventName, eventData, eventOptions)
+        } else {
+          (window as any).fbq('trackCustom', eventName, eventData, eventOptions)
         }
       }
       
@@ -1877,6 +1961,11 @@ export async function initLeadStick(options?: { siteId?: string }) {
   // Load gtag for Google Ads conversion tracking if configured
   if (finalConfig.googleAds?.conversionId) {
     ensureGtagLoaded(finalConfig.googleAds.conversionId)
+  }
+
+  // Load Meta Pixel if configured and enabled
+  if (finalConfig.metaAds?.pixelId && finalConfig.metaAds?.enablePixel) {
+    ensureMetaPixelLoaded(finalConfig.metaAds.pixelId)
   }
 
   // Track GA4 widget opened event

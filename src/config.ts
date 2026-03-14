@@ -33,6 +33,11 @@ export const CONFIG = {
     conversionId: "", // e.g., "AW-123456789"
     conversionLabel: "" // e.g., "AbC-D_efG-h12_34-567"
   },
+  metaAds: {
+    pixelId: "",
+    eventName: "Lead", // Lead, CompleteRegistration, Contact, SubmitApplication, or custom
+    enablePixel: false
+  },
   apiEndpoint: "https://leadstick-api.attribution.workers.dev",
   siteId: "", // Default empty siteId
   // New desktop widget style configuration

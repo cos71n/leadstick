@@ -1149,6 +1149,69 @@
                     </div>
 
                     <div class="form-group">
+                        <label for="metaPixelId">Meta Pixel ID</label>
+                        <input
+                            type="text"
+                            id="metaPixelId"
+                            name="metaPixelId"
+                            maxlength="16"
+                            placeholder="123456789012345"
+                            oninput="validateEditInput('metaPixelId', this.value, 'metaPixelId')"
+                        >
+                        <div class="help-text">Optional: 15-16 digit Meta Pixel ID. Required for Meta Ads conversion tracking.</div>
+                        <div class="validation-error"></div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="metaCapiToken">Meta CAPI Access Token</label>
+                        <input
+                            type="password"
+                            id="metaCapiToken"
+                            name="metaCapiToken"
+                            maxlength="500"
+                            placeholder="EAAxxxxxxx..."
+                        >
+                        <div class="help-text">Optional: Server-side access token for Meta Conversions API. This is kept secret and never exposed to the client.</div>
+                        <div class="validation-error"></div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="metaEventName">Meta Event Name</label>
+                        <input
+                            type="text"
+                            id="metaEventName"
+                            name="metaEventName"
+                            maxlength="50"
+                            placeholder="Lead"
+                            list="metaEventSuggestions"
+                            oninput="validateEditInput('metaEventName', this.value, 'metaEventName')"
+                        >
+                        <datalist id="metaEventSuggestions">
+                            <option value="Lead">
+                            <option value="CompleteRegistration">
+                            <option value="Contact">
+                            <option value="SubmitApplication">
+                            <option value="Schedule">
+                            <option value="Subscribe">
+                        </datalist>
+                        <div class="help-text">Optional: Meta event name to fire on lead completion. Defaults to "Lead". Can be a standard event or custom name.</div>
+                        <div class="validation-error"></div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="enableMetaPixel" style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                            <input
+                                type="checkbox"
+                                id="enableMetaPixel"
+                                name="enableMetaPixel"
+                                style="width: auto;"
+                            >
+                            Enable Client-Side Meta Pixel
+                        </label>
+                        <div class="help-text">When enabled, the widget will also load the Meta Pixel and fire the event client-side for redundancy. Server-side CAPI tracking is always active when Pixel ID and Access Token are configured.</div>
+                    </div>
+
+                    <div class="form-group">
                         <label for="welcomeMessage">Welcome Message</label>
                         <textarea 
                             id="welcomeMessage" 
@@ -1834,6 +1897,14 @@
                 case 'googleAdsConversionLabel':
                     if (value && !/^[A-Za-z0-9_\-]{1,100}$/.test(value)) errors.push('Invalid format. Use alphanumeric characters, hyphens, and underscores only');
                     break;
+
+                case 'metaPixelId':
+                    if (value && !/^\d{15,16}$/.test(value)) errors.push('Invalid format. Must be 15-16 digits');
+                    break;
+
+                case 'metaEventName':
+                    if (value && !/^[A-Za-z0-9_]{1,50}$/.test(value)) errors.push('Invalid format. Use alphanumeric characters and underscores only');
+                    break;
             }
 
             // Common security validation for all inputs
@@ -2010,6 +2081,12 @@
             // Set Google Ads configuration
             document.getElementById('conversionId').value = client.googleAds?.conversionId || '';
             document.getElementById('conversionLabel').value = client.googleAds?.conversionLabel || '';
+
+            // Set Meta Ads configuration
+            document.getElementById('metaPixelId').value = client.metaAds?.pixelId || '';
+            document.getElementById('metaCapiToken').value = client.metaAds?.capiAccessToken || '';
+            document.getElementById('metaEventName').value = client.metaAds?.eventName || 'Lead';
+            document.getElementById('enableMetaPixel').checked = client.metaAds?.enablePixel || false;
 
             // Set welcome message
             const welcomeMessage = client.messages?.welcome || '';
@@ -2233,7 +2310,9 @@
                 { id: 'barText', value: formData.get('barText'), type: 'barText' },
                 { id: 'editThemeText', value: document.getElementById('editThemeText').value, type: 'themeColor' },
                 { id: 'conversionId', value: document.getElementById('conversionId').value, type: 'googleAdsConversionId' },
-                { id: 'conversionLabel', value: document.getElementById('conversionLabel').value, type: 'googleAdsConversionLabel' }
+                { id: 'conversionLabel', value: document.getElementById('conversionLabel').value, type: 'googleAdsConversionLabel' },
+                { id: 'metaPixelId', value: document.getElementById('metaPixelId').value, type: 'metaPixelId' },
+                { id: 'metaEventName', value: document.getElementById('metaEventName').value, type: 'metaEventName' }
             ];
             
             // Site ID is auto-generated, no validation needed
@@ -2294,6 +2373,12 @@
                     googleAds: {
                         conversionId: sanitizeInput(document.getElementById('conversionId').value || ''),
                         conversionLabel: sanitizeInput(document.getElementById('conversionLabel').value || '')
+                    },
+                    metaAds: {
+                        pixelId: sanitizeInput(document.getElementById('metaPixelId').value || ''),
+                        capiAccessToken: sanitizeInput(document.getElementById('metaCapiToken').value || ''),
+                        eventName: sanitizeInput(document.getElementById('metaEventName').value || 'Lead'),
+                        enablePixel: document.getElementById('enableMetaPixel').checked
                     }
                 };
                 
