@@ -29,6 +29,10 @@ export const CONFIG = {
   ga4: {
     measurementId: "G-XXXXXXXXXX" // Will be configured during deployment
   },
+  googleAds: {
+    conversionId: "", // e.g., "AW-123456789"
+    conversionLabel: "" // e.g., "AbC-D_efG-h12_34-567"
+  },
   apiEndpoint: "https://leadstick-api.attribution.workers.dev",
   siteId: "", // Default empty siteId
   // New desktop widget style configuration

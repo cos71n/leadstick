@@ -1108,15 +1108,43 @@
 
                     <div class="form-group" id="barTextGroup" style="display: none;">
                         <label for="barText">Floating Bar Text</label>
-                        <input 
-                            type="text" 
-                            id="barText" 
-                            name="barText" 
+                        <input
+                            type="text"
+                            id="barText"
+                            name="barText"
                             maxlength="30"
                             placeholder="Get A Quick Quote"
                             oninput="validateEditInput('barText', this.value, 'barText')"
                         >
                         <div class="help-text">Text displayed on the floating bar (max 30 characters)</div>
+                        <div class="validation-error"></div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="conversionId">Google Ads Conversion ID</label>
+                        <input
+                            type="text"
+                            id="conversionId"
+                            name="conversionId"
+                            maxlength="50"
+                            placeholder="AW-123456789"
+                            oninput="validateEditInput('conversionId', this.value, 'googleAdsConversionId')"
+                        >
+                        <div class="help-text">Optional: Format AW-XXXXXXXXXX (e.g., AW-123456789). Leave blank to disable Google Ads conversion tracking.</div>
+                        <div class="validation-error"></div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="conversionLabel">Google Ads Conversion Label</label>
+                        <input
+                            type="text"
+                            id="conversionLabel"
+                            name="conversionLabel"
+                            maxlength="100"
+                            placeholder="abc_123-456_xyz"
+                            oninput="validateEditInput('conversionLabel', this.value, 'googleAdsConversionLabel')"
+                        >
+                        <div class="help-text">Optional: Alphanumeric characters, hyphens, and underscores only. Required if Conversion ID is set.</div>
                         <div class="validation-error"></div>
                     </div>
 
@@ -1794,12 +1822,20 @@
                 case 'barText':
                     if (value && value.length > 30) errors.push('Bar text must be less than 30 characters');
                     break;
-                    
+
                 case 'themeColor':
                     if (value && !/^#[0-9A-Fa-f]{6}$/.test(value)) errors.push('Theme color must be a valid hex color (e.g., #f6a560)');
                     break;
+
+                case 'googleAdsConversionId':
+                    if (value && !/^AW-\d{9,11}$/.test(value)) errors.push('Invalid format. Must be AW-XXXXXXXXXX (e.g., AW-123456789)');
+                    break;
+
+                case 'googleAdsConversionLabel':
+                    if (value && !/^[A-Za-z0-9_\-]{1,100}$/.test(value)) errors.push('Invalid format. Use alphanumeric characters, hyphens, and underscores only');
+                    break;
             }
-            
+
             // Common security validation for all inputs
             const dangerousChars = /<|>|script|javascript:|data:|vbscript:|onload|onerror/i;
             if (dangerousChars.test(value)) {
@@ -1970,7 +2006,11 @@
             
             // Set bar text
             document.getElementById('barText').value = client.barText || 'Get A Quick Quote';
-            
+
+            // Set Google Ads configuration
+            document.getElementById('conversionId').value = client.googleAds?.conversionId || '';
+            document.getElementById('conversionLabel').value = client.googleAds?.conversionLabel || '';
+
             // Set welcome message
             const welcomeMessage = client.messages?.welcome || '';
             document.getElementById('welcomeMessage').value = welcomeMessage;
@@ -2191,7 +2231,9 @@
                 { id: 'completionMessage', value: formData.get('completionMessage'), type: 'message' },
                 { id: 'phoneCtaText', value: formData.get('phoneCtaText'), type: 'message' },
                 { id: 'barText', value: formData.get('barText'), type: 'barText' },
-                { id: 'editThemeText', value: document.getElementById('editThemeText').value, type: 'themeColor' }
+                { id: 'editThemeText', value: document.getElementById('editThemeText').value, type: 'themeColor' },
+                { id: 'conversionId', value: document.getElementById('conversionId').value, type: 'googleAdsConversionId' },
+                { id: 'conversionLabel', value: document.getElementById('conversionLabel').value, type: 'googleAdsConversionLabel' }
             ];
             
             // Site ID is auto-generated, no validation needed
@@ -2248,7 +2290,11 @@
                     showPhoneCta: showPhoneCta,
                     desktopStyle: formData.get('widgetType'),
                     barText: sanitizeInput(formData.get('barText') || 'Get A Quick Quote'),
-                    flow: window.currentFlow || []
+                    flow: window.currentFlow || [],
+                    googleAds: {
+                        conversionId: sanitizeInput(document.getElementById('conversionId').value || ''),
+                        conversionLabel: sanitizeInput(document.getElementById('conversionLabel').value || '')
+                    }
                 };
                 
                 // Site ID is auto-generated for create mode, only used for edit mode
