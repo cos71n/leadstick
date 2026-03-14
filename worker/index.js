@@ -29,6 +29,31 @@ function sanitizeInput(input, maxLength = 500) {
   return input.trim().slice(0, maxLength);
 }
 
+// SHA-256 hash for Meta CAPI PII fields (Web Crypto API for Cloudflare Workers)
+async function sha256Hash(value) {
+  if (!value) return null;
+  const normalized = value.trim().toLowerCase();
+  if (!normalized) return null;
+  const data = new TextEncoder().encode(normalized);
+  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+  return Array.from(new Uint8Array(hashBuffer)).map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+// Normalize phone to digits-only with country code for Meta CAPI hashing
+function normalizePhoneE164(phone) {
+  if (!phone) return '';
+  let digits = phone.replace(/\D/g, '');
+  // Australian number: leading 0 -> +61
+  if (digits.startsWith('0') && digits.length === 10) {
+    digits = '61' + digits.substring(1);
+  }
+  // 9 digits without country code (AU)
+  if (digits.length === 9 && !digits.startsWith('61')) {
+    digits = '61' + digits;
+  }
+  return digits;
+}
+
 // Generate random 6-character Site ID
 function generateSiteId() {
   const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
@@ -879,8 +904,15 @@ export default {
           });
         }
 
-        return new Response(JSON.stringify(config), { 
-          headers: corsHeaders 
+        // Strip server-only secrets before returning to client
+        const clientConfig = { ...config };
+        if (clientConfig.metaAds) {
+          clientConfig.metaAds = { ...clientConfig.metaAds };
+          delete clientConfig.metaAds.capiAccessToken;
+        }
+
+        return new Response(JSON.stringify(clientConfig), {
+          headers: corsHeaders
         });
       } catch (error) {
         console.error('Error fetching config:', error);
@@ -934,6 +966,7 @@ export default {
               questions: config.flow || [],
               messages: config.messages || {},
               googleAds: config.googleAds || {},
+              metaAds: config.metaAds ? { pixelId: config.metaAds.pixelId, eventName: config.metaAds.eventName, enablePixel: config.metaAds.enablePixel } : {},
               lastModified: key.metadata?.lastModified || new Date().toISOString()
             });
           }
@@ -1027,14 +1060,15 @@ export default {
           });
         }
         
-        // Validate and sanitize theme, message, desktop style, and Google Ads data
+        // Validate and sanitize theme, message, desktop style, Google Ads, and Meta Ads data
         let sanitizedTheme = {};
         let sanitizedMessages = {};
         let sanitizedFlow = [];
         let sanitizedDesktopStyle = 'bubble'; // Default
         let sanitizedBarText = 'Get A Quick Quote'; // Default
         let sanitizedGoogleAds = {};
-        
+        let sanitizedMetaAds = {};
+
         if (clientData.theme && typeof clientData.theme === 'object') {
           // Validate theme colors
           if (clientData.theme.primary && !/^#[0-9A-Fa-f]{6}$/.test(clientData.theme.primary)) {
@@ -1104,6 +1138,35 @@ export default {
           }
         }
 
+        // Validate Meta Ads configuration
+        if (clientData.metaAds && typeof clientData.metaAds === 'object') {
+          if (clientData.metaAds.pixelId !== undefined) {
+            const pixelId = String(clientData.metaAds.pixelId).trim();
+            if (pixelId && !/^\d{15,16}$/.test(pixelId)) {
+              validationErrors.push('Invalid Meta Pixel ID format. Must be 15-16 digits');
+            } else {
+              sanitizedMetaAds.pixelId = pixelId;
+            }
+          }
+          if (clientData.metaAds.capiAccessToken !== undefined) {
+            const token = String(clientData.metaAds.capiAccessToken).trim();
+            if (token && token.length > 500) {
+              validationErrors.push('Meta CAPI Access Token too long');
+            } else {
+              sanitizedMetaAds.capiAccessToken = token;
+            }
+          }
+          if (clientData.metaAds.eventName !== undefined) {
+            const eventName = String(clientData.metaAds.eventName).trim();
+            if (eventName && !/^[A-Za-z0-9_]{1,50}$/.test(eventName)) {
+              validationErrors.push('Invalid Meta Event Name. Use alphanumeric characters and underscores only');
+            } else {
+              sanitizedMetaAds.eventName = eventName || 'Lead';
+            }
+          }
+          sanitizedMetaAds.enablePixel = !!clientData.metaAds.enablePixel;
+        }
+
         if (validationErrors.length > 0) {
           return new Response(JSON.stringify({
             error: 'Validation failed',
@@ -1137,7 +1200,8 @@ export default {
           barText: sanitizedBarText,
           barTextMaxLength: 30,
           showPhoneCta: sanitizedShowPhoneCta,
-          googleAds: sanitizedGoogleAds
+          googleAds: sanitizedGoogleAds,
+          metaAds: sanitizedMetaAds
         };
 
         // Save to KV
@@ -1238,14 +1302,15 @@ export default {
             }
           });
         
-        // Validate theme, message, desktop style, and Google Ads data
+        // Validate theme, message, desktop style, Google Ads, and Meta Ads data
         let sanitizedTheme = {};
         let sanitizedMessages = {};
         let sanitizedFlow = [];
         let sanitizedDesktopStyle = 'bubble'; // Default
         let sanitizedBarText = 'Get A Quick Quote'; // Default
         let sanitizedGoogleAds = {};
-        
+        let sanitizedMetaAds = {};
+
         if (clientData.theme && typeof clientData.theme === 'object') {
           if (clientData.theme.primary && !/^#[0-9A-Fa-f]{6}$/.test(clientData.theme.primary)) {
             validationErrors.push('Invalid primary theme color format');
@@ -1313,6 +1378,35 @@ export default {
           }
         }
 
+        // Validate Meta Ads configuration
+        if (clientData.metaAds && typeof clientData.metaAds === 'object') {
+          if (clientData.metaAds.pixelId !== undefined) {
+            const pixelId = String(clientData.metaAds.pixelId).trim();
+            if (pixelId && !/^\d{15,16}$/.test(pixelId)) {
+              validationErrors.push('Invalid Meta Pixel ID format. Must be 15-16 digits');
+            } else {
+              sanitizedMetaAds.pixelId = pixelId;
+            }
+          }
+          if (clientData.metaAds.capiAccessToken !== undefined) {
+            const token = String(clientData.metaAds.capiAccessToken).trim();
+            if (token && token.length > 500) {
+              validationErrors.push('Meta CAPI Access Token too long');
+            } else {
+              sanitizedMetaAds.capiAccessToken = token;
+            }
+          }
+          if (clientData.metaAds.eventName !== undefined) {
+            const eventName = String(clientData.metaAds.eventName).trim();
+            if (eventName && !/^[A-Za-z0-9_]{1,50}$/.test(eventName)) {
+              validationErrors.push('Invalid Meta Event Name. Use alphanumeric characters and underscores only');
+            } else {
+              sanitizedMetaAds.eventName = eventName || 'Lead';
+            }
+          }
+          sanitizedMetaAds.enablePixel = !!clientData.metaAds.enablePixel;
+        }
+
         if (validationErrors.length > 0) {
           return new Response(JSON.stringify({
             error: 'Validation failed',
@@ -1339,9 +1433,10 @@ export default {
           desktopStyle: sanitizedDesktopStyle,
           barText: sanitizedBarText,
           barTextMaxLength: 30,
-          googleAds: sanitizedGoogleAds
+          googleAds: sanitizedGoogleAds,
+          metaAds: sanitizedMetaAds
         };
-        
+
         // Save updated config
         await env.LEADSTICK_CONFIGS.put(configKey, JSON.stringify(sanitizedClientData));
         
@@ -1541,6 +1636,9 @@ export default {
       
       // Track in GA4 (optional)
       await trackGA4Event(sanitized, leadId, env);
+
+      // Track Meta Conversions API (optional)
+      await trackMetaCAPI(sanitized, leadId, request, env);
 
       // Add rate limit headers to successful responses
       const successHeaders = {
@@ -1818,5 +1916,79 @@ async function trackGA4Event(lead, leadId, env) {
     });
   } catch (error) {
     console.error('GA4 tracking failed:', error);
+  }
+}
+
+// Track Meta Conversions API event (server-side)
+async function trackMetaCAPI(lead, leadId, request, env) {
+  if (!lead.siteId) return;
+
+  try {
+    const configKey = `client_config_${lead.siteId}`;
+    const config = await env.LEADSTICK_CONFIGS.get(configKey, 'json');
+
+    if (!config?.metaAds?.pixelId || !config?.metaAds?.capiAccessToken) return;
+
+    const pixelId = config.metaAds.pixelId;
+    const accessToken = config.metaAds.capiAccessToken;
+    const eventName = config.metaAds.eventName || 'Lead';
+
+    // Hash PII fields in parallel
+    const [emHash, phHash, fnHash, lnHash, externalIdHash] = await Promise.all([
+      sha256Hash(lead.email),
+      sha256Hash(normalizePhoneE164(lead.phone)),
+      sha256Hash(lead.firstName),
+      sha256Hash(lead.lastName),
+      sha256Hash(leadId)
+    ]);
+
+    const clientIP = request.headers.get('CF-Connecting-IP') ||
+                     request.headers.get('X-Forwarded-For') || '';
+    const userAgent = request.headers.get('User-Agent') || '';
+
+    const userData = {
+      client_ip_address: clientIP,
+      client_user_agent: userAgent
+    };
+
+    if (emHash) userData.em = [emHash];
+    if (phHash) userData.ph = [phHash];
+    if (fnHash) userData.fn = [fnHash];
+    if (lnHash) userData.ln = [lnHash];
+    if (externalIdHash) userData.external_id = [externalIdHash];
+    if (lead.fbc) userData.fbc = lead.fbc;
+    if (lead.fbp) userData.fbp = lead.fbp;
+
+    const eventData = {
+      data: [{
+        event_name: eventName,
+        event_time: Math.floor(Date.now() / 1000),
+        event_id: lead.metaEventId || leadId,
+        event_source_url: lead.pageUrl || '',
+        action_source: 'website',
+        user_data: userData,
+        custom_data: {
+          lead_id: leadId,
+          service: lead.service || '',
+          location: lead.location || ''
+        }
+      }]
+    };
+
+    const response = await fetch(
+      `https://graph.facebook.com/v21.0/${pixelId}/events?access_token=${accessToken}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(eventData)
+      }
+    );
+
+    if (!response.ok) {
+      const errorBody = await response.text();
+      console.error('Meta CAPI failed:', response.status, errorBody);
+    }
+  } catch (error) {
+    console.error('Meta CAPI tracking failed:', error);
   }
 }
