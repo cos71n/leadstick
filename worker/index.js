@@ -119,7 +119,12 @@ function validateAdminInput(input, type, required = true) {
       // Basic URL validation
       if (value && !/^https?:\/\/.+/.test(value)) errors.push('Avatar must be a valid HTTPS URL');
       break;
-      
+
+    case 'webhookUrl':
+      if (value.length > 500) errors.push('Webhook URL must be less than 500 characters');
+      if (value && !/^https:\/\/.+/.test(value)) errors.push('Webhook URL must be a valid HTTPS URL');
+      break;
+
     case 'barText':
       if (value.length > 30) errors.push('Bar text must be less than 30 characters');
       break;
@@ -789,34 +794,17 @@ export default {
     // Route: POST /admin/upload-avatar - Upload avatar to R2
     if (request.method === 'POST' && url.pathname === '/admin/upload-avatar') {
       console.log('[Avatar Upload] Received upload request');
-      
-      // Extract tokens from request headers
-      const authToken = request.headers.get('Authorization')?.replace('Bearer ', '');
-      const csrfToken = request.headers.get('X-CSRF-Token');
-      
-      console.log('[Avatar Upload] Auth token present:', !!authToken);
-      console.log('[Avatar Upload] CSRF token present:', !!csrfToken);
-      
-      if (!authToken || !csrfToken) {
-        console.log('[Avatar Upload] Missing authentication tokens');
-        return new Response(JSON.stringify({
-          error: 'Authentication required'
-        }), { 
-          status: 401, 
-          headers: corsHeaders 
-        });
-      }
-      
-      const authResult = await verifySessionToken(authToken, env);
+
+      const authResult = await authenticateAdmin(request, env, true);
       console.log('[Avatar Upload] Auth verification result:', authResult);
-      
+
       if (!authResult.valid) {
-        console.log('[Avatar Upload] Invalid session token');
+        console.log('[Avatar Upload] Authentication failed');
         return new Response(JSON.stringify({
-          error: 'Invalid session'
-        }), { 
-          status: 401, 
-          headers: corsHeaders 
+          error: authResult.error || 'Authentication required'
+        }), {
+          status: 401,
+          headers: corsHeaders
         });
       }
 
@@ -1044,10 +1032,12 @@ export default {
               email: config.business?.email || '',
               agentName: config.business?.agentName || '',
               phone: config.business?.phone || '',
+              avatar: config.business?.avatar || '',
               theme: config.theme?.primary || '#3b82f6',
               desktopStyle: config.desktopStyle || 'bubble',
               barText: config.barText || 'Get A Quick Quote',
               showPhoneCta: config.showPhoneCta !== false,
+              webhookUrl: config.webhookUrl || '',
               questions: config.flow || [],
               messages: config.messages || {},
               googleAds: config.googleAds || {},
@@ -1268,6 +1258,17 @@ export default {
           sanitizedShowPhoneCta = Boolean(clientData.showPhoneCta);
         }
 
+        // Validate webhook URL
+        let sanitizedWebhookUrl = '';
+        if (clientData.webhookUrl !== undefined) {
+          const webhookValidation = validateAdminInput(clientData.webhookUrl, 'webhookUrl', false);
+          if (!webhookValidation.isValid) {
+            validationErrors.push(...webhookValidation.errors);
+          } else {
+            sanitizedWebhookUrl = webhookValidation.sanitized;
+          }
+        }
+
         // Create sanitized client data
         const sanitizedClientData = {
           siteId: generatedSiteId,
@@ -1285,6 +1286,7 @@ export default {
           barText: sanitizedBarText,
           barTextMaxLength: 30,
           showPhoneCta: sanitizedShowPhoneCta,
+          webhookUrl: sanitizedWebhookUrl,
           googleAds: sanitizedGoogleAds,
           metaAds: sanitizedMetaAds
         };
@@ -1492,6 +1494,17 @@ export default {
           sanitizedMetaAds.enablePixel = !!clientData.metaAds.enablePixel;
         }
 
+        // Validate webhook URL
+        let sanitizedWebhookUrl = '';
+        if (clientData.webhookUrl !== undefined) {
+          const webhookValidation = validateAdminInput(clientData.webhookUrl, 'webhookUrl', false);
+          if (!webhookValidation.isValid) {
+            validationErrors.push(...webhookValidation.errors);
+          } else {
+            sanitizedWebhookUrl = webhookValidation.sanitized;
+          }
+        }
+
         if (validationErrors.length > 0) {
           return new Response(JSON.stringify({
             error: 'Validation failed',
@@ -1518,6 +1531,7 @@ export default {
           desktopStyle: sanitizedDesktopStyle,
           barText: sanitizedBarText,
           barTextMaxLength: 30,
+          webhookUrl: sanitizedWebhookUrl,
           googleAds: sanitizedGoogleAds,
           metaAds: sanitizedMetaAds
         };
@@ -1887,14 +1901,15 @@ export default {
       // Generate lead ID
       const leadId = `lead_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
 
-      // Get configuration for email recipient (if siteId provided)
+      // Get configuration for email recipient and webhook (if siteId provided)
       let recipientEmail = env.LEAD_EMAIL_RECIPIENT || 'leads@example.com';
+      let clientConfig = null;
       if (sanitized.siteId) {
         try {
           const configKey = `client_config_${sanitized.siteId}`;
-          const config = await env.LEADSTICK_CONFIGS.get(configKey, 'json');
-          if (config && config.business && config.business.email) {
-            recipientEmail = config.business.email;
+          clientConfig = await env.LEADSTICK_CONFIGS.get(configKey, 'json');
+          if (clientConfig && clientConfig.business && clientConfig.business.email) {
+            recipientEmail = clientConfig.business.email;
           }
         } catch (error) {
           console.warn('Failed to fetch client config:', error);
@@ -1906,12 +1921,40 @@ export default {
 
       // Send email via Resend
       const emailSent = await sendEmail(sanitized, leadId, emailList, env);
-      
+
       // Track in GA4 (optional)
       await trackGA4Event(sanitized, leadId, env);
 
       // Track Meta Conversions API (optional)
       await trackMetaCAPI(sanitized, leadId, request, env);
+
+      // Send webhook (if configured)
+      if (clientConfig?.webhookUrl) {
+        try {
+          const webhookPayload = {
+            leadId,
+            timestamp: new Date().toISOString(),
+            siteId: sanitized.siteId,
+            business: sanitized.business,
+            name: sanitized.name,
+            email: sanitized.email,
+            phone: sanitized.phone,
+            location: sanitized.location,
+            service: sanitized.service,
+            finalMessage: sanitized.finalMessage,
+            attribution: sanitized.attribution || null,
+            source: sanitized.source
+          };
+
+          await fetch(clientConfig.webhookUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(webhookPayload)
+          });
+        } catch (error) {
+          console.warn('Webhook delivery failed:', error);
+        }
+      }
 
       // Track server-verified conversion in Analytics Engine
       if (sanitized.siteId) {

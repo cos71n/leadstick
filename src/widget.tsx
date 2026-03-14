@@ -364,11 +364,11 @@ const ChatMessage = ({ message, CONFIG }: { message: any; CONFIG: any }) => (
             onError={(e) => {
               e.currentTarget.style.display = 'none';
               const firstInitial = CONFIG.business.agentName?.charAt(0)?.toUpperCase() || 'A';
-              e.currentTarget.parentElement.innerHTML = `<span style="color: ${CONFIG.theme.primary}; font-weight: bold; font-size: 14px;">${firstInitial}</span>`;
+              e.currentTarget.parentElement.innerHTML = `<span style="color: white; font-weight: bold; font-size: 14px;">${firstInitial}</span>`;
             }}
           />
         ) : (
-          <span style={{ color: CONFIG.theme.primary, fontWeight: 'bold', fontSize: '14px' }}>
+          <span style={{ color: 'white', fontWeight: 'bold', fontSize: '14px' }}>
             {CONFIG.business.agentName?.charAt(0)?.toUpperCase() || 'A'}
           </span>
         )

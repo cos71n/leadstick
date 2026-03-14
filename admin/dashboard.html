@@ -1365,6 +1365,19 @@
                     </div>
 
                     <div class="form-group">
+                        <label for="webhookUrl">Webhook URL</label>
+                        <input
+                            type="url"
+                            id="webhookUrl"
+                            name="webhookUrl"
+                            maxlength="500"
+                            placeholder="https://hooks.zapier.com/hooks/catch/..."
+                        >
+                        <div class="help-text">Optional: HTTPS webhook endpoint (e.g. Zapier, Make, HubSpot, or any CRM). The full lead submission will be POSTed as JSON when a form is completed.</div>
+                        <div class="validation-error"></div>
+                    </div>
+
+                    <div class="form-group">
                         <label for="welcomeMessage">Welcome Message</label>
                         <textarea 
                             id="welcomeMessage" 
@@ -2353,6 +2366,9 @@
             document.getElementById('metaEventName').value = client.metaAds?.eventName || 'Lead';
             document.getElementById('enableMetaPixel').checked = client.metaAds?.enablePixel || false;
 
+            // Set webhook URL
+            document.getElementById('webhookUrl').value = client.webhookUrl || '';
+
             // Set welcome message
             const welcomeMessage = client.messages?.welcome || '';
             document.getElementById('welcomeMessage').value = welcomeMessage;
@@ -2644,7 +2660,8 @@
                         capiAccessToken: sanitizeInput(document.getElementById('metaCapiToken').value || ''),
                         eventName: sanitizeInput(document.getElementById('metaEventName').value || 'Lead'),
                         enablePixel: document.getElementById('enableMetaPixel').checked
-                    }
+                    },
+                    webhookUrl: sanitizeInput(document.getElementById('webhookUrl').value || '')
                 };
                 
                 // Site ID is auto-generated for create mode, only used for edit mode
