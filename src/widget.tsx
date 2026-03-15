@@ -431,7 +431,7 @@ const ChatMessage = ({ message, CONFIG, displayPhone, ...rest }: { message: any;
             }}
           >
             <PhoneIcon />
-            {displayPhone || CONFIG.business.phone}
+            {formatPhoneDisplay(displayPhone || CONFIG.business.phone)}
           </button>
         </div>
       ) : (
@@ -694,6 +694,22 @@ function trackAnalyticsEvent(apiEndpoint: string, siteId: string, event: string)
 }
 
 // Get questions from flow configuration
+// Format Australian phone numbers for display (e.g. "0424166346" → "0424 166 346")
+function formatPhoneDisplay(phone: string): string {
+  if (!phone) return phone
+  const digits = phone.replace(/\D/g, '')
+  // Australian mobile: 04XX XXX XXX
+  if (digits.length === 10 && digits.startsWith('04')) {
+    return `${digits.slice(0, 4)} ${digits.slice(4, 7)} ${digits.slice(7)}`
+  }
+  // Australian landline: 0X XXXX XXXX
+  if (digits.length === 10 && digits.startsWith('0')) {
+    return `${digits.slice(0, 2)} ${digits.slice(2, 6)} ${digits.slice(6)}`
+  }
+  // Already formatted or international - return as-is
+  return phone
+}
+
 function getQuestionsFromFlow(CONFIG: any) {
   if (!CONFIG.flow) return [];
   return CONFIG.flow.filter((item: any) => item.type === 'question');
@@ -1908,7 +1924,7 @@ function LeadStickWidget({ CONFIG: dynamicConfig }: { CONFIG: any }) {
                 }}
               >
                 <PhoneIcon />
-                <span>{displayPhone}</span>
+                <span>{formatPhoneDisplay(displayPhone)}</span>
               </button>
               
               {/* Close Button */}
