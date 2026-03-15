@@ -1032,6 +1032,7 @@ export default {
               email: config.business?.email || '',
               agentName: config.business?.agentName || '',
               phone: config.business?.phone || '',
+              trackingPhone: config.business?.trackingPhone || '',
               avatar: config.business?.avatar || '',
               theme: config.theme?.primary || '#3b82f6',
               desktopStyle: config.desktopStyle || 'bubble',
@@ -1114,11 +1115,12 @@ export default {
         
         // Validate optional fields
         const phoneValidation = validateAdminInput(clientData.business?.phone, 'phone', false);
+        const trackingPhoneValidation = validateAdminInput(clientData.business?.trackingPhone, 'phone', false);
         const agentNameValidation = validateAdminInput(clientData.business?.agentName, 'agentName', false);
         const avatarValidation = validateAdminInput(clientData.business?.avatar, 'avatar', false);
-        
+
         // Collect all validation errors
-        [businessNameValidation, emailValidation, phoneValidation, agentNameValidation, avatarValidation]
+        [businessNameValidation, emailValidation, phoneValidation, trackingPhoneValidation, agentNameValidation, avatarValidation]
           .forEach(validation => {
             if (!validation.isValid) {
               validationErrors.push(...validation.errors);
@@ -1211,6 +1213,21 @@ export default {
               sanitizedGoogleAds.conversionLabel = conversionLabel;
             }
           }
+
+          // Validate phone conversion label (same format as conversion label)
+          if (clientData.googleAds.phoneConversionLabel !== undefined) {
+            const phoneConversionLabel = String(clientData.googleAds.phoneConversionLabel).trim();
+            if (phoneConversionLabel && !/^[A-Za-z0-9_\-]{1,100}$/.test(phoneConversionLabel)) {
+              validationErrors.push('Invalid Google Ads Phone Conversion Label format');
+            } else {
+              sanitizedGoogleAds.phoneConversionLabel = phoneConversionLabel;
+            }
+          }
+
+          // Validate enable call forwarding flag
+          if (clientData.googleAds.enableCallForwarding !== undefined) {
+            sanitizedGoogleAds.enableCallForwarding = !!clientData.googleAds.enableCallForwarding;
+          }
         }
 
         // Validate Meta Ads configuration
@@ -1276,6 +1293,7 @@ export default {
             name: businessNameValidation.sanitized,
             email: emailValidation.sanitized,
             phone: phoneValidation.sanitized,
+            trackingPhone: trackingPhoneValidation.sanitized,
             agentName: agentNameValidation.sanitized,
             avatar: avatarValidation.sanitized
           },
@@ -1378,11 +1396,12 @@ export default {
         const businessNameValidation = validateAdminInput(clientData.business?.name, 'businessName', false);
         const emailValidation = validateAdminInput(clientData.business?.email, 'email', false);
         const phoneValidation = validateAdminInput(clientData.business?.phone, 'phone', false);
+        const trackingPhoneValidation = validateAdminInput(clientData.business?.trackingPhone, 'phone', false);
         const agentNameValidation = validateAdminInput(clientData.business?.agentName, 'agentName', false);
         const avatarValidation = validateAdminInput(clientData.business?.avatar, 'avatar', false);
-        
+
         // Collect validation errors
-        [businessNameValidation, emailValidation, phoneValidation, agentNameValidation, avatarValidation]
+        [businessNameValidation, emailValidation, phoneValidation, trackingPhoneValidation, agentNameValidation, avatarValidation]
           .forEach(validation => {
             if (!validation.isValid) {
               validationErrors.push(...validation.errors);
@@ -1463,6 +1482,21 @@ export default {
               sanitizedGoogleAds.conversionLabel = conversionLabel;
             }
           }
+
+          // Validate phone conversion label (same format as conversion label)
+          if (clientData.googleAds.phoneConversionLabel !== undefined) {
+            const phoneConversionLabel = String(clientData.googleAds.phoneConversionLabel).trim();
+            if (phoneConversionLabel && !/^[A-Za-z0-9_\-]{1,100}$/.test(phoneConversionLabel)) {
+              validationErrors.push('Invalid Google Ads Phone Conversion Label format');
+            } else {
+              sanitizedGoogleAds.phoneConversionLabel = phoneConversionLabel;
+            }
+          }
+
+          // Validate enable call forwarding flag
+          if (clientData.googleAds.enableCallForwarding !== undefined) {
+            sanitizedGoogleAds.enableCallForwarding = !!clientData.googleAds.enableCallForwarding;
+          }
         }
 
         // Validate Meta Ads configuration
@@ -1522,6 +1556,7 @@ export default {
             name: businessNameValidation.sanitized || '',
             email: emailValidation.sanitized || '',
             phone: phoneValidation.sanitized || '',
+            trackingPhone: trackingPhoneValidation.sanitized || '',
             agentName: agentNameValidation.sanitized || '',
             avatar: avatarValidation.sanitized || ''
           },

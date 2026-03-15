@@ -328,7 +328,7 @@ const ChatInputForm = ({
 }
 
 // Chat Message Component
-const ChatMessage = ({ message, CONFIG }: { message: any; CONFIG: any }) => (
+const ChatMessage = ({ message, CONFIG, displayPhone, ...rest }: { message: any; CONFIG: any; displayPhone?: string; [key: string]: any }) => (
   <div style={{
     display: 'flex',
     alignItems: 'flex-start',
@@ -393,10 +393,27 @@ const ChatMessage = ({ message, CONFIG }: { message: any; CONFIG: any }) => (
           </p>
           <button
             onClick={() => {
+              // Track GA4 event
+              if (typeof gtag !== 'undefined') {
+                gtag('event', 'leadstick_phone_tapped', {
+                  business_name: CONFIG.business.name,
+                  phone_number: CONFIG.business.phone,
+                  source: 'end_of_form',
+                  page_url: window.location.href,
+                  timestamp: new Date().toISOString()
+                })
+              }
+              // Track Google Ads phone click conversion
+              if (typeof gtag !== 'undefined' && CONFIG.googleAds?.conversionId && CONFIG.googleAds?.phoneConversionLabel) {
+                gtag('event', 'conversion', {
+                  send_to: `${CONFIG.googleAds.conversionId}/${CONFIG.googleAds.phoneConversionLabel}`
+                })
+              }
               if (CONFIG.siteId) {
                 trackAnalyticsEvent(CONFIG.apiEndpoint, CONFIG.siteId, 'phone_tap')
               }
-              window.open(`tel:${CONFIG.business.phone}`, '_self')
+              const phoneToCall = displayPhone || CONFIG.business.phone
+              window.open(`tel:${phoneToCall}`, '_self')
             }}
             style={{
               backgroundColor: CONFIG.theme.primary,
@@ -414,7 +431,7 @@ const ChatMessage = ({ message, CONFIG }: { message: any; CONFIG: any }) => (
             }}
           >
             <PhoneIcon />
-            {CONFIG.business.phone}
+            {displayPhone || CONFIG.business.phone}
           </button>
         </div>
       ) : (
@@ -699,6 +716,10 @@ function LeadStickWidget({ CONFIG: dynamicConfig }: { CONFIG: any }) {
   const [isOpen, setIsOpen] = useState(false)
   const [isMobile, setIsMobile] = useState(false)
   const [currentStep, setCurrentStep] = useState<ChatStep>('location')
+
+  // Phone number display: Google forwarding number > tracking phone > business phone
+  const basePhone = dynamicConfig.business.trackingPhone || dynamicConfig.business.phone
+  const [displayPhone, setDisplayPhone] = useState(basePhone)
   const desktopChatBodyRef = useRef<HTMLDivElement>(null)
   const mobileChatBodyRef = useRef<HTMLDivElement>(null)
   const [leadData, setLeadData] = useState<LeadData>({
@@ -746,6 +767,17 @@ function LeadStickWidget({ CONFIG: dynamicConfig }: { CONFIG: any }) {
   })
 
   const [input, setInput] = useState("")
+
+  // Listen for Google call forwarding number swap
+  useEffect(() => {
+    const handler = (e: any) => {
+      if (e.detail?.number) {
+        setDisplayPhone(e.detail.number)
+      }
+    }
+    document.addEventListener('leadstick-phone-swap', handler)
+    return () => document.removeEventListener('leadstick-phone-swap', handler)
+  }, [])
 
   const toggleChat = () => setIsOpen(!isOpen)
 
@@ -1646,7 +1678,7 @@ function LeadStickWidget({ CONFIG: dynamicConfig }: { CONFIG: any }) {
               padding: '16px'
             }}>
             {messages.map((message) => (
-              <ChatMessage key={message.id} message={message} CONFIG={dynamicConfig} />
+              <ChatMessage key={message.id} message={message} CONFIG={dynamicConfig} displayPhone={displayPhone} />
             ))}
 
 
@@ -1836,11 +1868,17 @@ function LeadStickWidget({ CONFIG: dynamicConfig }: { CONFIG: any }) {
                       timestamp: new Date().toISOString()
                     })
                   }
+                  // Track Google Ads phone click conversion
+                  if (typeof gtag !== 'undefined' && dynamicConfig.googleAds?.conversionId && dynamicConfig.googleAds?.phoneConversionLabel) {
+                    gtag('event', 'conversion', {
+                      send_to: `${dynamicConfig.googleAds.conversionId}/${dynamicConfig.googleAds.phoneConversionLabel}`
+                    })
+                  }
                   // Track first-party phone tap event
                   if (dynamicConfig.siteId) {
                     trackAnalyticsEvent(dynamicConfig.apiEndpoint, dynamicConfig.siteId, 'phone_tap')
                   }
-                  window.open(`tel:${dynamicConfig.business.phone}`, '_self')
+                  window.open(`tel:${displayPhone}`, '_self')
                 }}
                 style={{
                   position: 'absolute',
@@ -1870,7 +1908,7 @@ function LeadStickWidget({ CONFIG: dynamicConfig }: { CONFIG: any }) {
                 }}
               >
                 <PhoneIcon />
-                <span>Tap To Call</span>
+                <span>{displayPhone}</span>
               </button>
               
               {/* Close Button */}
@@ -1967,7 +2005,7 @@ function LeadStickWidget({ CONFIG: dynamicConfig }: { CONFIG: any }) {
                 padding: '16px'
               }}>
               {messages.map((message) => (
-                <ChatMessage key={message.id} message={message} CONFIG={dynamicConfig} />
+                <ChatMessage key={message.id} message={message} CONFIG={dynamicConfig} displayPhone={displayPhone} />
               ))}
 
 
@@ -2067,6 +2105,35 @@ export async function initLeadStick(options?: { siteId?: string }) {
   // Load gtag for Google Ads conversion tracking if configured
   if (finalConfig.googleAds?.conversionId) {
     ensureGtagLoaded(finalConfig.googleAds.conversionId)
+  }
+
+  // Set up Google call forwarding number swap
+  if (finalConfig.googleAds?.conversionId && finalConfig.googleAds?.enableCallForwarding && finalConfig.business?.phone) {
+    const bait = document.createElement('span')
+    bait.className = 'leadstick-phone-swap'
+    bait.style.cssText = 'position:absolute;visibility:hidden;pointer-events:none;height:0;overflow:hidden;'
+    bait.textContent = finalConfig.business.phone
+    document.body.appendChild(bait)
+
+    // Tell Google to swap this number
+    if (typeof gtag !== 'undefined') {
+      gtag('config', finalConfig.googleAds.conversionId, {
+        phone_conversion_number: finalConfig.business.phone,
+        phone_conversion_css_class: 'leadstick-phone-swap'
+      })
+    }
+
+    // Watch for Google's number swap via MutationObserver
+    const observer = new MutationObserver(() => {
+      const swappedNumber = bait.textContent
+      if (swappedNumber && swappedNumber !== finalConfig.business.phone) {
+        document.dispatchEvent(new CustomEvent('leadstick-phone-swap', {
+          detail: { number: swappedNumber }
+        }))
+        observer.disconnect()
+      }
+    })
+    observer.observe(bait, { childList: true, characterData: true, subtree: true })
   }
 
   // Load Meta Pixel if configured and enabled

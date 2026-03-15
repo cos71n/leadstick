@@ -1214,6 +1214,20 @@
                     </div>
 
                     <div class="form-group">
+                        <label for="trackingPhone">Call Tracking Number</label>
+                        <input
+                            type="tel"
+                            id="trackingPhone"
+                            name="trackingPhone"
+                            maxlength="20"
+                            placeholder="Optional: CallRail/WildJar number"
+                            oninput="validateEditInput('trackingPhone', this.value, 'phone')"
+                        >
+                        <div class="help-text">Optional: Enter a CallRail, WildJar, or other call tracking number. If set, this number will be displayed instead of the business phone number.</div>
+                        <div class="validation-error"></div>
+                    </div>
+
+                    <div class="form-group">
                         <label for="editTheme">Theme Color</label>
                         <div class="color-input">
                             <input 
@@ -1299,6 +1313,28 @@
                         >
                         <div class="help-text">Optional: Alphanumeric characters, hyphens, and underscores only. Required if Conversion ID is set.</div>
                         <div class="validation-error"></div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="phoneConversionLabel">Phone Click Conversion Label</label>
+                        <input
+                            type="text"
+                            id="phoneConversionLabel"
+                            name="phoneConversionLabel"
+                            maxlength="100"
+                            placeholder="abc_123-456_xyz"
+                            oninput="validateEditInput('phoneConversionLabel', this.value, 'googleAdsConversionLabel')"
+                        >
+                        <div class="help-text">Optional: Separate conversion label for tracking phone click conversions in Google Ads.</div>
+                        <div class="validation-error"></div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="enableCallForwarding" style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                            <input type="checkbox" id="enableCallForwarding" name="enableCallForwarding" style="width: auto;">
+                            Enable Google Call Forwarding
+                        </label>
+                        <div class="help-text">When enabled, Google will swap your phone number with a forwarding number on Google Ads traffic for call tracking.</div>
                     </div>
 
                     <div class="form-group">
@@ -2359,6 +2395,11 @@
             // Set Google Ads configuration
             document.getElementById('conversionId').value = client.googleAds?.conversionId || '';
             document.getElementById('conversionLabel').value = client.googleAds?.conversionLabel || '';
+            document.getElementById('phoneConversionLabel').value = client.googleAds?.phoneConversionLabel || '';
+            document.getElementById('enableCallForwarding').checked = !!client.googleAds?.enableCallForwarding;
+
+            // Set tracking phone
+            document.getElementById('trackingPhone').value = client.trackingPhone || '';
 
             // Set Meta Ads configuration
             document.getElementById('metaPixelId').value = client.metaAds?.pixelId || '';
@@ -2592,6 +2633,8 @@
                 { id: 'editThemeText', value: document.getElementById('editThemeText').value, type: 'themeColor' },
                 { id: 'conversionId', value: document.getElementById('conversionId').value, type: 'googleAdsConversionId' },
                 { id: 'conversionLabel', value: document.getElementById('conversionLabel').value, type: 'googleAdsConversionLabel' },
+                { id: 'phoneConversionLabel', value: document.getElementById('phoneConversionLabel').value, type: 'googleAdsConversionLabel' },
+                { id: 'trackingPhone', value: document.getElementById('trackingPhone').value, type: 'phone' },
                 { id: 'metaPixelId', value: document.getElementById('metaPixelId').value, type: 'metaPixelId' },
                 { id: 'metaEventName', value: document.getElementById('metaEventName').value, type: 'metaEventName' }
             ];
@@ -2637,6 +2680,7 @@
                         emailSubject: sanitizeInput(formData.get('emailSubject') || ''),
                         agentName: sanitizeInput(formData.get('agentName') || ''),
                         phone: sanitizeInput(formData.get('phone') || ''),
+                        trackingPhone: sanitizeInput(document.getElementById('trackingPhone').value || ''),
                         avatar: avatarUrl
                     },
                     theme: {
@@ -2653,7 +2697,9 @@
                     flow: window.currentFlow || [],
                     googleAds: {
                         conversionId: sanitizeInput(document.getElementById('conversionId').value || ''),
-                        conversionLabel: sanitizeInput(document.getElementById('conversionLabel').value || '')
+                        conversionLabel: sanitizeInput(document.getElementById('conversionLabel').value || ''),
+                        phoneConversionLabel: sanitizeInput(document.getElementById('phoneConversionLabel').value || ''),
+                        enableCallForwarding: document.getElementById('enableCallForwarding').checked
                     },
                     metaAds: {
                         pixelId: sanitizeInput(document.getElementById('metaPixelId').value || ''),

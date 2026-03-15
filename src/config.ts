@@ -31,7 +31,9 @@ export const CONFIG = {
   },
   googleAds: {
     conversionId: "", // e.g., "AW-123456789"
-    conversionLabel: "" // e.g., "AbC-D_efG-h12_34-567"
+    conversionLabel: "", // e.g., "AbC-D_efG-h12_34-567"
+    phoneConversionLabel: "", // Separate conversion label for phone click tracking
+    enableCallForwarding: false // Enable Google forwarding number swap
   },
   metaAds: {
     pixelId: "",
