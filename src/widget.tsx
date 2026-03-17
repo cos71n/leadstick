@@ -163,6 +163,116 @@ const RestartIcon = () => (
   </svg>
 )
 
+// === Button Icon Library ===
+const ButtonChatDotsIcon = () => (
+  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/>
+    <circle cx="12" cy="12" r="1" fill="currentColor" stroke="none"/>
+    <circle cx="8" cy="12" r="1" fill="currentColor" stroke="none"/>
+    <circle cx="16" cy="12" r="1" fill="currentColor" stroke="none"/>
+  </svg>
+)
+
+const ButtonPhoneIcon = () => (
+  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/>
+  </svg>
+)
+
+const ButtonMailIcon = () => (
+  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <rect width="20" height="16" x="2" y="4" rx="2"/>
+    <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/>
+  </svg>
+)
+
+const ButtonStarIcon = () => (
+  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <polygon points="12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26"/>
+  </svg>
+)
+
+const ButtonHeartIcon = () => (
+  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/>
+  </svg>
+)
+
+const ButtonThumbsUpIcon = () => (
+  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <path d="M7 10v12"/>
+    <path d="M15 5.88 14 10h5.83a2 2 0 0 1 1.92 2.56l-2.33 8A2 2 0 0 1 17.5 22H4a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2h2.76a2 2 0 0 0 1.79-1.11L12 2a3.13 3.13 0 0 1 3 3.88Z"/>
+  </svg>
+)
+
+const ButtonSparkleIcon = () => (
+  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"/>
+  </svg>
+)
+
+const ButtonBoltIcon = () => (
+  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z"/>
+  </svg>
+)
+
+const ButtonQuestionIcon = () => (
+  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <circle cx="12" cy="12" r="10"/>
+    <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/>
+    <path d="M12 17h.01"/>
+  </svg>
+)
+
+const ButtonHandWaveIcon = () => (
+  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <path d="M7.5 12.5 5 10a2.12 2.12 0 1 1 3-3l7 7"/>
+    <path d="m12 13.5 3.5 3.5a2.12 2.12 0 1 0 3-3L12 7.5a2.12 2.12 0 1 1 3-3l5 5"/>
+    <path d="M8.5 8.5 6 6a2.12 2.12 0 1 1 3-3l8 8"/>
+    <path d="M3.5 16.5a8 8 0 0 0 13 2"/>
+    <path d="M2 7a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3Z"/>
+  </svg>
+)
+
+// Icon registry for button icons
+const BUTTON_ICONS: Record<string, () => any> = {
+  'message-circle': MessageCircleIcon,
+  'chat-dots': ButtonChatDotsIcon,
+  'phone': ButtonPhoneIcon,
+  'mail': ButtonMailIcon,
+  'star': ButtonStarIcon,
+  'heart': ButtonHeartIcon,
+  'thumbs-up': ButtonThumbsUpIcon,
+  'sparkle': ButtonSparkleIcon,
+  'bolt': ButtonBoltIcon,
+  'question': ButtonQuestionIcon,
+  'hand-wave': ButtonHandWaveIcon
+}
+
+// Available font families
+const FONT_FAMILIES: Record<string, string> = {
+  'System Default': "-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif",
+  'Inter': "'Inter', sans-serif",
+  'Roboto': "'Roboto', sans-serif",
+  'Open Sans': "'Open Sans', sans-serif",
+  'Lato': "'Lato', sans-serif",
+  'Poppins': "'Poppins', sans-serif",
+  'Montserrat': "'Montserrat', sans-serif",
+  'Nunito': "'Nunito', sans-serif",
+  'Raleway': "'Raleway', sans-serif"
+}
+
+// Get the resolved CSS font-family string for a given font name
+function resolveFont(fontName: string): string {
+  return FONT_FAMILIES[fontName] || FONT_FAMILIES['System Default']
+}
+
+// Get the button icon component for a given icon name
+function getButtonIcon(iconName: string): () => any {
+  return BUTTON_ICONS[iconName] || BUTTON_ICONS['message-circle']
+}
+
 // Chat Input Form Component
 const ChatInputForm = ({
   input,
@@ -1552,7 +1662,8 @@ function LeadStickWidget({ CONFIG: dynamicConfig }: { CONFIG: any }) {
               justifyContent: 'center',
               gap: '8px',
               fontSize: '18px',
-              fontWeight: '500',
+              fontFamily: resolveFont(dynamicConfig.buttonFont?.mobile?.family || 'System Default'),
+              fontWeight: dynamicConfig.buttonFont?.mobile?.weight || '500',
               boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)',
               borderTop: '1px solid #e5e7eb',
               cursor: 'pointer',
@@ -1561,8 +1672,8 @@ function LeadStickWidget({ CONFIG: dynamicConfig }: { CONFIG: any }) {
             onMouseOver={(e) => e.currentTarget.style.backgroundColor = dynamicConfig.theme.primaryHover}
             onMouseOut={(e) => e.currentTarget.style.backgroundColor = dynamicConfig.theme.primary}
           >
-            <MessageCircleIcon />
-            Get Quick Quote
+            {dynamicConfig.buttonIcon?.mobile?.show !== false && h(getButtonIcon(dynamicConfig.buttonIcon?.mobile?.icon || 'message-circle'), null)}
+            {(dynamicConfig.barText || 'Get A Quick Quote').substring(0, dynamicConfig.barTextMaxLength || 30)}
           </button>
         </div>
       )}
@@ -1790,13 +1901,17 @@ function LeadStickWidget({ CONFIG: dynamicConfig }: { CONFIG: any }) {
               cursor: 'pointer',
               transition: 'all 0.3s ease',
               fontSize: '16px',
-              fontWeight: '500',
+              fontFamily: resolveFont(dynamicConfig.buttonFont?.desktop?.family || 'System Default'),
+              fontWeight: dynamicConfig.buttonFont?.desktop?.weight || '500',
               maxWidth: '300px',
               whiteSpace: 'nowrap',
               overflow: 'hidden',
               textOverflow: 'ellipsis',
               border: 'none',
-              pointerEvents: 'auto'
+              pointerEvents: 'auto',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px'
             }}
             onMouseOver={(e) => {
               e.currentTarget.style.boxShadow = '0 6px 20px rgba(0, 0, 0, 0.2)'
@@ -1809,6 +1924,7 @@ function LeadStickWidget({ CONFIG: dynamicConfig }: { CONFIG: any }) {
               e.currentTarget.style.backgroundColor = dynamicConfig.theme.primary
             }}
           >
+            {dynamicConfig.buttonIcon?.desktop?.show !== false && h(getButtonIcon(dynamicConfig.buttonIcon?.desktop?.icon || 'message-circle'), null)}
             {dynamicConfig.barText.substring(0, dynamicConfig.barTextMaxLength)}
           </button>
         ) : (
@@ -1840,7 +1956,7 @@ function LeadStickWidget({ CONFIG: dynamicConfig }: { CONFIG: any }) {
               e.currentTarget.style.backgroundColor = dynamicConfig.theme.primary
             }}
           >
-            {isOpen ? <XIcon /> : <MessageCircleIcon />}
+            {isOpen ? <XIcon /> : (dynamicConfig.buttonIcon?.desktop?.show !== false ? h(getButtonIcon(dynamicConfig.buttonIcon?.desktop?.icon || 'message-circle'), null) : null)}
           </button>
         )}
       </div>
@@ -2183,6 +2299,21 @@ export async function initLeadStick(options?: { siteId?: string }) {
       // sessionStorage may be blocked in some browsers - track anyway
       trackAnalyticsEvent(finalConfig.apiEndpoint, finalConfig.siteId, 'visit')
     }
+  }
+
+  // Load Google Fonts if non-system fonts are configured
+  const fontsToLoad = new Set<string>()
+  const desktopFontFamily = finalConfig.buttonFont?.desktop?.family
+  const mobileFontFamily = finalConfig.buttonFont?.mobile?.family
+  if (desktopFontFamily && desktopFontFamily !== 'System Default') fontsToLoad.add(desktopFontFamily)
+  if (mobileFontFamily && mobileFontFamily !== 'System Default') fontsToLoad.add(mobileFontFamily)
+  if (fontsToLoad.size > 0) {
+    const families = Array.from(fontsToLoad).map(f => f.replace(/ /g, '+')).join('&family=')
+    const weights = '300;400;500;600;700'
+    const link = document.createElement('link')
+    link.rel = 'stylesheet'
+    link.href = `https://fonts.googleapis.com/css2?family=${families}:wght@${weights}&display=swap`
+    document.head.appendChild(link)
   }
 
   // Create container and render widget

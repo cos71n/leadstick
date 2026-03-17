@@ -1039,6 +1039,8 @@ export default {
               barText: config.barText || 'Get A Quick Quote',
               attentionWobble: !!config.attentionWobble,
               attentionGlint: !!config.attentionGlint,
+              buttonFont: config.buttonFont || { desktop: { family: 'System Default', weight: '500' }, mobile: { family: 'System Default', weight: '500' } },
+              buttonIcon: config.buttonIcon || { desktop: { icon: 'message-circle', show: true }, mobile: { icon: 'message-circle', show: true } },
               showPhoneCta: config.showPhoneCta !== false,
               webhookUrl: config.webhookUrl || '',
               questions: config.flow || [],
@@ -1204,6 +1206,59 @@ export default {
           sanitizedAttentionGlint = !!clientData.attentionGlint;
         }
 
+        // Validate button font configuration
+        const VALID_FONTS = ['System Default', 'Inter', 'Roboto', 'Open Sans', 'Lato', 'Poppins', 'Montserrat', 'Nunito', 'Raleway'];
+        const VALID_WEIGHTS = ['300', '400', '500', '600', '700'];
+        const VALID_ICONS = ['message-circle', 'chat-dots', 'phone', 'mail', 'star', 'heart', 'thumbs-up', 'sparkle', 'bolt', 'question', 'hand-wave'];
+
+        let sanitizedButtonFont = {
+          desktop: { family: 'System Default', weight: '500' },
+          mobile: { family: 'System Default', weight: '500' }
+        };
+        let sanitizedButtonIcon = {
+          desktop: { icon: 'message-circle', show: true },
+          mobile: { icon: 'message-circle', show: true }
+        };
+
+        if (clientData.buttonFont && typeof clientData.buttonFont === 'object') {
+          ['desktop', 'mobile'].forEach(device => {
+            if (clientData.buttonFont[device] && typeof clientData.buttonFont[device] === 'object') {
+              if (clientData.buttonFont[device].family !== undefined) {
+                if (VALID_FONTS.includes(clientData.buttonFont[device].family)) {
+                  sanitizedButtonFont[device].family = clientData.buttonFont[device].family;
+                } else {
+                  validationErrors.push(`Invalid ${device} font family`);
+                }
+              }
+              if (clientData.buttonFont[device].weight !== undefined) {
+                const w = String(clientData.buttonFont[device].weight);
+                if (VALID_WEIGHTS.includes(w)) {
+                  sanitizedButtonFont[device].weight = w;
+                } else {
+                  validationErrors.push(`Invalid ${device} font weight`);
+                }
+              }
+            }
+          });
+        }
+
+        if (clientData.buttonIcon && typeof clientData.buttonIcon === 'object') {
+          ['desktop', 'mobile'].forEach(device => {
+            if (clientData.buttonIcon[device] && typeof clientData.buttonIcon[device] === 'object') {
+              if (clientData.buttonIcon[device].icon !== undefined) {
+                if (VALID_ICONS.includes(clientData.buttonIcon[device].icon)) {
+                  sanitizedButtonIcon[device].icon = clientData.buttonIcon[device].icon;
+                } else {
+                  validationErrors.push(`Invalid ${device} button icon`);
+                }
+              }
+              if (clientData.buttonIcon[device].show !== undefined) {
+                sanitizedButtonIcon[device].show = !!clientData.buttonIcon[device].show;
+              }
+            }
+          });
+        }
+
         // Validate Google Ads configuration
         if (clientData.googleAds && typeof clientData.googleAds === 'object') {
           // Validate conversion ID (format: AW-XXXXXXXXXX)
@@ -1317,6 +1372,8 @@ export default {
           barTextMaxLength: 30,
           attentionWobble: sanitizedAttentionWobble,
           attentionGlint: sanitizedAttentionGlint,
+          buttonFont: sanitizedButtonFont,
+          buttonIcon: sanitizedButtonIcon,
           showPhoneCta: sanitizedShowPhoneCta,
           webhookUrl: sanitizedWebhookUrl,
           googleAds: sanitizedGoogleAds,
@@ -1485,6 +1542,59 @@ export default {
           sanitizedAttentionGlint = !!clientData.attentionGlint;
         }
 
+        // Validate button font configuration
+        const VALID_FONTS_U = ['System Default', 'Inter', 'Roboto', 'Open Sans', 'Lato', 'Poppins', 'Montserrat', 'Nunito', 'Raleway'];
+        const VALID_WEIGHTS_U = ['300', '400', '500', '600', '700'];
+        const VALID_ICONS_U = ['message-circle', 'chat-dots', 'phone', 'mail', 'star', 'heart', 'thumbs-up', 'sparkle', 'bolt', 'question', 'hand-wave'];
+
+        let sanitizedButtonFont = {
+          desktop: { family: 'System Default', weight: '500' },
+          mobile: { family: 'System Default', weight: '500' }
+        };
+        let sanitizedButtonIcon = {
+          desktop: { icon: 'message-circle', show: true },
+          mobile: { icon: 'message-circle', show: true }
+        };
+
+        if (clientData.buttonFont && typeof clientData.buttonFont === 'object') {
+          ['desktop', 'mobile'].forEach(device => {
+            if (clientData.buttonFont[device] && typeof clientData.buttonFont[device] === 'object') {
+              if (clientData.buttonFont[device].family !== undefined) {
+                if (VALID_FONTS_U.includes(clientData.buttonFont[device].family)) {
+                  sanitizedButtonFont[device].family = clientData.buttonFont[device].family;
+                } else {
+                  validationErrors.push(`Invalid ${device} font family`);
+                }
+              }
+              if (clientData.buttonFont[device].weight !== undefined) {
+                const w = String(clientData.buttonFont[device].weight);
+                if (VALID_WEIGHTS_U.includes(w)) {
+                  sanitizedButtonFont[device].weight = w;
+                } else {
+                  validationErrors.push(`Invalid ${device} font weight`);
+                }
+              }
+            }
+          });
+        }
+
+        if (clientData.buttonIcon && typeof clientData.buttonIcon === 'object') {
+          ['desktop', 'mobile'].forEach(device => {
+            if (clientData.buttonIcon[device] && typeof clientData.buttonIcon[device] === 'object') {
+              if (clientData.buttonIcon[device].icon !== undefined) {
+                if (VALID_ICONS_U.includes(clientData.buttonIcon[device].icon)) {
+                  sanitizedButtonIcon[device].icon = clientData.buttonIcon[device].icon;
+                } else {
+                  validationErrors.push(`Invalid ${device} button icon`);
+                }
+              }
+              if (clientData.buttonIcon[device].show !== undefined) {
+                sanitizedButtonIcon[device].show = !!clientData.buttonIcon[device].show;
+              }
+            }
+          });
+        }
+
         // Validate Google Ads configuration
         if (clientData.googleAds && typeof clientData.googleAds === 'object') {
           // Validate conversion ID (format: AW-XXXXXXXXXX)
@@ -1592,6 +1702,8 @@ export default {
           barTextMaxLength: 30,
           attentionWobble: sanitizedAttentionWobble,
           attentionGlint: sanitizedAttentionGlint,
+          buttonFont: sanitizedButtonFont,
+          buttonIcon: sanitizedButtonIcon,
           webhookUrl: sanitizedWebhookUrl,
           googleAds: sanitizedGoogleAds,
           metaAds: sanitizedMetaAds

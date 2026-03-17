@@ -1302,6 +1302,110 @@
                         <div class="help-text">Optional animations on the widget button to draw user attention</div>
                     </div>
 
+                    <h3 style="margin-top: 16px; margin-bottom: 8px; font-size: 14px; font-weight: 600; color: #374151;">Desktop Button Settings</h3>
+
+                    <div class="form-group">
+                        <label for="desktopFontFamily">Font Family</label>
+                        <select id="desktopFontFamily" name="desktopFontFamily" style="width: 100%; padding: 8px; border: 1px solid #d1d5db; border-radius: 6px;">
+                            <option value="System Default">System Default</option>
+                            <option value="Inter">Inter</option>
+                            <option value="Roboto">Roboto</option>
+                            <option value="Open Sans">Open Sans</option>
+                            <option value="Lato">Lato</option>
+                            <option value="Poppins">Poppins</option>
+                            <option value="Montserrat">Montserrat</option>
+                            <option value="Nunito">Nunito</option>
+                            <option value="Raleway">Raleway</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="desktopFontWeight">Font Weight</label>
+                        <select id="desktopFontWeight" name="desktopFontWeight" style="width: 100%; padding: 8px; border: 1px solid #d1d5db; border-radius: 6px;">
+                            <option value="300">Light (300)</option>
+                            <option value="400">Regular (400)</option>
+                            <option value="500" selected>Medium (500)</option>
+                            <option value="600">Semi-bold (600)</option>
+                            <option value="700">Bold (700)</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="desktopIcon">Button Icon</label>
+                        <select id="desktopIcon" name="desktopIcon" style="width: 100%; padding: 8px; border: 1px solid #d1d5db; border-radius: 6px;">
+                            <option value="message-circle">Message Circle</option>
+                            <option value="chat-dots">Chat Dots</option>
+                            <option value="phone">Phone</option>
+                            <option value="mail">Mail</option>
+                            <option value="star">Star</option>
+                            <option value="heart">Heart</option>
+                            <option value="thumbs-up">Thumbs Up</option>
+                            <option value="sparkle">Sparkle</option>
+                            <option value="bolt">Bolt</option>
+                            <option value="question">Question</option>
+                            <option value="hand-wave">Hand Wave</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                            <input type="checkbox" id="desktopIconShow" name="desktopIconShow" checked style="width: auto;">
+                            <span>Show icon on desktop button</span>
+                        </label>
+                    </div>
+
+                    <h3 style="margin-top: 16px; margin-bottom: 8px; font-size: 14px; font-weight: 600; color: #374151;">Mobile Button Settings</h3>
+
+                    <div class="form-group">
+                        <label for="mobileFontFamily">Font Family</label>
+                        <select id="mobileFontFamily" name="mobileFontFamily" style="width: 100%; padding: 8px; border: 1px solid #d1d5db; border-radius: 6px;">
+                            <option value="System Default">System Default</option>
+                            <option value="Inter">Inter</option>
+                            <option value="Roboto">Roboto</option>
+                            <option value="Open Sans">Open Sans</option>
+                            <option value="Lato">Lato</option>
+                            <option value="Poppins">Poppins</option>
+                            <option value="Montserrat">Montserrat</option>
+                            <option value="Nunito">Nunito</option>
+                            <option value="Raleway">Raleway</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="mobileFontWeight">Font Weight</label>
+                        <select id="mobileFontWeight" name="mobileFontWeight" style="width: 100%; padding: 8px; border: 1px solid #d1d5db; border-radius: 6px;">
+                            <option value="300">Light (300)</option>
+                            <option value="400">Regular (400)</option>
+                            <option value="500" selected>Medium (500)</option>
+                            <option value="600">Semi-bold (600)</option>
+                            <option value="700">Bold (700)</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="mobileIcon">Button Icon</label>
+                        <select id="mobileIcon" name="mobileIcon" style="width: 100%; padding: 8px; border: 1px solid #d1d5db; border-radius: 6px;">
+                            <option value="message-circle">Message Circle</option>
+                            <option value="chat-dots">Chat Dots</option>
+                            <option value="phone">Phone</option>
+                            <option value="mail">Mail</option>
+                            <option value="star">Star</option>
+                            <option value="heart">Heart</option>
+                            <option value="thumbs-up">Thumbs Up</option>
+                            <option value="sparkle">Sparkle</option>
+                            <option value="bolt">Bolt</option>
+                            <option value="question">Question</option>
+                            <option value="hand-wave">Hand Wave</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                            <input type="checkbox" id="mobileIconShow" name="mobileIconShow" checked style="width: auto;">
+                            <span>Show icon on mobile button</span>
+                        </label>
+                    </div>
+
                     <div class="form-group">
                         <label for="conversionId">Google Ads Conversion ID</label>
                         <input
@@ -2322,6 +2426,16 @@
             document.getElementById('attentionWobble').checked = false;
             document.getElementById('attentionGlint').checked = false;
 
+            // Reset button font and icon settings
+            document.getElementById('desktopFontFamily').value = 'System Default';
+            document.getElementById('desktopFontWeight').value = '500';
+            document.getElementById('mobileFontFamily').value = 'System Default';
+            document.getElementById('mobileFontWeight').value = '500';
+            document.getElementById('desktopIcon').value = 'message-circle';
+            document.getElementById('desktopIconShow').checked = true;
+            document.getElementById('mobileIcon').value = 'message-circle';
+            document.getElementById('mobileIconShow').checked = true;
+
             // Keep default welcome message text (don't clear it)
             
             // Clear flow
@@ -2418,6 +2532,19 @@
             // Set attention effects
             document.getElementById('attentionWobble').checked = !!client.attentionWobble;
             document.getElementById('attentionGlint').checked = !!client.attentionGlint;
+
+            // Set button font and icon settings
+            const bf = client.buttonFont || {};
+            document.getElementById('desktopFontFamily').value = bf.desktop?.family || 'System Default';
+            document.getElementById('desktopFontWeight').value = bf.desktop?.weight || '500';
+            document.getElementById('mobileFontFamily').value = bf.mobile?.family || 'System Default';
+            document.getElementById('mobileFontWeight').value = bf.mobile?.weight || '500';
+
+            const bi = client.buttonIcon || {};
+            document.getElementById('desktopIcon').value = bi.desktop?.icon || 'message-circle';
+            document.getElementById('desktopIconShow').checked = bi.desktop?.show !== false;
+            document.getElementById('mobileIcon').value = bi.mobile?.icon || 'message-circle';
+            document.getElementById('mobileIconShow').checked = bi.mobile?.show !== false;
 
             // Set Google Ads configuration
             document.getElementById('conversionId').value = client.googleAds?.conversionId || '';
@@ -2727,6 +2854,26 @@
                     barText: sanitizeInput(formData.get('barText') || 'Get A Quick Quote'),
                     attentionWobble: document.getElementById('attentionWobble').checked,
                     attentionGlint: document.getElementById('attentionGlint').checked,
+                    buttonFont: {
+                        desktop: {
+                            family: document.getElementById('desktopFontFamily').value,
+                            weight: document.getElementById('desktopFontWeight').value
+                        },
+                        mobile: {
+                            family: document.getElementById('mobileFontFamily').value,
+                            weight: document.getElementById('mobileFontWeight').value
+                        }
+                    },
+                    buttonIcon: {
+                        desktop: {
+                            icon: document.getElementById('desktopIcon').value,
+                            show: document.getElementById('desktopIconShow').checked
+                        },
+                        mobile: {
+                            icon: document.getElementById('mobileIcon').value,
+                            show: document.getElementById('mobileIconShow').checked
+                        }
+                    },
                     flow: window.currentFlow || [],
                     googleAds: {
                         conversionId: sanitizeInput(document.getElementById('conversionId').value || ''),

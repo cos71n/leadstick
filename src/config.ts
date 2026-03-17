@@ -47,5 +47,14 @@ export const CONFIG = {
   barText: 'Get A Quick Quote', // Default text for floating bar
   barTextMaxLength: 30, // Character limit for bar text
   attentionWobble: false, // Subtle shake animation to attract attention
-  attentionGlint: false // Glint/shine effect across the button
+  attentionGlint: false, // Glint/shine effect across the button
+  // Font, weight, and icon settings per device
+  buttonFont: {
+    desktop: { family: 'System Default', weight: '500' },
+    mobile: { family: 'System Default', weight: '500' }
+  },
+  buttonIcon: {
+    desktop: { icon: 'message-circle', show: true },
+    mobile: { icon: 'message-circle', show: true }
+  }
 } 
