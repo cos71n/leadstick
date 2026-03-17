@@ -1288,6 +1288,21 @@
                     </div>
 
                     <div class="form-group">
+                        <label>Attention Effects</label>
+                        <div style="display: flex; flex-direction: column; gap: 8px;">
+                            <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                                <input type="checkbox" id="attentionWobble" name="attentionWobble" style="width: auto;">
+                                <span>Wobble — subtle shake to attract attention</span>
+                            </label>
+                            <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                                <input type="checkbox" id="attentionGlint" name="attentionGlint" style="width: auto;">
+                                <span>Glint — shine effect across the button</span>
+                            </label>
+                        </div>
+                        <div class="help-text">Optional animations on the widget button to draw user attention</div>
+                    </div>
+
+                    <div class="form-group">
                         <label for="conversionId">Google Ads Conversion ID</label>
                         <input
                             type="text"
@@ -2302,7 +2317,11 @@
             // Clear bar text and hide field
             document.getElementById('barText').value = '';
             document.getElementById('barTextGroup').style.display = 'none';
-            
+
+            // Reset attention effects
+            document.getElementById('attentionWobble').checked = false;
+            document.getElementById('attentionGlint').checked = false;
+
             // Keep default welcome message text (don't clear it)
             
             // Clear flow
@@ -2324,9 +2343,13 @@
             
             // Clear editing client reference
             window.editingClient = null;
-            
-            // Show the modal
-            document.getElementById('editModal').classList.add('active');
+
+            // Show the modal and scroll to top
+            const editModal = document.getElementById('editModal');
+            editModal.classList.add('active');
+            editModal.scrollTop = 0;
+            const modalBody = editModal.querySelector('.modal-body');
+            if (modalBody) modalBody.scrollTop = 0;
         }
 
         async function editClient(siteId) {
@@ -2391,6 +2414,10 @@
             
             // Set bar text
             document.getElementById('barText').value = client.barText || 'Get A Quick Quote';
+
+            // Set attention effects
+            document.getElementById('attentionWobble').checked = !!client.attentionWobble;
+            document.getElementById('attentionGlint').checked = !!client.attentionGlint;
 
             // Set Google Ads configuration
             document.getElementById('conversionId').value = client.googleAds?.conversionId || '';
@@ -2482,11 +2509,15 @@
             document.querySelector('#editModal .modal-header h2').textContent = 'Edit Client Configuration';
             document.querySelector('#editModal form').setAttribute('data-mode', 'edit');
             document.querySelector('#editModal button[type="submit"]').textContent = 'Save Changes';
-            
+
             // Site ID field is hidden since it's auto-generated
-            
-            // Show the modal
-            document.getElementById('editModal').classList.add('active');
+
+            // Show the modal and scroll to top
+            const editModal = document.getElementById('editModal');
+            editModal.classList.add('active');
+            editModal.scrollTop = 0;
+            const modalBody = editModal.querySelector('.modal-body');
+            if (modalBody) modalBody.scrollTop = 0;
         }
 
 
@@ -2694,6 +2725,8 @@
                     showPhoneCta: showPhoneCta,
                     desktopStyle: formData.get('widgetType'),
                     barText: sanitizeInput(formData.get('barText') || 'Get A Quick Quote'),
+                    attentionWobble: document.getElementById('attentionWobble').checked,
+                    attentionGlint: document.getElementById('attentionGlint').checked,
                     flow: window.currentFlow || [],
                     googleAds: {
                         conversionId: sanitizeInput(document.getElementById('conversionId').value || ''),

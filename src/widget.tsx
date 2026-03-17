@@ -1539,6 +1539,7 @@ function LeadStickWidget({ CONFIG: dynamicConfig }: { CONFIG: any }) {
         }}>
                       <button
             onClick={toggleChat}
+            className={[dynamicConfig.attentionWobble && 'ls-wobble', dynamicConfig.attentionGlint && 'ls-glint'].filter(Boolean).join(' ') || undefined}
             style={{
               width: '100%',
               height: '56px',
@@ -1779,6 +1780,7 @@ function LeadStickWidget({ CONFIG: dynamicConfig }: { CONFIG: any }) {
           // Floating Bar
           <button
             onClick={toggleChat}
+            className={[dynamicConfig.attentionWobble && 'ls-wobble', dynamicConfig.attentionGlint && 'ls-glint'].filter(Boolean).join(' ') || undefined}
             style={{
               backgroundColor: dynamicConfig.theme.primary,
               color: 'white',
@@ -1813,6 +1815,7 @@ function LeadStickWidget({ CONFIG: dynamicConfig }: { CONFIG: any }) {
           // Floating Bubble
           <button
             onClick={toggleChat}
+            className={!isOpen ? [dynamicConfig.attentionWobble && 'ls-wobble', dynamicConfig.attentionGlint && 'ls-glint'].filter(Boolean).join(' ') || undefined : undefined}
             style={{
               width: '56px',
               height: '56px',
@@ -2275,6 +2278,49 @@ export async function initLeadStick(options?: { siteId?: string }) {
       -webkit-text-size-adjust: 100%;
       -moz-text-size-adjust: 100%;
       text-size-adjust: 100%;
+    }
+
+    /* Attention: Wobble animation */
+    @keyframes leadstick-wobble {
+      0%, 86% { transform: rotate(0deg); }
+      88% { transform: rotate(-3deg); }
+      90% { transform: rotate(3deg); }
+      92% { transform: rotate(-3deg); }
+      94% { transform: rotate(2deg); }
+      96% { transform: rotate(-1deg); }
+      98%, 100% { transform: rotate(0deg); }
+    }
+    .ls-wobble {
+      animation: leadstick-wobble 4s ease-in-out infinite;
+    }
+
+    /* Attention: Glint animation */
+    @keyframes leadstick-glint {
+      0%, 80% { left: -50%; }
+      100% { left: 150%; }
+    }
+    .ls-glint {
+      position: relative;
+      overflow: hidden;
+    }
+    .ls-glint::after {
+      content: '';
+      position: absolute;
+      top: -50%;
+      left: -50%;
+      width: 30%;
+      height: 200%;
+      background: linear-gradient(
+        90deg,
+        transparent 0%,
+        rgba(255, 255, 255, 0.08) 25%,
+        rgba(255, 255, 255, 0.3) 50%,
+        rgba(255, 255, 255, 0.08) 75%,
+        transparent 100%
+      );
+      transform: skewX(-20deg);
+      animation: leadstick-glint 5s ease-in-out infinite;
+      pointer-events: none;
     }
   `
   

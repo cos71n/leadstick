@@ -1037,6 +1037,8 @@ export default {
               theme: config.theme?.primary || '#3b82f6',
               desktopStyle: config.desktopStyle || 'bubble',
               barText: config.barText || 'Get A Quick Quote',
+              attentionWobble: !!config.attentionWobble,
+              attentionGlint: !!config.attentionGlint,
               showPhoneCta: config.showPhoneCta !== false,
               webhookUrl: config.webhookUrl || '',
               questions: config.flow || [],
@@ -1192,6 +1194,16 @@ export default {
           }
         }
 
+        // Validate attention effect flags
+        let sanitizedAttentionWobble = false;
+        let sanitizedAttentionGlint = false;
+        if (clientData.attentionWobble !== undefined) {
+          sanitizedAttentionWobble = !!clientData.attentionWobble;
+        }
+        if (clientData.attentionGlint !== undefined) {
+          sanitizedAttentionGlint = !!clientData.attentionGlint;
+        }
+
         // Validate Google Ads configuration
         if (clientData.googleAds && typeof clientData.googleAds === 'object') {
           // Validate conversion ID (format: AW-XXXXXXXXXX)
@@ -1303,6 +1315,8 @@ export default {
           desktopStyle: sanitizedDesktopStyle,
           barText: sanitizedBarText,
           barTextMaxLength: 30,
+          attentionWobble: sanitizedAttentionWobble,
+          attentionGlint: sanitizedAttentionGlint,
           showPhoneCta: sanitizedShowPhoneCta,
           webhookUrl: sanitizedWebhookUrl,
           googleAds: sanitizedGoogleAds,
@@ -1461,6 +1475,16 @@ export default {
           }
         }
 
+        // Validate attention effect flags
+        let sanitizedAttentionWobble = false;
+        let sanitizedAttentionGlint = false;
+        if (clientData.attentionWobble !== undefined) {
+          sanitizedAttentionWobble = !!clientData.attentionWobble;
+        }
+        if (clientData.attentionGlint !== undefined) {
+          sanitizedAttentionGlint = !!clientData.attentionGlint;
+        }
+
         // Validate Google Ads configuration
         if (clientData.googleAds && typeof clientData.googleAds === 'object') {
           // Validate conversion ID (format: AW-XXXXXXXXXX)
@@ -1566,6 +1590,8 @@ export default {
           desktopStyle: sanitizedDesktopStyle,
           barText: sanitizedBarText,
           barTextMaxLength: 30,
+          attentionWobble: sanitizedAttentionWobble,
+          attentionGlint: sanitizedAttentionGlint,
           webhookUrl: sanitizedWebhookUrl,
           googleAds: sanitizedGoogleAds,
           metaAds: sanitizedMetaAds

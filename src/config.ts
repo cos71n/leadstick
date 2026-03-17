@@ -45,5 +45,7 @@ export const CONFIG = {
   // New desktop widget style configuration
   desktopStyle: 'bubble' as 'bubble' | 'bar', // Default to bubble for backward compatibility
   barText: 'Get A Quick Quote', // Default text for floating bar
-  barTextMaxLength: 30 // Character limit for bar text
+  barTextMaxLength: 30, // Character limit for bar text
+  attentionWobble: false, // Subtle shake animation to attract attention
+  attentionGlint: false // Glint/shine effect across the button
 } 
