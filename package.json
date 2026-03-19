@@ -20,8 +20,6 @@
     "test:attribution": "node test-attribution.js",
     "worker:dev": "wrangler dev",
     "worker:deploy": "wrangler deploy",
-    "worker:deploy:staging": "wrangler deploy --env staging",
-    "worker:deploy:production": "wrangler deploy --env production",
     "worker:logs": "wrangler tail"
   },
   "keywords": [

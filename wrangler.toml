@@ -7,46 +7,7 @@ compatibility_date = "2024-07-01"
 ENVIRONMENT = "development"
 LEAD_EMAIL_RECIPIENT = "michael.costin@localdigital.com.au"
 LEAD_EMAIL_FROM = "Postclick Lead <noreply@post.click>"
-# CORS configuration for development
 ADMIN_ALLOWED_ORIGINS = "https://leadstick-dashboard.pages.dev,http://localhost:3000,http://127.0.0.1:3000"
-
-# Staging environment
-[env.staging]
-name = "leadstick-api-staging"
-[env.staging.vars]
-ENVIRONMENT = "staging"
-LEAD_EMAIL_RECIPIENT = "leads@quickservicepro.com"
-LEAD_EMAIL_FROM = "LeadStick <noreply@leadstick.com>"
-# CORS configuration for staging
-ADMIN_ALLOWED_ORIGINS = "https://leadstick-dashboard-staging.pages.dev,https://leadstick-dashboard.pages.dev"
-[[env.staging.kv_namespaces]]
-binding = "LEADSTICK_CONFIGS"
-id = "9ed0226c090542429677c61665c4ebc2"
-[[env.staging.r2_buckets]]
-binding = "R2_BUCKET"
-bucket_name = "leadstick-widget"
-[[env.staging.analytics_engine_datasets]]
-binding = "ANALYTICS"
-dataset = "leadstick_events"
-
-# Production environment
-[env.production]
-name = "leadstick-api-production"
-[env.production.vars]
-ENVIRONMENT = "production"
-LEAD_EMAIL_RECIPIENT = "michael.costin@localdigital.com.au"
-LEAD_EMAIL_FROM = "Postclick Lead <noreply@post.click>"
-# CORS configuration for production (strict)
-ADMIN_ALLOWED_ORIGINS = "https://leadstick-dashboard.pages.dev"
-[[env.production.kv_namespaces]]
-binding = "LEADSTICK_CONFIGS"
-id = "9ed0226c090542429677c61665c4ebc2"
-[[env.production.r2_buckets]]
-binding = "R2_BUCKET"
-bucket_name = "leadstick-widget"
-[[env.production.analytics_engine_datasets]]
-binding = "ANALYTICS"
-dataset = "leadstick_events"
 
 # KV Namespaces
 [[kv_namespaces]]

@@ -900,7 +900,7 @@
         /* Stats Modal Styles */
         .stats-kpi-grid {
             display: grid;
-            grid-template-columns: repeat(5, 1fr);
+            grid-template-columns: repeat(6, 1fr);
             gap: 16px;
             margin-bottom: 24px;
         }
@@ -1042,7 +1042,7 @@
 
         @media (max-width: 768px) {
             .stats-kpi-grid {
-                grid-template-columns: repeat(2, 1fr);
+                grid-template-columns: repeat(3, 1fr);
             }
 
             .stats-charts-grid {
@@ -1404,6 +1404,15 @@
                             <input type="checkbox" id="mobileIconShow" name="mobileIconShow" checked style="width: auto;">
                             <span>Show icon on mobile button</span>
                         </label>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="mobileStickyStyle">Mobile Sticky Bar Layout</label>
+                        <select id="mobileStickyStyle" name="mobileStickyStyle" style="width: 100%; padding: 8px; border: 1px solid #d1d5db; border-radius: 6px;">
+                            <option value="full">Full Width — Quote button only</option>
+                            <option value="split">Split — Quote button + Call button</option>
+                        </select>
+                        <div class="help-text">Split mode shows a 60/40 layout with the quote button and a tap-to-call button displaying the configured phone number.</div>
                     </div>
 
                     <div class="form-group">
@@ -1812,6 +1821,10 @@
                         <div class="kpi-value" id="kpiConversions">0</div>
                         <div class="kpi-label">Conversions</div>
                     </div>
+                    <div class="stats-kpi-card">
+                        <div class="kpi-value" id="kpiPhoneTaps">0</div>
+                        <div class="kpi-label">Phone Taps</div>
+                    </div>
                     <div class="stats-kpi-card highlight">
                         <div class="kpi-value" id="kpiConversionRate">0%</div>
                         <div class="kpi-label">Conversion Rate</div>
@@ -1839,6 +1852,7 @@
                                     <th>Visits</th>
                                     <th>Chats Started</th>
                                     <th>Conversions</th>
+                                    <th>Phone Taps</th>
                                     <th>Conv. Rate</th>
                                 </tr>
                             </thead>
@@ -1857,6 +1871,7 @@
                                     <th>Visits</th>
                                     <th>Chats Started</th>
                                     <th>Conversions</th>
+                                    <th>Phone Taps</th>
                                     <th>Conv. Rate</th>
                                 </tr>
                             </thead>
@@ -2546,6 +2561,9 @@
             document.getElementById('mobileIcon').value = bi.mobile?.icon || 'message-circle';
             document.getElementById('mobileIconShow').checked = bi.mobile?.show !== false;
 
+            // Set mobile sticky bar layout
+            document.getElementById('mobileStickyStyle').value = client.mobileStickyStyle || 'full';
+
             // Set Google Ads configuration
             document.getElementById('conversionId').value = client.googleAds?.conversionId || '';
             document.getElementById('conversionLabel').value = client.googleAds?.conversionLabel || '';
@@ -2874,6 +2892,7 @@
                             show: document.getElementById('mobileIconShow').checked
                         }
                     },
+                    mobileStickyStyle: document.getElementById('mobileStickyStyle').value,
                     flow: window.currentFlow || [],
                     googleAds: {
                         conversionId: sanitizeInput(document.getElementById('conversionId').value || ''),
@@ -4074,6 +4093,7 @@ window.leadstickConfig = {
             document.getElementById('kpiChatsStarted').textContent = (s.chats_started || 0).toLocaleString();
             document.getElementById('kpiChatsCompleted').textContent = (s.chats_completed || 0).toLocaleString();
             document.getElementById('kpiConversions').textContent = (s.conversions || 0).toLocaleString();
+            document.getElementById('kpiPhoneTaps').textContent = (s.phone_taps || 0).toLocaleString();
             document.getElementById('kpiConversionRate').textContent = (s.conversion_rate || 0).toFixed(1) + '%';
 
             document.getElementById('statsContent').style.display = 'block';
@@ -4112,6 +4132,14 @@ window.leadstickConfig = {
                                 data: dailyData.map(d => d.conversions || 0),
                                 borderColor: '#10b981',
                                 backgroundColor: 'rgba(16,185,129,0.1)',
+                                fill: false,
+                                tension: 0.3
+                            },
+                            {
+                                label: 'Phone Taps',
+                                data: dailyData.map(d => d.phone_taps || 0),
+                                borderColor: '#8b5cf6',
+                                backgroundColor: 'rgba(139,92,246,0.1)',
                                 fill: false,
                                 tension: 0.3
                             }
@@ -4176,6 +4204,7 @@ window.leadstickConfig = {
                     <td>${(c.visits || 0).toLocaleString()}</td>
                     <td>${(c.chats_started || 0).toLocaleString()}</td>
                     <td>${(c.conversions || 0).toLocaleString()}</td>
+                    <td>${(c.phone_taps || 0).toLocaleString()}</td>
                     <td>${rate}</td>
                 `;
                 tbody.appendChild(tr);
@@ -4196,6 +4225,7 @@ window.leadstickConfig = {
                         <td>${(h.visits || 0).toLocaleString()}</td>
                         <td>${(h.chats_started || 0).toLocaleString()}</td>
                         <td>${(h.conversions || 0).toLocaleString()}</td>
+                        <td>${(h.phone_taps || 0).toLocaleString()}</td>
                         <td>${rate}</td>
                     `;
                     histBody.appendChild(tr);

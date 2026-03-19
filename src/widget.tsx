@@ -1637,7 +1637,7 @@ function LeadStickWidget({ CONFIG: dynamicConfig }: { CONFIG: any }) {
 
   return (
     <Fragment>
-      {/* Mobile: Full-width sticky bottom button */}
+      {/* Mobile: Sticky bottom bar */}
       {!isOpen && (
         <div style={{
           position: 'fixed',
@@ -1645,13 +1645,14 @@ function LeadStickWidget({ CONFIG: dynamicConfig }: { CONFIG: any }) {
           left: 0,
           right: 0,
           zIndex: 50,
-          display: isMobile ? 'block' : 'none'
+          display: isMobile ? 'flex' : 'none'
         }}>
-                      <button
+          {/* Quote button — full width in 'full' mode, 60% in 'split' mode */}
+          <button
             onClick={toggleChat}
             className={[dynamicConfig.attentionWobble && 'ls-wobble', dynamicConfig.attentionGlint && 'ls-glint'].filter(Boolean).join(' ') || undefined}
             style={{
-              width: '100%',
+              width: dynamicConfig.mobileStickyStyle === 'split' ? '60%' : '100%',
               height: '56px',
               border: 'none',
               borderRadius: 0,
@@ -1661,7 +1662,7 @@ function LeadStickWidget({ CONFIG: dynamicConfig }: { CONFIG: any }) {
               alignItems: 'center',
               justifyContent: 'center',
               gap: '8px',
-              fontSize: '18px',
+              fontSize: dynamicConfig.mobileStickyStyle === 'split' ? '16px' : '18px',
               fontFamily: resolveFont(dynamicConfig.buttonFont?.mobile?.family || 'System Default'),
               fontWeight: dynamicConfig.buttonFont?.mobile?.weight || '500',
               boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)',
@@ -1675,6 +1676,59 @@ function LeadStickWidget({ CONFIG: dynamicConfig }: { CONFIG: any }) {
             {dynamicConfig.buttonIcon?.mobile?.show !== false && h(getButtonIcon(dynamicConfig.buttonIcon?.mobile?.icon || 'message-circle'), null)}
             {(dynamicConfig.barText || 'Get A Quick Quote').substring(0, dynamicConfig.barTextMaxLength || 30)}
           </button>
+
+          {/* Call button — only shown in 'split' mode, 40% width */}
+          {dynamicConfig.mobileStickyStyle === 'split' && (
+            <a
+              href={`tel:${displayPhone}`}
+              onClick={() => {
+                // Track GA4 event
+                if (typeof gtag !== 'undefined') {
+                  gtag('event', 'leadstick_phone_tapped', {
+                    business_name: dynamicConfig.business.name,
+                    phone_number: dynamicConfig.business.phone,
+                    source: 'mobile_sticky_bar',
+                    page_url: window.location.href,
+                    timestamp: new Date().toISOString()
+                  })
+                }
+                // Track Google Ads phone click conversion
+                if (typeof gtag !== 'undefined' && dynamicConfig.googleAds?.conversionId && dynamicConfig.googleAds?.phoneConversionLabel) {
+                  gtag('event', 'conversion', {
+                    send_to: `${dynamicConfig.googleAds.conversionId}/${dynamicConfig.googleAds.phoneConversionLabel}`
+                  })
+                }
+                // Track first-party phone tap event
+                if (dynamicConfig.siteId) {
+                  trackAnalyticsEvent(dynamicConfig.apiEndpoint, dynamicConfig.siteId, 'phone_tap')
+                }
+              }}
+              style={{
+                width: '40%',
+                height: '56px',
+                border: 'none',
+                borderRadius: 0,
+                backgroundColor: '#1f2937',
+                color: 'white',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '6px',
+                fontSize: '14px',
+                fontFamily: resolveFont(dynamicConfig.buttonFont?.mobile?.family || 'System Default'),
+                fontWeight: dynamicConfig.buttonFont?.mobile?.weight || '500',
+                boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)',
+                borderTop: '1px solid #e5e7eb',
+                borderLeft: '1px solid rgba(255,255,255,0.15)',
+                cursor: 'pointer',
+                pointerEvents: 'auto',
+                textDecoration: 'none'
+              }}
+            >
+              <PhoneIcon />
+              <span>{formatPhoneDisplay(displayPhone)}</span>
+            </a>
+          )}
         </div>
       )}
 

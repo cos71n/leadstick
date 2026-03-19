@@ -56,5 +56,7 @@ export const CONFIG = {
   buttonIcon: {
     desktop: { icon: 'message-circle', show: true },
     mobile: { icon: 'message-circle', show: true }
-  }
+  },
+  // Mobile sticky bar layout: 'full' (default full-width quote button) or 'split' (quote + call)
+  mobileStickyStyle: 'full' as 'full' | 'split'
 } 

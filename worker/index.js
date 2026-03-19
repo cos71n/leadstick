@@ -1041,6 +1041,7 @@ export default {
               attentionGlint: !!config.attentionGlint,
               buttonFont: config.buttonFont || { desktop: { family: 'System Default', weight: '500' }, mobile: { family: 'System Default', weight: '500' } },
               buttonIcon: config.buttonIcon || { desktop: { icon: 'message-circle', show: true }, mobile: { icon: 'message-circle', show: true } },
+              mobileStickyStyle: config.mobileStickyStyle || 'full',
               showPhoneCta: config.showPhoneCta !== false,
               webhookUrl: config.webhookUrl || '',
               questions: config.flow || [],
@@ -1204,6 +1205,16 @@ export default {
         }
         if (clientData.attentionGlint !== undefined) {
           sanitizedAttentionGlint = !!clientData.attentionGlint;
+        }
+
+        // Validate mobile sticky style
+        let sanitizedMobileStickyStyle = 'full';
+        if (clientData.mobileStickyStyle) {
+          if (['full', 'split'].includes(clientData.mobileStickyStyle)) {
+            sanitizedMobileStickyStyle = clientData.mobileStickyStyle;
+          } else {
+            validationErrors.push('Invalid mobile sticky style. Must be "full" or "split"');
+          }
         }
 
         // Validate button font configuration
@@ -1374,6 +1385,7 @@ export default {
           attentionGlint: sanitizedAttentionGlint,
           buttonFont: sanitizedButtonFont,
           buttonIcon: sanitizedButtonIcon,
+          mobileStickyStyle: sanitizedMobileStickyStyle,
           showPhoneCta: sanitizedShowPhoneCta,
           webhookUrl: sanitizedWebhookUrl,
           googleAds: sanitizedGoogleAds,
@@ -1542,6 +1554,16 @@ export default {
           sanitizedAttentionGlint = !!clientData.attentionGlint;
         }
 
+        // Validate mobile sticky style
+        let sanitizedMobileStickyStyle = 'full';
+        if (clientData.mobileStickyStyle) {
+          if (['full', 'split'].includes(clientData.mobileStickyStyle)) {
+            sanitizedMobileStickyStyle = clientData.mobileStickyStyle;
+          } else {
+            validationErrors.push('Invalid mobile sticky style. Must be "full" or "split"');
+          }
+        }
+
         // Validate button font configuration
         const VALID_FONTS_U = ['System Default', 'Inter', 'Roboto', 'Open Sans', 'Lato', 'Poppins', 'Montserrat', 'Nunito', 'Raleway'];
         const VALID_WEIGHTS_U = ['300', '400', '500', '600', '700'];
@@ -1704,6 +1726,7 @@ export default {
           attentionGlint: sanitizedAttentionGlint,
           buttonFont: sanitizedButtonFont,
           buttonIcon: sanitizedButtonIcon,
+          mobileStickyStyle: sanitizedMobileStickyStyle,
           webhookUrl: sanitizedWebhookUrl,
           googleAds: sanitizedGoogleAds,
           metaAds: sanitizedMetaAds
