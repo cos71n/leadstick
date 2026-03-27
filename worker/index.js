@@ -1048,6 +1048,7 @@ export default {
               messages: config.messages || {},
               googleAds: config.googleAds || {},
               metaAds: config.metaAds ? { pixelId: config.metaAds.pixelId, eventName: config.metaAds.eventName, enablePixel: config.metaAds.enablePixel } : {},
+              wildJar: config.wildJar || {},
               lastModified: key.metadata?.lastModified || new Date().toISOString()
             });
           }
@@ -1337,6 +1338,22 @@ export default {
           sanitizedMetaAds.enablePixel = !!clientData.metaAds.enablePixel;
         }
 
+        // Validate WildJar configuration
+        let sanitizedWildJar = {};
+        if (clientData.wildJar && typeof clientData.wildJar === 'object') {
+          if (clientData.wildJar.accountId !== undefined) {
+            const accountId = String(clientData.wildJar.accountId).trim();
+            if (accountId && !/^\d{1,20}$/.test(accountId)) {
+              validationErrors.push('Invalid WildJar Account ID format. Must be numeric');
+            } else {
+              sanitizedWildJar.accountId = accountId;
+            }
+          }
+          if (clientData.wildJar.enableDni !== undefined) {
+            sanitizedWildJar.enableDni = !!clientData.wildJar.enableDni;
+          }
+        }
+
         if (validationErrors.length > 0) {
           return new Response(JSON.stringify({
             error: 'Validation failed',
@@ -1389,7 +1406,8 @@ export default {
           showPhoneCta: sanitizedShowPhoneCta,
           webhookUrl: sanitizedWebhookUrl,
           googleAds: sanitizedGoogleAds,
-          metaAds: sanitizedMetaAds
+          metaAds: sanitizedMetaAds,
+          wildJar: sanitizedWildJar
         };
 
         // Save to KV
@@ -1684,6 +1702,22 @@ export default {
           sanitizedMetaAds.enablePixel = !!clientData.metaAds.enablePixel;
         }
 
+        // Validate WildJar configuration
+        let sanitizedWildJar = {};
+        if (clientData.wildJar && typeof clientData.wildJar === 'object') {
+          if (clientData.wildJar.accountId !== undefined) {
+            const accountId = String(clientData.wildJar.accountId).trim();
+            if (accountId && !/^\d{1,20}$/.test(accountId)) {
+              validationErrors.push('Invalid WildJar Account ID format. Must be numeric');
+            } else {
+              sanitizedWildJar.accountId = accountId;
+            }
+          }
+          if (clientData.wildJar.enableDni !== undefined) {
+            sanitizedWildJar.enableDni = !!clientData.wildJar.enableDni;
+          }
+        }
+
         // Validate webhook URL
         let sanitizedWebhookUrl = '';
         if (clientData.webhookUrl !== undefined) {
@@ -1729,7 +1763,8 @@ export default {
           mobileStickyStyle: sanitizedMobileStickyStyle,
           webhookUrl: sanitizedWebhookUrl,
           googleAds: sanitizedGoogleAds,
-          metaAds: sanitizedMetaAds
+          metaAds: sanitizedMetaAds,
+          wildJar: sanitizedWildJar
         };
 
         // Save updated config

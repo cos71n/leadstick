@@ -1529,6 +1529,28 @@
                     </div>
 
                     <div class="form-group">
+                        <label for="wildJarAccountId">WildJar Account ID</label>
+                        <input
+                            type="text"
+                            id="wildJarAccountId"
+                            name="wildJarAccountId"
+                            maxlength="20"
+                            placeholder="12345"
+                            oninput="validateEditInput('wildJarAccountId', this.value, 'wildJarAccountId')"
+                        >
+                        <div class="help-text">Optional: Your WildJar account ID. When DNI is enabled, WildJar will dynamically swap the phone number based on visitor traffic source.</div>
+                        <div class="validation-error"></div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="enableWildJarDni" style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                            <input type="checkbox" id="enableWildJarDni" name="enableWildJarDni" style="width: auto;">
+                            Enable WildJar Dynamic Number Insertion
+                        </label>
+                        <div class="help-text">When enabled, WildJar's tracking script will load and dynamically swap phone numbers based on the visitor's traffic source (UTM params, gclid, etc.). If Google Call Forwarding is also enabled, WildJar will take precedence.</div>
+                    </div>
+
+                    <div class="form-group">
                         <label for="webhookUrl">Webhook URL</label>
                         <input
                             type="url"
@@ -2353,6 +2375,10 @@
                 case 'metaEventName':
                     if (value && !/^[A-Za-z0-9_]{1,50}$/.test(value)) errors.push('Invalid format. Use alphanumeric characters and underscores only');
                     break;
+
+                case 'wildJarAccountId':
+                    if (value && !/^\d{1,20}$/.test(value)) errors.push('WildJar Account ID must be numeric');
+                    break;
             }
 
             // Common security validation for all inputs
@@ -2578,6 +2604,10 @@
             document.getElementById('metaCapiToken').value = client.metaAds?.capiAccessToken || '';
             document.getElementById('metaEventName').value = client.metaAds?.eventName || 'Lead';
             document.getElementById('enableMetaPixel').checked = client.metaAds?.enablePixel || false;
+
+            // Set WildJar configuration
+            document.getElementById('wildJarAccountId').value = client.wildJar?.accountId || '';
+            document.getElementById('enableWildJarDni').checked = !!client.wildJar?.enableDni;
 
             // Set webhook URL
             document.getElementById('webhookUrl').value = client.webhookUrl || '';
@@ -2812,7 +2842,8 @@
                 { id: 'phoneConversionLabel', value: document.getElementById('phoneConversionLabel').value, type: 'googleAdsConversionLabel' },
                 { id: 'trackingPhone', value: document.getElementById('trackingPhone').value, type: 'phone' },
                 { id: 'metaPixelId', value: document.getElementById('metaPixelId').value, type: 'metaPixelId' },
-                { id: 'metaEventName', value: document.getElementById('metaEventName').value, type: 'metaEventName' }
+                { id: 'metaEventName', value: document.getElementById('metaEventName').value, type: 'metaEventName' },
+                { id: 'wildJarAccountId', value: document.getElementById('wildJarAccountId').value, type: 'wildJarAccountId' }
             ];
             
             // Site ID is auto-generated, no validation needed
@@ -2905,6 +2936,10 @@
                         capiAccessToken: sanitizeInput(document.getElementById('metaCapiToken').value || ''),
                         eventName: sanitizeInput(document.getElementById('metaEventName').value || 'Lead'),
                         enablePixel: document.getElementById('enableMetaPixel').checked
+                    },
+                    wildJar: {
+                        accountId: sanitizeInput(document.getElementById('wildJarAccountId').value || ''),
+                        enableDni: document.getElementById('enableWildJarDni').checked
                     },
                     webhookUrl: sanitizeInput(document.getElementById('webhookUrl').value || '')
                 };

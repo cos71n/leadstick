@@ -3,6 +3,7 @@ export const CONFIG = {
   business: {
     name: "Stone Quoter",
     phone: "0424 166 346",
+    trackingPhone: "",
     email: "leads@quickservicepro.com",
     agentName: "Matt",
     // Simple avatar - either use image URL or fallback to initials
@@ -39,6 +40,10 @@ export const CONFIG = {
     pixelId: "",
     eventName: "Lead", // Lead, CompleteRegistration, Contact, SubmitApplication, or custom
     enablePixel: false
+  },
+  wildJar: {
+    accountId: '',
+    enableDni: false
   },
   apiEndpoint: "https://leadstick-api.attribution.workers.dev",
   siteId: "", // Default empty siteId

@@ -65,6 +65,20 @@ function ensureMetaPixelLoaded(pixelId: string): void {
   w.fbq('track', 'PageView')
 }
 
+// Ensure WildJar tracking script is loaded for Dynamic Number Insertion
+function ensureWildJarLoaded(accountId: string): void {
+  if ((window as any)._wj_loaded) return
+  ;(window as any)._wj_loaded = true
+
+  const wj: any[] = (window as any)._wj = (window as any)._wj || []
+  wj.push(['account', accountId])
+
+  const script = document.createElement('script')
+  script.async = true
+  script.src = 'https://tracking.wildjar.com/js/wj.js'
+  document.head.appendChild(script)
+}
+
 // Utility function to darken a hex color
 function darkenColor(hex: string, amount: number): string {
   // Remove # if present
@@ -2309,8 +2323,38 @@ export async function initLeadStick(options?: { siteId?: string }) {
     ensureGtagLoaded(finalConfig.googleAds.conversionId)
   }
 
-  // Set up Google call forwarding number swap
-  if (finalConfig.googleAds?.conversionId && finalConfig.googleAds?.enableCallForwarding && finalConfig.business?.phone) {
+  // Set up dynamic phone number swap (WildJar DNI takes precedence over Google call forwarding)
+  const wildJarDniActive = finalConfig.wildJar?.accountId && finalConfig.wildJar?.enableDni
+
+  if (wildJarDniActive && finalConfig.business?.phone) {
+    // WildJar Dynamic Number Insertion
+    ensureWildJarLoaded(finalConfig.wildJar.accountId)
+
+    const phoneForWildJar = finalConfig.business.trackingPhone || finalConfig.business.phone
+
+    // Create hidden bait element in regular DOM (outside Shadow DOM) for WildJar to find and swap
+    const wjBait = document.createElement('span')
+    wjBait.className = 'leadstick-wj-swap'
+    wjBait.style.cssText = 'position:absolute;visibility:hidden;pointer-events:none;height:0;overflow:hidden;'
+    wjBait.textContent = phoneForWildJar
+    document.body.appendChild(wjBait)
+
+    // Tell WildJar to scan and track
+    ;((window as any)._wj || []).push(['track'])
+
+    // Watch for WildJar's number swap via MutationObserver
+    const wjObserver = new MutationObserver(() => {
+      const swapped = wjBait.textContent
+      if (swapped && swapped !== phoneForWildJar) {
+        document.dispatchEvent(new CustomEvent('leadstick-phone-swap', {
+          detail: { number: swapped, source: 'wildjar' }
+        }))
+        // Don't disconnect -- WildJar may re-swap on session changes
+      }
+    })
+    wjObserver.observe(wjBait, { childList: true, characterData: true, subtree: true })
+  } else if (finalConfig.googleAds?.conversionId && finalConfig.googleAds?.enableCallForwarding && finalConfig.business?.phone) {
+    // Google call forwarding number swap
     const bait = document.createElement('span')
     bait.className = 'leadstick-phone-swap'
     bait.style.cssText = 'position:absolute;visibility:hidden;pointer-events:none;height:0;overflow:hidden;'
