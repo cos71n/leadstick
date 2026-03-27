@@ -2139,7 +2139,11 @@ export default {
             service: sanitized.service,
             finalMessage: sanitized.finalMessage,
             attribution: sanitized.attribution || null,
-            source: sanitized.source
+            source: sanitized.source,
+            // Meta matching signals for offline conversion sync
+            fbp: sanitized.fbp || '',
+            fbc: sanitized.fbc || '',
+            beaconAttr: sanitized.beaconAttr || null
           };
 
           await fetch(clientConfig.webhookUrl, {

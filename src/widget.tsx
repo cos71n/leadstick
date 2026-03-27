@@ -649,6 +649,10 @@ class AttributionTracker {
     document.cookie = `${name}=${encodeURIComponent(value)}; expires=${expires}; path=/; SameSite=Lax`
   }
 
+  public getCookiePublic(name: string): string | null {
+    return this.getCookie(name);
+  }
+
   private getCookie(name: string): string | null {
     const nameEQ = name + '='
     const ca = document.cookie.split(';')
@@ -1442,6 +1446,13 @@ function LeadStickWidget({ CONFIG: dynamicConfig }: { CONFIG: any }) {
         ? crypto.randomUUID()
         : `${Date.now()}-${Math.random().toString(36).substring(2, 10)}`
 
+      // Read Beacon's attribution cookie for richer offline conversion matching.
+      let beaconAttr: Record<string, string> | null = null;
+      try {
+        const pcbRaw = attributionTracker.getCookiePublic('pcb_attr');
+        if (pcbRaw) beaconAttr = JSON.parse(pcbRaw);
+      } catch { /* ignore parse errors */ }
+
       const requestData = {
         ...leadData,
         attribution,
@@ -1455,7 +1466,9 @@ function LeadStickWidget({ CONFIG: dynamicConfig }: { CONFIG: any }) {
         metaEventId,
         fbc: attributionTracker.getOrCreateFbc() || '',
         fbp: attributionTracker.getOrCreateFbp(),
-        pageUrl: window.location.href
+        pageUrl: window.location.href,
+        // Beacon attribution data for offline conversion sync
+        beaconAttr: beaconAttr || undefined
       };
 
       console.log('[Widget] About to submit to API:', dynamicConfig.apiEndpoint);
